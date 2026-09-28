@@ -3,29 +3,29 @@
 <title>Marca gatos.pics</title><style>
 *{box-sizing:border-box}body{background:#101014;color:#e8e8f0;font:14px/1.5 system-ui,sans-serif;padding:32px}
 h1{font-size:20px}section{display:flex;align-items:center;gap:24px;margin:24px 0;padding:24px;background:#1a1a22;border-radius:8px}
-  .brand{position:relative; display:inline-grid; grid-template-columns:34px 1fr 32px; width:104px; height:16px;
-    flex:0 0 104px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
+  .brand{position:relative; display:inline-grid; grid-template-columns:38px 0 34px; width:72px; height:16px;
+    flex:0 0 72px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
     font:700 9px/16px system-ui,sans-serif; color:#fff;
     text-shadow:0 1px 2px #000d,0 0 1px #000;}
-  .brand-gato{background:#7bd389; border-radius:3px 0 0 3px; text-align:right; padding-right:4px;}
-  .brand-pics{background:#ffb454; border-radius:0 3px 3px 0; text-align:left; padding-left:4px;}
-  .brand-track{position:relative;}
-  /* el circulito sigue al divisor real: JS le mueve left dentro del track */
-  .brand-dot{position:absolute; top:0; left:50%; width:16px; height:16px; margin-left:-8px; border-radius:50%;
-    background:#fff; box-shadow:0 1px 3px #000c;
+  .brand-gato{background:#7bd389; border-radius:3px 0 0 3px; text-align:center;}
+  .brand-pics{background:#ffb454; border-radius:0 3px 3px 0; text-align:center;}
+  /* el track cubre TODO el ancho: el circulito cruza por encima de las palabras */
+  .brand-track{position:absolute; inset:0;}
+  .brand-dot{position:absolute; top:0; left:50%; width:16px; height:16px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px #000d;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E"); background-size:11px 6.6px;
     background-position:center; background-repeat:no-repeat;}
 
-</style><h1>Marca gatos.pics</h1><p>Una variante. 92 × 22 px. HTML y   .brand{position:relative; display:inline-grid; grid-template-columns:34px 1fr 32px; width:104px; height:16px;
-    flex:0 0 104px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
+</style><h1>Marca gatos.pics</h1><p>Una variante. 92 × 22 px. HTML y   .brand{position:relative; display:inline-grid; grid-template-columns:38px 0 34px; width:72px; height:16px;
+    flex:0 0 72px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
     font:700 9px/16px system-ui,sans-serif; color:#fff;
     text-shadow:0 1px 2px #000d,0 0 1px #000;}
-  .brand-gato{background:#7bd389; border-radius:3px 0 0 3px; text-align:right; padding-right:4px;}
-  .brand-pics{background:#ffb454; border-radius:0 3px 3px 0; text-align:left; padding-left:4px;}
-  .brand-track{position:relative;}
-  /* el circulito sigue al divisor real: JS le mueve left dentro del track */
-  .brand-dot{position:absolute; top:0; left:50%; width:16px; height:16px; margin-left:-8px; border-radius:50%;
-    background:#fff; box-shadow:0 1px 3px #000c;
+  .brand-gato{background:#7bd389; border-radius:3px 0 0 3px; text-align:center;}
+  .brand-pics{background:#ffb454; border-radius:0 3px 3px 0; text-align:center;}
+  /* el track cubre TODO el ancho: el circulito cruza por encima de las palabras */
+  .brand-track{position:absolute; inset:0;}
+  .brand-dot{position:absolute; top:0; left:50%; width:16px; height:16px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px #000d;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E"); background-size:11px 6.6px;
     background-position:center; background-repeat:no-repeat;}
  con su equivalente en canvas.</p>

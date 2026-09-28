@@ -126,10 +126,15 @@ function updateBadge(){
   if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
   zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
-/* la marca del encabezado es un espejo del visor: el circulito sigue al divisor */
+/* la marca del encabezado es un espejo del visor: el circulito cruza las
+   palabras siguiendo al divisor real, como el divisor cruza la imagen */
 function syncBrandSlider(){
   const dot = document.querySelector('.brand-dot');
-  if (dot) dot.style.left = (blinkMode ? 50 : dividerPos*100) + '%';
+  const brand = document.getElementById('brand');
+  if (dot && brand){
+    const t = blinkMode ? .5 : dividerPos;
+    dot.style.left = (t * (brand.clientWidth - 16)) + 'px';
+  }
 }
 function applyTransform(){
   const t = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
@@ -601,9 +606,7 @@ function loadImg(){
   statsB.textContent = variantStats(varB);
   labelA.style.color = blindMode ? '#e8e8f0' : variant(varA).color;
   labelB.style.color = blindMode ? '#e8e8f0' : variant(varB).color;
-  const bg = document.querySelector('.brand-gato'), bp = document.querySelector('.brand-pics');
-  if (bg) bg.style.background = blindMode ? '#9a9aa8' : (variant(varA).color || '#7bd389');
-  if (bp) bp.style.background = blindMode ? '#9a9aa8' : (variant(varB).color || '#ffb454');
+
   refreshFrameButtons(); refreshVariantButtons(); syncVariantOverflow();
   updateMeta();
   updateBadge();
@@ -801,20 +804,15 @@ let shareBlobUrl = null, shareName = 'gatos.pics.png';
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 function drawBrand(ctx, x, y){
-  // espejo en miniatura: cajas del color de las variantes, circulito en la
-  // posicion real del divisor
-  const colA = blindMode ? '#9a9aa8' : (variant(varA).color || '#7bd389');
-  const colB = blindMode ? '#9a9aa8' : (variant(varB).color || '#ffb454');
-  const W = 104, H = 16, cy = y + H/2;
+  // espejo en miniatura: verde/amarillo fijos, el circulito cruza las palabras
+  const W = 72, H = 16, cy = y + H/2;
   ctx.save();
   ctx.globalAlpha = .9;
-  ctx.fillStyle = colA;
-  ctx.beginPath(); ctx.roundRect(x, y, 34, H, [3,0,0,3]); ctx.fill();
-  ctx.fillStyle = colB;
-  ctx.beginPath(); ctx.roundRect(x+W-32, y, 32, H, [0,3,3,0]); ctx.fill();
-  // circulito sobre el track, en la posicion del divisor
-  const trackL = x+34, trackR = x+W-32;
-  const cx = trackL + (trackR-trackL) * (blinkMode ? .5 : dividerPos);
+  ctx.fillStyle = '#7bd389';
+  ctx.beginPath(); ctx.roundRect(x, y, 38, H, [3,0,0,3]); ctx.fill();
+  ctx.fillStyle = '#ffb454';
+  ctx.beginPath(); ctx.roundRect(x+38, y, 34, H, [0,3,3,0]); ctx.fill();
+  const cx = x + 8 + (W - 16) * (blinkMode ? .5 : dividerPos);
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
   ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
   ctx.shadowColor = 'transparent';
@@ -825,8 +823,9 @@ function drawBrand(ctx, x, y){
   ctx.stroke();
   ctx.fillStyle = '#fff';
   ctx.font = '700 9px system-ui, sans-serif'; ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right'; ctx.fillText('gato', x+30, cy);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+W-28, cy);
+  ctx.textAlign = 'center';
+  ctx.fillText('gato', x+19, cy);
+  ctx.fillText('pics', x+55, cy);
   ctx.restore();
 }
 
@@ -904,7 +903,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-104)/2, ib-24);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-72)/2, ib-24);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
