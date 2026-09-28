@@ -19,6 +19,7 @@ const modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropP
 const cropRows = $('cropRows'), cropTitle = $('cropTitle');
 const diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');
 const pixBtn = $('pixBtn');
+const blindBtn = $('blindBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
@@ -86,7 +87,11 @@ const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }
-function variantName(id){ return variant(id).name; }
+function variantName(id){
+  const v = variant(id);
+  if (blindMode) return String(VARIANTS.findIndex(x => x.id === id)+1);
+  return v.name;
+}
 function srcFor(id, f){ return SOURCE.srcFor(id, f); }
 function naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }
 function dpr(){ return window.devicePixelRatio || 1; }
@@ -327,6 +332,19 @@ function setBlink(on, quiet){
 }
 blinkBtn.addEventListener('click', () => setBlink(!blinkMode));
 
+/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ---------- */
+let blindMode = false;
+function setBlind(on){
+  blindMode = on;
+  blindBtn.classList.toggle('blind-on', on);
+  if (on) hideTip();
+  refreshVariantButtons();
+  loadImg();
+  updateMeta();
+  writeHash();
+}
+blindBtn.addEventListener('click', () => setBlind(!blindMode));
+
 /* ---------- crops N-up: 1:1 crops of every variant at a picked point ---------- */
 function pickCrop(cx, cy){
   const r = comp.getBoundingClientRect();
@@ -375,7 +393,7 @@ function openCropPanel(){
     row.className = 'cropRow';
     const name = document.createElement('span');
     name.className = 'cname';
-    name.textContent = v.name;
+    name.textContent = variantName(v.id);
     name.style.color = v.color;
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(CW*d); canvas.height = Math.round(CH*d);
@@ -415,6 +433,7 @@ function writeHash(){
     if (zoom !== 1){ p.set('z', zoom.toFixed(3)); p.set('x', Math.round(pan.x)); p.set('y', Math.round(pan.y)); }
     if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }
     if (blinkMode) p.set('blink', 1);
+    if (blindMode) p.set('blind', 1);
     if (cropMode) p.set('crops', 1);
     if (cropUV){
       const {nw, nh} = naturalDims();
@@ -452,6 +471,7 @@ function readState(){
 
 /* ---------- UI ---------- */
 function variantStats(id){
+  if (blindMode) return '';
   const m = variant(id).metrics;
   if (!m) return '';
   const lines = [];
@@ -475,9 +495,9 @@ function updateMeta(){
   const m = FRAME_META[frame] || {};
   const where = m.clip_s != null ? ` \u00B7 clip +${m.clip_s.toFixed(1)}s` : '';
   const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \u00B7 ` : '';
-  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : ''].filter(Boolean).join('+');
+  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}frame ${lbl} (#${frame}${where}) \u2014 izq. ${varA} \u00B7 der. ${varB}${modes ? ' \u00B7 '+modes : ''}`;
+    `${origin}frame ${lbl} (#${frame}${where}) \u2014 izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
@@ -537,6 +557,7 @@ function cmdKey(t){
   return t.startsWith('|') ? '|piped' : t.split(/\s+/)[0];
 }
 function showTip(b){
+  if (blindMode) return;
   cmdText = b.dataset.cmd;
   const pane = b.closest('.variants') ? b.closest('.variants').id : null;
   const otherId = pane === 'varA' ? varB : (pane === 'varB' ? varA : null);
@@ -609,7 +630,8 @@ function refreshFrameButtons(){
   makeButtons('frames', FRAMES.map(f=>({id:f, label: FRAME_LABELS[f] || (f+'s')})), frame, f => { frame = f; loadImg(); });
 }
 function variantButtonItems(){
-  return VARIANTS.map(v => {
+  return VARIANTS.map((v, vi) => {
+    if (blindMode) return {id: v.id, main: String(vi+1), sub: '', cmd: null};
     const cmd = v.cmd || null;
     if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
     const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
@@ -665,6 +687,7 @@ window.addEventListener('keydown', e => {
     loadImg();
   } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }
   else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }
+  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ setBlind(!blindMode); }
   else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }
   else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }
   else if (!e.repeat && (e.key === 'o' || e.key === 'O')){ oneToOne(); }
@@ -693,6 +716,7 @@ function applyManifest(m){
   if (!h.get('z') && matchMedia('(max-width:820px), (pointer:coarse)').matches) oneToOne();
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
+  if (h.get('blind') === '1') setBlind(true);
   if (h.get('crops') === '1') setCropMode(true);
   if (h.get('crop')){
     const [cu, cv] = h.get('crop').split(',').map(Number);

@@ -44,6 +44,24 @@ $('obDemo').addEventListener('click', () => {
   $('pvBox').srcdoc = buildStandaloneHTML(pkg);
   $('pvFrame').classList.add('show');
 });
+$('obLoad').addEventListener('click', async () => {
+  // cargar el ejemplo como proyecto básico para poder tocarlo
+  const pkg = makeDemoPackage();
+  setMode('basic');
+  state.pairs = [];
+  for (const f of pkg.manifest.frames){
+    const fa = pkg.images['src_'+f], fb = pkg.images['enc_'+f];
+    const toFile = async du => {
+      const parts = du.split(',');
+      const bin = atob(parts[1]);
+      const buf = new Uint8Array(bin.length);
+      for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
+      return new File([buf], 'ejemplo_'+f+'.jpg', {type:'image/jpeg'});
+    };
+    state.pairs.push([await toFile(fa), await toFile(fb)]);
+  }
+  renderPairs();
+});
 $('btnHelp').addEventListener('click', () => showOnboard(true));
 
 /* demo sintética: gradientes + figuras por canvas, sin archivos externos */
@@ -251,9 +269,11 @@ let curStep = 0;
 function renderSteps(){
   const nav = $('stepNav');
   nav.innerHTML = '';
+  const badCount = validateAdvanced().filter(x => x[0] === 'bad').length;
   STEPS.forEach((s, i) => {
     const b = document.createElement('button');
-    b.innerHTML = `<span class="n">${i+1}</span>${esc(s)}`;
+    const badge = (i === 4 && badCount) ? ` <span class="stepbad">${badCount}</span>` : '';
+    b.innerHTML = `<span class="n">${i+1}</span>${esc(s)}${badge}`;
     if (i === curStep) b.classList.add('on');
     nav.appendChild(b);
     b.onclick = () => { curStep = i; renderSteps(); };
@@ -400,10 +420,26 @@ $('frameAdd').addEventListener('click', () => {
 /* ---------- paso: imágenes (tabla + autocompletado por nombre) ---------- */
 const bulkDrop = $('bulkDrop'), bulkFile = $('bulkFile');
 bulkDrop.addEventListener('click', () => bulkFile.click());
-bulkFile.addEventListener('change', () => { bulkAdd([...bulkFile.files]); bulkFile.value=''; });
+bulkFile.addEventListener('change', () => { noteBulk(bulkAdd([...bulkFile.files])); bulkFile.value=''; });
 ['dragover','dragenter'].forEach(ev => bulkDrop.addEventListener(ev, e => { e.preventDefault(); bulkDrop.classList.add('over'); }));
 ['dragleave','drop'].forEach(ev => bulkDrop.addEventListener(ev, e => { e.preventDefault(); bulkDrop.classList.remove('over'); }));
-bulkDrop.addEventListener('drop', e => bulkAdd([...e.dataTransfer.files]));
+bulkDrop.addEventListener('drop', e => {
+  const r = bulkAdd([...e.dataTransfer.files]);
+  noteBulk(r);
+});
+let bulkNoteT = null;
+function noteBulk(r){
+  if (!r) return;
+  const el = $('bulkNote');
+  const bits = [];
+  if (r.createdV.length) bits.push(`${r.createdV.length} variante${r.createdV.length>1?'s':''} nueva${r.createdV.length>1?'s':''} (${r.createdV.join(', ')})`);
+  if (r.createdF.length) bits.push(`${r.createdF.length} frame${r.createdF.length>1?'s':''} nuevo${r.createdF.length>1?'s':''}`);
+  if (r.misses) bits.push(`${r.misses} sin asignar`);
+  el.textContent = bits.length ? '✓ ' + bits.join(' · ') : '✓ todo asignado';
+  el.style.color = r.misses ? 'var(--warn)' : 'var(--ok)';
+  clearTimeout(bulkNoteT);
+  bulkNoteT = setTimeout(() => { el.textContent = ''; }, 6000);
+}
 
 function matchVariant(token){
   const t = slug(token);
@@ -423,21 +459,40 @@ function matchFrame(token){
 function bulkAdd(files){
   const imgs = files.filter(f => f.type.startsWith('image/'));
   const misses = [];
+  const createdV = new Set(), createdF = new Set();
   for (const f of imgs){
     const stem = f.name.replace(/\.[^.]+$/, '');
     const cut = stem.lastIndexOf('_');
     if (cut > 0){
-      const v = matchVariant(stem.slice(0, cut));
-      const fr = matchFrame(stem.slice(cut+1));
+      let v = matchVariant(stem.slice(0, cut));
+      let fr = matchFrame(stem.slice(cut+1));
+      // lo que no existe, se crea: soltar todo y que la tabla se arme sola
+      if (!v && slug(stem.slice(0, cut)).length >= 2){
+        const id = 'v'+(nextVar++);
+        v = {id, name: stem.slice(0, cut).replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase()),
+             codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
+        state.variants.push(v); createdV.add(v.name);
+      }
+      if (!fr && slug(stem.slice(cut+1)).length >= 1){
+        const key = stem.slice(cut+1).trim();
+        if (!state.frames.some(x => x.key === key)){
+          state.frames.push({key, label:''}); createdF.add(key);
+        }
+        fr = matchFrame(key);
+      }
       if (v && fr){ state.cells.set(v.id+'|'+fr.key, f); probeDims(f); continue; }
     }
     const why = cut > 0
-      ? (matchVariant(stem.slice(0, cut)) ? 'no hay frame "'+stem.slice(cut+1)+'"' : 'no hay variante "'+stem.slice(0, cut)+'"')
+      ? 'no se pudo interpretar el nombre — se espera <variante>_<frame>'
       : 'nombre sin guion bajo — se espera <variante>_<frame>';
     misses.push({file:f, why});
   }
+  // frames numericos en orden natural tras el volcado
+  if (createdF.size && state.frames.every(fr => /^\d+$/.test(fr.key)))
+    state.frames.sort((a,b) => parseInt(a.key,10) - parseInt(b.key,10));
   state.unassigned.push(...misses);
-  renderMatrix();
+  renderMatrix(); renderVariants(); renderFrames();
+  return {createdV: [...createdV], createdF: [...createdF], misses: misses.length};
 }
 function renderMatrix(){
   const host = $('matrix');
@@ -568,9 +623,10 @@ function buildStandaloneHTML(pkg){
   return SHELL_HTML.replace('<script src="compare.js"><\/script>', injection + engineTag);
 }
 async function openPreviewOverlay(){
+  $('pvFrame').classList.add('show');
+  $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>Generando vista previa…</body></html>';
   const pkg = await currentPackage();
   $('pvBox').srcdoc = buildStandaloneHTML(pkg);
-  $('pvFrame').classList.add('show');
 }
 $('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; });
 $('btnPreviewTop').addEventListener('click', openPreviewOverlay);
@@ -666,6 +722,21 @@ $('btnExpHtml').addEventListener('click', async () => {
 $('btnExpCmp').addEventListener('click', async () => {
   const pkg = await currentPackage();
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
+});
+
+/* guardar / abrir proyecto (.cmp) */
+async function saveProject(){
+  const pkg = await currentPackage();
+  download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
+}
+$('btnSave').addEventListener('click', saveProject);
+$('btnOpen').addEventListener('click', () => $('openFile').click());
+$('openFile').addEventListener('change', () => {
+  if ($('openFile').files[0]) importCmp($('openFile').files[0]);
+  $('openFile').value = '';
+});
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); saveProject(); }
 });
 $('btnExpZip').addEventListener('click', async () => {
   const pkg = await currentPackage();

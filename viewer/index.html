@@ -57,6 +57,7 @@
   button.active{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
   button.diff-on{background:#ff5d5d; color:#fff; border-color:#ff5d5d;}
   button.blink-on{background:#7bb3ff; color:#10131a; border-color:#7bb3ff; font-weight:600;}
+  button.blind-on{background:#9a9aa8; color:#10131a; border-color:#9a9aa8; font-weight:600;}
   button.crop-on{background:#7bd389; color:#10131a; border-color:#7bd389; font-weight:600;}
   .spacer{flex:1;}
   #comp{flex:1; position:relative; overflow:hidden; cursor:crosshair; touch-action:none;}
@@ -169,6 +170,7 @@
     <div class="spacer"></div>
   <button id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
   <button id="blinkBtn" title="Parpadeo izquierda/derecha a 2 Hz (B)">Blink</button>
+  <button id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
   <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Crops</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
@@ -216,6 +218,7 @@
   <span><kbd>H</kbd> calor</span>
   <span><kbd>Espacio</kbd> siguiente variante</span>
   <span><kbd>N</kbd> nítido</span>
+  <span><kbd>G</kbd> ciego</span>
   <span><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
   <span>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
   </div>

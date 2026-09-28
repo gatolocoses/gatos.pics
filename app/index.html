@@ -93,6 +93,10 @@
   .steps button .n{display:inline-block; width:18px; color:inherit; font-weight:600;}
   .steps button.on{color:var(--text); background:var(--panel2); border-color:#333;}
   .steps button.done{color:var(--ok);}
+  .stepbad{
+    background:var(--err); color:#fff; border-radius:8px; font-size:10px;
+    padding:0 6px; margin-left:4px; font-weight:600;
+  }
 
   /* forms */
   label.f{display:block; margin:10px 0 2px; font-size:12px; color:var(--dim);}
@@ -173,6 +177,7 @@
     <div class="obrow">
       <button id="obStart" class="primary" style="font-size:14px; padding:8px 22px;">Empezar</button>
       <button id="obDemo" style="font-size:13px;">Ver un ejemplo</button>
+      <button id="obLoad" style="font-size:13px;" title="abre el ejemplo como proyecto para editarlo">Cargarlo en el creador</button>
       <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
     </div>
   </div>
@@ -185,8 +190,11 @@
     <button id="tabAdv">Avanzado</button>
   </nav>
   <span class="spacer"></span>
+  <button id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
+  <button id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
   <button id="btnHelp">?</button>
   <button id="btnPreviewTop" class="primary">Vista previa</button>
+  <input type="file" id="openFile" accept=".cmp,application/json" style="display:none">
 </header>
 
 <main>
@@ -252,7 +260,9 @@
           <div class="drop" id="bulkDrop" style="padding:14px;">
             <div class="big" style="font-size:13px;">Suelta en lote — archivos con nombre automático</div>
             <div class="hint">se emparejan por id de variante, nombre de variante o número/etiqueta del frame</div>
+            <div class="hint" style="margin-top:4px;">lo que no exista (variante o frame) se crea solo del nombre del archivo</div>
           </div>
+          <div id="bulkNote" class="okline" style="margin-top:6px; min-height:16px;"></div>
           <input type="file" id="bulkFile" accept="image/*" multiple style="display:none">
           <div id="unassigned" style="margin:10px 0;"></div>
           <div class="matrix" id="matrix"></div>
