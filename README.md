@@ -47,9 +47,28 @@ derecha). Nada más que decidir.
 - Estado compartible por URL (`#f=6052&a=src&b=enc&diff=1`).
 - Funciona en el teléfono: menús desplegables, pellizco para zoom.
 
-Atajos: `←/→` frame · `1–9` variante (`Shift` = izquierda) · `S` intercambiar ·
-`D` diff · `B` parpadeo · `C` recortes · `O` 1:1 · `F` ajustar · `+/−` ganancia ·
-`H` calor · `,/.` divisor.
+Atajos: `←/→` frame · `Espacio` siguiente variante · `1–9` variante (`Shift` =
+izquierda) · `S` intercambiar · `D` diff · `B` parpadeo · `C` recortes · `O` 1:1 ·
+`F` ajustar · `N` píxeles nítidos · `+/−` ganancia · `H` calor · `,/.` divisor.
+
+## Por qué no slow.pics / comp.pics
+
+Son buenas herramientas — para subirlas todo a un servidor de alguien más. Con
+gatos.pics la comparación es tuya:
+
+- **Nada se sube**: sin cuentas, sin cooldowns de un minuto, sin límites
+  diarios, sin borrado a los 2 años por falta de visitas.
+- **Zoom de verdad**: los servicios conocidos no tienen zoom ni arrastre — su
+  "1:1" es tamaño natural + scrollbar. Aquí hay zoom al 800 %, arrastre y
+  recortes 1:1 de todas las variantes en un clic.
+- **Diff amplificado y modo calor**: nadie más lo ofrece; es la forma más
+  rápida de ver dónde golpeó un encode.
+- **Escala en píxeles nítidos** para inspección honesta al hacer zoom.
+- **Vive para siempre en un archivo**: el HTML exportado funciona sin internet
+  dentro de diez años igual que hoy. Los servicios mueren — ya enterraron a
+  screenshotcomparison.com e imgsli.com.
+- **Cicla variantes con la barra espaciadora** en el mismo frame, como la
+  comunidad espera.
 
 ## Formato .cmp
 
