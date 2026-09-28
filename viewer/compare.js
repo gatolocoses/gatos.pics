@@ -795,6 +795,20 @@ function renderViewCanvas(){
   };
   pill(false, variantName(varA), variantStats(varA));
   pill(true, variantName(varB), variantStats(varB));
+  // marca arriba al centro: gatos en verde, pics en amarillo (como el logo)
+  x.font = '600 13px system-ui, sans-serif';
+  const wg = x.measureText('gatos').width, wp = x.measureText('.pics').width;
+  const bw = wg + wp + 20;
+  const bx2 = Math.min(Math.max(ix + (ir - ix) / 2 - bw / 2, ix + 4), ir - bw - 4);
+  const by2 = Math.min(iy + 10, ib - 30);
+  x.fillStyle = 'rgba(0,0,0,.75)';
+  x.beginPath();
+  x.roundRect(bx2, by2, bw, 24, 6);
+  x.fill();
+  x.fillStyle = '#7bd389';
+  x.fillText('gatos', bx2 + 10, by2 + 17);
+  x.fillStyle = '#ffb454';
+  x.fillText('.pics', bx2 + 10 + wg, by2 + 17);
   return c;
 }
 
