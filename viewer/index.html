@@ -177,6 +177,7 @@
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
+  <button id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   </div>
   <div class="hrow hrow-panes">
     <div class="group"><span class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA"></select></div>
@@ -209,6 +210,12 @@
   <div id="diffNote"></div>
   <div id="modeBadge">PARPADEO A/B</div>
   <div id="cropHint">haz clic en un punto para ver recortes 1:1</div>
+  <div id="sharePanel" style="display:none; position:absolute; inset:0; z-index:20; background:#000c; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:560px; width:100%; max-height:86%; overflow:auto;">
+      <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">Compartir <button id="shareClose" style="margin-left:auto;">cerrar</button></h2>
+      <div id="shareRows"></div>
+    </div>
+  </div>
   <div id="cropPanel">
     <h2><span id="cropTitle">Recortes 1:1</span><button id="cropClose">cerrar (Esc)</button></h2>
     <div id="cropRows"></div>

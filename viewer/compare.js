@@ -499,6 +499,7 @@ function variantStats(id){
     if (l.length) lines.push(l.join(' \u00B7 ')+' @'+frame+'s');
   }
   const l2 = [];
+  if (m.custom_note) l2.push(m.custom_note);
   if (m.ssimulacra2 != null) l2.push('S2 media '+m.ssimulacra2.toFixed(1));
   if (m.psnr_avg != null) l2.push('clip PSNR '+m.psnr_avg.toFixed(2));
   if (m.ssim_all != null) l2.push('SSIM '+m.ssim_all.toFixed(4));
@@ -717,6 +718,36 @@ window.addEventListener('keydown', e => {
   else if (e.key === '.'){ nudgeDivider(e.shiftKey ? 0.05 : 0.01); }
   else if (e.key === 'Escape'){ if (cropMode || cropUV){ setCropMode(false); closeCrop(); } }
 });
+
+/* ---------- compartir: link, BBCode, Markdown, HTML ---------- */
+const sharePanel = $('sharePanel'), shareRows = $('shareRows');
+function openShare(){
+  const url = location.href.split('#')[0];
+  const abs = new URL(srcFor(varA, frame), location.href).href.split('?')[0];
+  const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
+  const rows = [
+    ['Link', url],
+    ['BBCode (foros, con vista previa clicable)', '[url=' + url + '][img]' + abs + '[/img][/url]'],
+    ['Markdown', '[![' + title + '](' + abs + ')](' + url + ')'],
+    ['HTML', '<a href="' + url + '"><img src="' + abs + '" alt="' + title + '" loading="lazy"></a>'],
+  ];
+  shareRows.innerHTML = '';
+  for (const [label, text] of rows){
+    const l = document.createElement('div');
+    l.style.cssText = 'font-size:11px; color:var(--dim); margin:10px 0 3px;';
+    l.textContent = label;
+    const box = document.createElement('textarea');
+    box.readOnly = true;
+    box.value = text;
+    box.style.cssText = 'width:100%; height:44px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:5px 8px; font:11px ui-monospace,Menlo,Consolas,monospace; resize:none;';
+    box.onclick = () => { box.select(); try { document.execCommand('copy'); } catch(e){ if (navigator.clipboard) navigator.clipboard.writeText(text); } };
+    shareRows.appendChild(l);
+    shareRows.appendChild(box);
+  }
+  sharePanel.style.display = 'flex';
+}
+$('shareBtn').addEventListener('click', openShare);
+$('shareClose').addEventListener('click', () => { sharePanel.style.display = 'none'; });
 
 /* ---------- init ---------- */
 function applyManifest(m){

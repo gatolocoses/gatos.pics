@@ -498,7 +498,7 @@ $('pjBump').addEventListener('click', () => { state.version++; $('pjVersion').va
 
 /* ---------- paso: variantes ---------- */
 function defVariant(){
-  return {id:'v'+(nextVar++), name:'', codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
+  return {id:'v'+(nextVar++), name:'', codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
 }
 function ensureSeed(){
   if (!state.variants.length){
@@ -536,6 +536,7 @@ function renderVariants(){
         <span class="hint">${esc(v.id)}${badge}</span>
         <input type="text" data-k="note" placeholder="nota extra — sale bajo el botón" value="${esc(v.note)}">
         <input type="text" class="mono" data-k="cmd" placeholder="comando del encoder (tooltip)" value="${esc(v.cmd)}">
+        <input type="text" data-k="metric" placeholder="métrica propia (p. ej. VMAF 96.2) — opcional" value="${esc(v.metric)}" title="se muestra bajo el nombre de la variante; S2 del toggle se suma a esto" style="grid-column: 2 / 4;">
       </div>`;
     card.querySelector('.dot').onclick = () => {
       v.color = PALETTE[(PALETTE.indexOf(v.color)+1) % PALETTE.length];
@@ -821,6 +822,7 @@ async function advancedPackage(){
       const n = variantNote(v);
       if (n) o.note = n;
       if (v.cmd.trim()) o.cmd = v.cmd.trim();
+      if (v.metric.trim()) o.metrics = Object.assign(o.metrics || {}, {custom_note: v.metric.trim().slice(0, 60)});
       return o;
     }),
   };
@@ -994,6 +996,14 @@ async function publishPage(btn, label){
     $('pubUrl').value = j.url;
     $('pubKey').value = j.delete_key;
     $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
+    // formatos para compartir: vista previa clicable con la primera variante/frame
+    const v0 = pkg.manifest.variants[0], f0 = pkg.manifest.frames[0];
+    const ext = (v0.ext || 'png');
+    const img = j.url + 'img/' + v0.id + '_' + f0 + '.' + ext;
+    const title = pkg.manifest.title || 'Comparación';
+    $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
+    $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
+    $('pubHTML').value = '<a href="' + j.url + '"><img src="' + img + '" alt="' + title + '" loading="lazy"></a>';
     $('pubFrame').style.display = 'flex';
   } catch (e) {
     alert('No se pudo publicar: ' + e.message);
@@ -1073,7 +1083,7 @@ async function importCmp(file){
       renderPairs();
     } else {
       state.variants = (pkg.manifest.variants||[]).map(v => ({
-        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', color: v.color||'#7bd389',
+        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', metric: (v.metrics && v.metrics.custom_note) || '', color: v.color||'#7bd389',
       }));
       state.frames = (pkg.manifest.frames||[]).map(f => ({key:String(f), label:(pkg.manifest.frame_labels||{})[String(f)]||''}));
       state.cells = new Map(); state.unassigned = [];
