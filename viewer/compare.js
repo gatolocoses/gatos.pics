@@ -785,7 +785,7 @@ function renderViewCanvas(){
     x.beginPath();
     x.roundRect(px2, py2, pw, stats ? 40 : 24, 6);
     x.fill();
-    x.fillStyle = '#fff';
+    x.fillStyle = '#7bd389';
     x.fillText(name, px2 + 10, py2 + 17);
     if (stats){
       x.font = '400 10px system-ui, sans-serif';
@@ -795,20 +795,20 @@ function renderViewCanvas(){
   };
   pill(false, variantName(varA), variantStats(varA));
   pill(true, variantName(varB), variantStats(varB));
-  // marca arriba al centro: gatos en verde, pics en amarillo (como el logo)
-  x.font = '600 13px system-ui, sans-serif';
-  const wg = x.measureText('gatos').width, wp = x.measureText('.pics').width;
-  const bw = wg + wp + 20;
-  const bx2 = Math.min(Math.max(ix + (ir - ix) / 2 - bw / 2, ix + 4), ir - bw - 4);
-  const by2 = Math.min(iy + 10, ib - 30);
-  x.fillStyle = 'rgba(0,0,0,.75)';
-  x.beginPath();
-  x.roundRect(bx2, by2, bw, 24, 6);
-  x.fill();
+  // marca arriba al centro: el logo de dos cajas, texto blanco dentro
+  x.font = '600 12px system-ui, sans-serif';
+  const t1 = x.measureText('gato').width, t2 = x.measureText('pics').width;
+  const pad2 = 9, boxH = 22;
+  const b1w = t1 + pad2*2, b2w = t2 + pad2*2, bTot = b1w + b2w;
+  const bx2 = Math.min(Math.max(ix + (ir - ix) / 2 - bTot / 2, ix + 4), ir - bTot - 4);
+  const by2 = Math.min(iy + 10, ib - boxH - 4);
   x.fillStyle = '#7bd389';
-  x.fillText('gatos', bx2 + 10, by2 + 17);
+  x.beginPath(); x.roundRect(bx2, by2, b1w, boxH, 6); x.fill();
   x.fillStyle = '#ffb454';
-  x.fillText('.pics', bx2 + 10 + wg, by2 + 17);
+  x.beginPath(); x.roundRect(bx2 + b1w, by2, b2w, boxH, 6); x.fill();
+  x.fillStyle = '#fff';
+  x.fillText('gato', bx2 + pad2, by2 + 15);
+  x.fillText('pics', bx2 + b1w + pad2, by2 + 15);
   return c;
 }
 
