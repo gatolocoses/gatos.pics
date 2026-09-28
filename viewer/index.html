@@ -22,8 +22,8 @@
     background:var(--panel); border-bottom:1px solid #000;
     position:relative;
   }
-  /* marca: misma fila que Diff/Blink; textos convergen al punto blanco central */
-  #brand{position:absolute; left:50%; top:9px; transform:translateX(-50%); display:flex; align-items:stretch; gap:5px; pointer-events:none; z-index:2;}
+  /* marca: en la fila de Diff/Blink, centrada en el espacio libre */
+  #brand{display:flex; align-items:stretch; gap:5px; pointer-events:none; flex:0 0 auto; margin:0 10px;}
   #brand .bb{font-size:11px; font-weight:700; color:#fff; padding:3px 8px; line-height:1.25; letter-spacing:.5px; text-shadow:0 1px 2px rgba(0,0,0,.7);}
   #brand .g{background:#7bd389; border-radius:6px 0 0 6px; text-align:right; min-width:46px;}
   #brand .y{background:#ffb454; border-radius:0 6px 6px 0; text-align:left; min-width:36px;}
@@ -173,11 +173,12 @@
 </head>
 <body>
 <header>
-  <div id="brand" title="gatos.pics"><span class="bb g">gato</span><span class="bdot">&middot;</span><span class="bb y">pics</span></div>
   <div class="hrow">
     <h1 id="pageTitle">gatos.pics</h1>
     <div class="group"><span class="glabel">Frame</span><div class="frames" id="frames"></div></div>
-    <div class="spacer"></div>
+    <span class="spacer"></span>
+    <div id="brand" title="gatos.pics"><span class="bb g">gato</span><span class="bdot">&middot;</span><span class="bb y">pics</span></div>
+    <span class="spacer"></span>
   <button id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
   <button id="blinkBtn" title="Parpadeo izquierda/derecha a 2 Hz (B)">Blink</button>
   <button id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
