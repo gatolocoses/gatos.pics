@@ -189,18 +189,18 @@
     .obcard{padding:20px;}
     table.mtx th{max-width:96px; overflow:hidden; text-overflow:ellipsis;}
   }
-  .brand{position:relative; display:inline-grid; grid-template-columns:38px 34px; width:72px; height:16px;
-    flex:0 0 72px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
+  .brand{position:relative; display:inline-grid; grid-template-columns:44px 34px; width:78px; height:16px;
+    flex:0 0 78px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
     font:700 9px/16px system-ui,sans-serif; color:#fff;
     text-shadow:0 1px 2px #000d,0 0 1px #000;}
   .brand-gato{background:#7bd389; border-radius:3px 0 0 3px; text-align:center;}
   .brand-pics{background:#ffb454; border-radius:0 3px 3px 0; text-align:center;}
   /* el track cubre TODO el ancho: el circulito cruza por encima de las palabras */
   .brand-track{position:absolute; inset:0;}
-  .brand-dot{position:absolute; top:0; left:50%; width:16px; height:16px; border-radius:50%;
+  .brand-dot{position:absolute; top:0; left:50%; transform:translateX(-50%); width:16px; height:16px; border-radius:50%;
     background:#fff; box-shadow:0 1px 3px #000d;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E"); background-size:11px 6.6px;
-    background-position:center; background-repeat:no-repeat;}
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E");
+    background-size:11px 6.6px; background-position:center; background-repeat:no-repeat;}
 </style>
 </head>
 <body>
@@ -208,7 +208,7 @@
 <!-- ===================== ONBOARDING ===================== -->
 <div id="onboard" hidden>
   <div class="obcard">
-    <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gato</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span></h1>
+    <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span></h1>
     <p class="tag">Compara dos capturas y comparte el resultado.</p>
     <div class="obsteps">
       <div class="obstep"><b>1 · Agrega dos imágenes</b><span>Elige capturas del mismo momento. Una va a la izquierda y otra a la derecha.</span></div>
@@ -226,7 +226,7 @@
 </div>
 
 <header>
-  <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gato</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span> <span class="dim">creador</span></h1>
+  <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span> <span class="dim">creador</span></h1>
   <nav class="tabs">
     <button id="tabBasic">Básico</button>
     <button id="tabVideo">Video</button>

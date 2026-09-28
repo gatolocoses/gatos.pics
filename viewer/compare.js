@@ -134,7 +134,7 @@ function syncBrandSlider(){
   const brand = document.getElementById('brand');
   if (dot && brand){
     const t = blinkMode ? .5 : dividerPos;
-    dot.style.left = (t * (brand.clientWidth - 16)) + 'px';
+    dot.style.left = (8 + t * (brand.clientWidth - 16)) + 'px';
   }
 }
 function applyTransform(){
@@ -848,13 +848,13 @@ function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').
 
 function drawBrand(ctx, x, y){
   // espejo en miniatura: verde/amarillo fijos, el circulito cruza las palabras
-  const W = 72, H = 16, cy = y + H/2;
+  const W = 78, H = 16, cy = y + H/2;
   ctx.save();
   ctx.globalAlpha = .9;
   ctx.fillStyle = '#7bd389';
-  ctx.beginPath(); ctx.roundRect(x, y, 38, H, [3,0,0,3]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x, y, 44, H, [3,0,0,3]); ctx.fill();
   ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+38, y, 34, H, [0,3,3,0]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+44, y, 34, H, [0,3,3,0]); ctx.fill();
   const cx = x + 8 + (W - 16) * (blinkMode ? .5 : dividerPos);
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
   ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
@@ -867,8 +867,8 @@ function drawBrand(ctx, x, y){
   ctx.fillStyle = '#fff';
   ctx.font = '700 9px system-ui, sans-serif'; ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.fillText('gato', x+19, cy);
-  ctx.fillText('pics', x+55, cy);
+  ctx.fillText('gatos', x+22, cy);
+  ctx.fillText('pics', x+61, cy);
   ctx.restore();
 }
 
@@ -946,7 +946,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-72)/2, ib-24);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-78)/2, ib-24);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
