@@ -1103,6 +1103,35 @@ function addBasicFiles(files){
   const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
   imgs.forEach(probeDims);
   const loose = [...imgs];
+
+  // emparejamiento por nombre: <variante>_<frame> comparte frame. La referencia
+  // (fuente/src/master...) queda a la izquierda contra cada otra variante.
+  const REFERENCE_RE = /^(fuente|src|source|master|original|orig|remux|bd|bluray)$/i;
+  const prefixOf = f => { const stem = f.name.replace(/\.[^.]+$/, ''); const cut = stem.lastIndexOf('_'); return cut > 0 ? stem.slice(0, cut) : null; };
+  const groups = new Map();
+  for (const f of loose){
+    const pre = prefixOf(f);
+    if (pre === null) continue;
+    const stem = f.name.replace(/\.[^.]+$/, '');
+    const g = stem.slice(stem.lastIndexOf('_') + 1);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(f);
+  }
+  const usable = [...groups.values()].filter(g => g.length >= 2 && new Set(g.map(prefixOf)).size >= 2);
+  if (usable.length){
+    const patterned = new Set(usable.flat());
+    for (const g of usable){
+      let ref = g.find(f => REFERENCE_RE.test(prefixOf(f)));
+      if (!ref) ref = [...g].sort((a, b) => prefixOf(a).localeCompare(prefixOf(b)))[0];
+      for (const other of g){
+        if (other === ref) continue;
+        state.pairs.push([ref, other]);
+      }
+    }
+    loose.length = 0;
+    loose.push(...imgs.filter(f => !patterned.has(f)));
+  }
+
   // completa primero el par cojo del final
   for (let i = state.pairs.length-1; i >= 0; i--){
     const p = state.pairs[i];
