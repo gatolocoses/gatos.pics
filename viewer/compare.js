@@ -725,62 +725,80 @@ window.addEventListener('keydown', e => {
   else if (e.key === 'Escape'){ if (cropMode || cropUV){ setCropMode(false); closeCrop(); } }
 });
 
-/* ---------- compartir: link, BBCode, Markdown, HTML ---------- */
+/* ---------- compartir: imagen PNG sin pérdida de la vista actual ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
-let shareStrip = [];
-function openShare(){
-  const fs = $('shareFrame'), vs = $('shareVariant');
-  fs.innerHTML = FRAMES.map(f => `<option value="${f}">${escq(FRAME_LABELS[f] || f + 's')}</option>`).join('');
-  vs.innerHTML = VARIANTS.map(v => `<option value="${v.id}">${escq(variantName(v.id))}</option>`).join('');
-  fs.value = String(frame); vs.value = varA;
-  shareStrip = [{v: varA, f: frame}];
-  $('shareAdd').onclick = () => {
-    const f = +fs.value || fs.value, v = vs.value;
-    if (!shareStrip.some(s => s.v === v && String(s.f) === String(f))) shareStrip.push({v, f});
-    shareRowsRender(f, v);
-  };
-  shareRowsRender(frame, varA);
-}
-function renderShareChips(){
-  const host = $('shareChips');
-  host.innerHTML = '';
-  shareStrip.forEach((s, i) => {
-    const chip = document.createElement('span');
-    chip.style.cssText = 'background:#23232e; border:1px solid #333; border-radius:12px; padding:2px 8px; font-size:11px; cursor:default;';
-    const name = variantName(s.v);
-    chip.textContent = (blindMode ? String(VARIANTS.findIndex(x => x.id === s.v)+1) : name) + ' · ' + (FRAME_LABELS[s.f] || s.f + 's') + ' ';
-    const x = document.createElement('b');
-    x.textContent = '\u00d7';
-    x.style.cssText = 'color:#9a9aa8; cursor:pointer; margin-left:4px;';
-    x.onclick = () => { if (shareStrip.length > 1){ shareStrip.splice(i, 1); shareRowsRender(s.f, s.v); } };
-    chip.appendChild(x);
-    host.appendChild(chip);
-  });
-}
+let shareBlobUrl = null, shareName = 'gatos.pics.png';
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-function shareRowsRender(f, v){
+
+function renderViewCanvas(){
+  const comp2 = $('comp');
+  const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
+  const c = document.createElement('canvas');
+  c.width = Math.round(w*d); c.height = Math.round(h*d);
+  const x = c.getContext('2d');
+  x.scale(d, d);
+  x.fillStyle = '#000';
+  x.fillRect(0, 0, w, h);
+  if (solarMode) x.filter = 'url(#solarCurve)';
+  x.imageSmoothingEnabled = smoothScale;
+  // mismas geometría y transform que el visor: (ox,oy,rw,rh) + pan/zoom
+  const drawImg = (img) => {
+    x.save();
+    x.translate(pan.x, pan.y);
+    x.scale(zoom, zoom);
+    x.drawImage(img, ox, oy, rw, rh);
+    x.restore();
+  };
+  drawImg(imgA);
+  // lado derecho: B (o el diff si está activo), recortado desde el divisor
+  const divX = dividerPos * w;
+  x.save();
+  x.beginPath();
+  x.rect(divX, 0, w - divX, h);
+  x.clip();
+  drawImg(diffMode ? diffCanvas : imgB);
+  x.restore();
+  x.filter = 'none';
+  // linea del divisor
+  x.fillStyle = 'rgba(255,255,255,.92)';
+  x.fillRect(divX - 1, 0, 2, h);
+  // etiquetas como en pantalla: nombre + stats en pastilla oscura
+  const pill = (right, name, stats) => {
+    x.font = '600 13px system-ui, sans-serif';
+    const wName = x.measureText(name).width;
+    x.font = '400 10px system-ui, sans-serif';
+    const wStats = stats ? x.measureText(stats).width : 0;
+    x.font = '600 13px system-ui, sans-serif';
+    const pw = Math.max(wName, wStats) + 20, px2 = right ? w - pw - 12 : 12;
+    x.fillStyle = 'rgba(0,0,0,.75)';
+    x.beginPath();
+    x.roundRect(px2, 10, pw, stats ? 40 : 24, 6);
+    x.fill();
+    x.fillStyle = '#fff';
+    x.fillText(name, px2 + 10, 27);
+    if (stats){
+      x.font = '400 10px system-ui, sans-serif';
+      x.fillStyle = '#c8c8d4';
+      x.fillText(stats, px2 + 10, 43);
+    }
+  };
+  pill(false, variantName(varA), variantStats(varA));
+  pill(true, variantName(varB), variantStats(varB));
+  return c;
+}
+
+async function openShare(){
   const url = location.href.split('#')[0];
-  const abs = new URL(srcFor(v, f), location.href).href.split('?')[0];
-  const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
-  renderShareChips();
-  // una [url][img] por toma de la tira: el formato clásico de comparación en foros
-  const shots = shareStrip.map(s => new URL(srcFor(s.v, s.f), location.href).href.split('?')[0]);
-  const rows = [
-    ['Link', url],
-    ['BBCode (foros, ' + shots.length + ' toma' + (shots.length > 1 ? 's clicables' : ' clicable') + ')',
-      shots.map(u => '[url=' + url + '][img]' + u + '[/img][/url]').join('\n')],
-    ['Markdown', shots.map(u => '[![' + title + '](' + u + ')](' + url + ')').join(' ')],
-    ['HTML', shots.map(u => '<a href="' + url + '"><img src="' + u + '" alt="' + title + '" loading="lazy"></a>').join('')],
-  ];
+  const rows = [['Link', url]];
   shareRows.innerHTML = '';
   for (const [label, text] of rows){
     const l = document.createElement('div');
-    l.style.cssText = 'font-size:11px; color:var(--dim); margin:10px 0 3px;';
+    l.style.cssText = 'font-size:11px; color:var(--dim); margin:6px 0 3px;';
     l.textContent = label;
     const box = document.createElement('textarea');
     box.readOnly = true;
     box.value = text;
-    box.style.cssText = 'width:100%; height:44px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:5px 8px; font:11px ui-monospace,Menlo,Consolas,monospace; resize:none;';
+    box.style.cssText = 'width:100%; height:36px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:5px 8px; font:11px ui-monospace,Menlo,Consolas,monospace; resize:none;';
     box.onclick = async () => {
       box.select();
       let ok = false;
@@ -797,12 +815,30 @@ function shareRowsRender(f, v){
     shareRows.appendChild(box);
   }
   sharePanel.style.display = 'flex';
+  // generar la imagen de la vista actual
+  const c = renderViewCanvas();
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  if (shareBlobUrl) URL.revokeObjectURL(shareBlobUrl);
+  shareBlobUrl = URL.createObjectURL(blob);
+  const prev = $('sharePreview');
+  prev.src = shareBlobUrl;
+  prev.style.display = 'block';
+  const dl = $('shareDl');
+  dl.style.display = 'inline-block';
+  const slug = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'x';
+  shareName = `gatos-${slug(variantName(varA))}-vs-${slug(variantName(varB))}-${frame}.png`;
+  dl.onclick = () => {
+    const a = document.createElement('a');
+    a.href = shareBlobUrl;
+    a.download = shareName;
+    a.click();
+  };
 }
 $('shareBtn').addEventListener('click', openShare);
-for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
-  sharePanel.addEventListener(ev, e => e.stopPropagation());
 $('shareClose').addEventListener('click', closeShareIfOpen);
 function closeShareIfOpen(){ if (sharePanel.style.display === 'flex') sharePanel.style.display = 'none'; }
+for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
+  sharePanel.addEventListener(ev, e => e.stopPropagation());
 
 /* ---------- init ---------- */
 function applyManifest(m){

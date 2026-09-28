@@ -45,6 +45,7 @@
   header h1{font-size:15px; font-weight:600;}
   .group{display:flex; align-items:center; gap:5px;}
   .glabel{color:var(--dim); font-size:12px; margin-right:2px;}
+  button.xbtn{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
   button{
     background:var(--panel2); color:var(--text); border:1px solid #333;
     padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;
@@ -245,15 +246,12 @@
       <span id="shareHint" style="font-size:11px; color:var(--ok); font-weight:400;"></span>
       <button id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>
     </h2>
-    <div style="display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap;">
-      <span style="font-size:11px; color:var(--dim);">vista previa:</span>
-      <select id="shareFrame" style="background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:4px 6px; font-size:12px;"></select>
-      <select id="shareVariant" style="background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:4px 6px; font-size:12px;"></select>
-      <button id="shareAdd" title="agregar esta toma a la tira clicable" style="padding:5px 14px; font-size:12px; background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;">＋ a la tira</button>
-    </div>
-    <div class="hint" style="font-size:11px; margin:2px 0 4px;">cada toma de la tira es una imagen clicable en el post: elige frame y variante y dale ＋</div>
-    <div id="shareChips" style="display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 6px;"></div>
+    <div class="hint" style="font-size:11px; margin-bottom:8px;">la imagen es exactamente lo que estás viendo: frame, variantes, divisor y zoom, en PNG sin pérdida.</div>
     <div id="shareRows"></div>
+    <img id="sharePreview" alt="vista a compartir" style="width:100%; border:1px solid #333; border-radius:8px; background:#000; margin-top:8px; display:none;">
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>
+    </div>
   </div>
 </div>
 <script src="compare.js"></script>
