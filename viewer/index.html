@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -167,36 +167,36 @@
     <h1 id="pageTitle">gatos.pics</h1>
     <div class="group"><span class="glabel">Frame</span><div class="frames" id="frames"></div></div>
     <div class="spacer"></div>
-  <button id="diffBtn" title="Amplified per-channel difference (D)">Diff</button>
-  <button id="blinkBtn" title="Flicker Left/Right at 2 Hz (B)">Blink</button>
-  <button id="cropBtn" title="Pick a point and inspect 1:1 crops of all variants (C)">Crops</button>
-  <button id="oneBtn" title="True 1:1 device pixels (O)">1:1</button>
-    <button id="resetBtn" title="Reset zoom (F)">Fit</button>
+  <button id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
+  <button id="blinkBtn" title="Parpadeo izquierda/derecha a 2 Hz (B)">Blink</button>
+  <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Crops</button>
+  <button id="oneBtn" title="1:1 real en p\u00edxeles del dispositivo (O)">1:1</button>
+    <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
   </div>
   <div class="hrow hrow-panes">
-    <div class="group"><span class="glabel">Left</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Scroll the pane list">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Scroll the pane list">&rsaquo;</button><select class="vsel" id="selA"></select></div>
-    <button id="swapBtn" title="Swap Left and Right (S)">&harr;</button>
-    <div class="group r"><span class="glabel">Right</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Scroll the pane list">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Scroll the pane list">&rsaquo;</button><select class="vsel" id="selB"></select></div>
+    <div class="group"><span class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA"></select></div>
+    <button id="swapBtn" title="Intercambiar izquierda y derecha (S)">&harr;</button>
+    <div class="group r"><span class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selB"></select></div>
   </div>
 </header>
 
 <div id="comp">
   <div class="pane" id="paneA">
     <img id="imgA" alt="A" decoding="async">
-    <div class="label" id="labelA"><span id="labelAName">Left</span><span class="lstats" id="statsA"></span></div>
+    <div class="label" id="labelA"><span id="labelAName">Izquierda</span><span class="lstats" id="statsA"></span></div>
   </div>
   <div class="pane" id="paneB">
     <img id="imgB" alt="B" decoding="async">
     <canvas id="diffCanvas"></canvas>
-    <div class="label" id="labelB"><span id="labelBName">Right</span><span class="lstats" id="statsB"></span></div>
+    <div class="label" id="labelB"><span id="labelBName">Derecha</span><span class="lstats" id="statsB"></span></div>
   </div>
   <div id="divider"></div>
-  <div id="zoomBadge">fit</div>
+  <div id="zoomBadge">ajustar</div>
   <div id="diffNote"></div>
-  <div id="modeBadge">BLINK A/B</div>
-  <div id="cropHint">click a point to inspect 1:1 crops</div>
+  <div id="modeBadge">PARPADEO A/B</div>
+  <div id="cropHint">haz clic en un punto para ver recortes 1:1</div>
   <div id="cropPanel">
-    <h2><span id="cropTitle">1:1 crops</span><button id="cropClose">close (Esc)</button></h2>
+    <h2><span id="cropTitle">Recortes 1:1</span><button id="cropClose">cerrar (Esc)</button></h2>
     <div id="cropRows"></div>
   </div>
 </div>
@@ -204,17 +204,17 @@
 <footer>
   <div class="kh">
   <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> frame</span>
-  <span><kbd>1</kbd>&ndash;<kbd>9</kbd> variant (<kbd>Shift</kbd> = left)</span>
-  <span><kbd>S</kbd> swap</span>
+  <span><kbd>1</kbd>&ndash;<kbd>9</kbd> variante (<kbd>Shift</kbd> = izquierda)</span>
+  <span><kbd>S</kbd> intercambiar</span>
   <span><kbd>D</kbd> diff</span>
-  <span><kbd>B</kbd> blink</span>
-  <span><kbd>C</kbd> crops</span>
+  <span><kbd>B</kbd> parpadeo</span>
+  <span><kbd>C</kbd> recortes</span>
   <span><kbd>O</kbd> 1:1</span>
-  <span><kbd>F</kbd> fit</span>
-  <span><kbd>+</kbd>/<kbd>-</kbd> gain</span>
-  <span><kbd>H</kbd> heat</span>
-  <span><kbd>,</kbd>/<kbd>.</kbd> divider</span>
-  <span>scroll/pinch zoom &middot; drag pan &middot; double-click fit</span>
+  <span><kbd>F</kbd> ajustar</span>
+  <span><kbd>+</kbd>/<kbd>-</kbd> ganancia</span>
+  <span><kbd>H</kbd> calor</span>
+  <span><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
+  <span>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
   </div>
   <span class="spacer"></span>
   <span id="metaLine"></span>

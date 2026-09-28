@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gatos.pics — creador</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a1a22'/%3E%3Crect x='2' y='3' width='5' height='10' fill='%237bd389'/%3E%3Crect x='9' y='3' width='5' height='10' fill='%23ffb454'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#101014; --panel:#1a1a22; --panel2:#23232e; --text:#e8e8f0; --dim:#9a9aa8;
+    --accent:#ffb454; --warn:#f0b429; --err:#ff5d5d; --ok:#7bd389;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    padding:8px 16px; background:var(--panel); border-bottom:1px solid #000;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  header h1{font-size:15px; font-weight:600;}
+  header h1 .dim{color:var(--dim); font-weight:400;}
+  .tabs{display:flex; gap:4px;}
+  .tabs button{padding:4px 14px;}
+  .spacer{flex:1;}
+  button{
+    background:var(--panel2); color:var(--text); border:1px solid #333;
+    padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;
+  }
+  button:hover{background:#2d2d3a;}
+  button.primary{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
+  button.primary:hover{background:#ffc670;}
+  button:disabled{opacity:.4; cursor:default;}
+  main{flex:1; overflow:auto; padding:18px; max-width:1180px; width:100%; margin:0 auto;}
+  .hint{color:var(--dim); font-size:12px;}
+  .warn{color:var(--warn); font-size:12px;}
+  .err{color:var(--err); font-size:12px;}
+  .okline{color:var(--ok); font-size:12px;}
+
+  /* onboarding */
+  #onboard{
+    position:fixed; inset:0; z-index:50; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .obcard{max-width:640px; background:var(--panel); border:1px solid #2a2a36; border-radius:14px; padding:28px 30px;}
+  .obcard h1{font-size:26px; letter-spacing:.3px;}
+  .obcard h1 .cat{color:var(--accent);}
+  .obcard .tag{color:var(--dim); margin:6px 0 18px; font-size:15px;}
+  .obsteps{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .obstep{flex:1 1 160px; background:var(--panel2); border:1px solid #333; border-radius:10px; padding:10px 12px;}
+  .obstep b{display:block; margin-bottom:3px; font-size:13px;}
+  .obstep span{font-size:12px; color:var(--dim); line-height:1.35; display:block;}
+  .obpriv{display:flex; gap:8px; align-items:center; color:var(--ok); font-size:12.5px; margin-bottom:18px;}
+  .obrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  .obskip{font-size:12px; color:var(--dim); display:flex; align-items:center; gap:5px;}
+
+  /* drop zones */
+  .drop{
+    border:2px dashed #3a3a48; border-radius:10px; background:var(--panel);
+    padding:26px 18px; text-align:center; cursor:pointer; transition:border-color .12s, background .12s;
+  }
+  .drop:hover, .drop.over{border-color:var(--accent); background:#1f1f29;}
+  .drop .big{font-size:15px; margin-bottom:4px;}
+  .drop.over .big{color:var(--accent);}
+
+  /* pares (básico) */
+  .pair{
+    display:flex; align-items:center; gap:10px; background:var(--panel);
+    border:1px solid #2a2a36; border-radius:10px; padding:8px 10px; margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .pair .no{color:var(--dim); font-size:12px; width:56px;}
+  .slot{
+    width:150px; height:86px; border:1px solid #333; border-radius:8px; background:var(--panel2);
+    display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:11px;
+    cursor:pointer; overflow:hidden; position:relative;
+  }
+  .slot img{width:100%; height:100%; object-fit:contain;}
+  .slot.filled{border-color:var(--ok);}
+  .slot.empty:hover{border-color:var(--accent); color:var(--accent);}
+  .pair .tools{display:flex; gap:4px; margin-left:auto;}
+  .pair .tools button{padding:2px 8px; font-size:11px;}
+
+  /* pasos (avanzado) */
+  .advwrap{display:flex; gap:18px; min-height:100%;}
+  .steps{flex:0 0 172px; display:flex; flex-direction:column; gap:4px;}
+  .steps button{
+    text-align:left; padding:7px 10px; color:var(--dim); background:transparent; border-color:transparent;
+  }
+  .steps button .n{display:inline-block; width:18px; color:inherit; font-weight:600;}
+  .steps button.on{color:var(--text); background:var(--panel2); border-color:#333;}
+  .steps button.done{color:var(--ok);}
+
+  /* forms */
+  label.f{display:block; margin:10px 0 2px; font-size:12px; color:var(--dim);}
+  input[type=text], input[type=number]{
+    background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px;
+    padding:6px 9px; font:13px/1.3 system-ui,sans-serif; width:100%;
+  }
+  input:focus{outline:none; border-color:var(--accent);}
+  .card{background:var(--panel); border:1px solid #2a2a36; border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .vrow{display:grid; grid-template-columns:26px 1fr 92px 60px 90px 30px 30px 30px; gap:6px; align-items:center; margin-bottom:6px;}
+  .vrow2{display:grid; grid-template-columns:26px 5fr 8fr 30px; gap:6px; align-items:center; margin-bottom:4px;}
+  .dot{width:22px; height:22px; border-radius:50%; border:2px solid #000; cursor:pointer;}
+  .frow{display:grid; grid-template-columns:90px 1fr 30px 30px 30px; gap:6px; align-items:center; margin-bottom:6px;}
+  .iconbtn{padding:2px 6px; font-size:12px; line-height:1.3;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px;}
+  .badge{font-size:10px; color:var(--dim); border:1px solid #333; border-radius:4px; padding:0 4px; margin-left:6px; white-space:nowrap;}
+
+  /* tabla de imágenes */
+  .matrix{overflow-x:auto;}
+  table.mtx{border-collapse:collapse; min-width:100%;}
+  table.mtx th{color:var(--dim); font-size:12px; font-weight:500; padding:4px 6px; text-align:left; white-space:nowrap;}
+  table.mtx td{padding:3px 6px;}
+  .cell{
+    width:118px; height:68px; border:1px dashed #3a3a48; border-radius:8px; background:var(--panel2);
+    display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:10px;
+    cursor:pointer; overflow:hidden; position:relative;
+  }
+  .cell img{width:100%; height:100%; object-fit:contain;}
+  .cell.filled{border:1px solid var(--ok); border-style:solid;}
+  .cell.empty:hover, .cell.over{border-color:var(--accent); color:var(--accent);}
+  .cell .rm{
+    position:absolute; top:2px; right:2px; background:#000c; border:none; border-radius:4px;
+    color:#fff; font-size:10px; padding:1px 5px; display:none;
+  }
+  .cell.filled:hover .rm{display:block;}
+
+  /* final */
+  .vlist{list-style:none; margin:8px 0;}
+  .vlist li{padding:3px 0 3px 20px; position:relative; font-size:13px;}
+  .vlist li::before{position:absolute; left:2px;}
+  .vlist li.bad::before{content:'\2716'; color:var(--err);}
+  .vlist li.warnl::before{content:'\26A0'; color:var(--warn);}
+  .vlist li.good::before{content:'\2714'; color:var(--ok);}
+  .exports{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .exp{background:var(--panel); border:1px solid #2a2a36; border-radius:10px; padding:10px 12px; flex:1 1 200px;}
+  .exp b{font-size:13px; display:block; margin-bottom:3px;}
+  .exp .hint{display:block; margin-bottom:8px;}
+
+  /* vista previa */
+  #pvFrame{position:fixed; inset:0; background:var(--bg); z-index:40; display:none; flex-direction:column;}
+  #pvFrame.show{display:flex;}
+  #pvBar{padding:6px 12px; background:var(--panel); border-bottom:1px solid #000; display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  #pvBox{flex:1; border:none; background:#000;}
+
+  footer{padding:6px 16px; background:var(--panel); border-top:1px solid #000; color:var(--dim); font-size:11px; display:flex; gap:14px; flex-wrap:wrap;}
+  @media (max-width:820px){
+    .advwrap{flex-direction:column;}
+    .steps{flex-direction:row; flex-wrap:wrap; flex-basis:auto;}
+    .vrow{grid-template-columns:26px 1fr 30px 30px 30px;}
+    .vrow .opt{display:none;}
+    .vrow2{grid-template-columns:26px 1fr 30px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== ONBOARDING ===================== -->
+<div id="onboard" hidden>
+  <div class="obcard">
+    <h1><span class="cat">gatos.pics</span></h1>
+    <p class="tag">Páginas de comparación de imágenes — sin servidor, sin cuentas, sin subir nada.</p>
+    <div class="obsteps">
+      <div class="obstep"><b>1 · Suelta tus capturas</b><span>Cada dos imágenes forman un par: izquierda contra derecha.</span></div>
+      <div class="obstep"><b>2 · Describe (opcional)</b><span>En modo avanzado: variantes, codec, CRF, bitrate, comandos.</span></div>
+      <div class="obstep"><b>3 · Exporta</b><span>Un HTML que se abre en cualquier lado, una carpeta lista para hospedar, o un .cmp para subir a gatos.pics.</span></div>
+    </div>
+    <div class="obpriv">&#128274; Todo corre en tu computadora. Ninguna imagen sale de esta pestaña.</div>
+    <div class="obrow">
+      <button id="obStart" class="primary" style="font-size:14px; padding:8px 22px;">Empezar</button>
+      <button id="obDemo" style="font-size:13px;">Ver un ejemplo</button>
+      <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>gatos.pics <span class="dim">creador</span></h1>
+  <nav class="tabs">
+    <button id="tabBasic">Básico</button>
+    <button id="tabAdv">Avanzado</button>
+  </nav>
+  <span class="spacer"></span>
+  <button id="btnHelp">?</button>
+  <button id="btnPreviewTop" class="primary">Vista previa</button>
+</header>
+
+<main>
+  <!-- ======================= BÁSICO ======================= -->
+  <section id="basicView">
+    <h2 style="font-size:16px;">Pares, nada más</h2>
+    <p class="hint" style="margin:4px 0 14px;">
+      Suelta tus capturas. Cada dos imágenes forman un par — la primera va a la izquierda,
+      la segunda a la derecha. Sin títulos, sin configuración, solo la comparación.
+    </p>
+    <div class="drop" id="basicDrop">
+      <div class="big">Suelta imágenes aquí</div>
+      <div class="hint">o haz clic para explorar — PNG / WebP / JPEG, en cualquier orden (se ordenan por nombre)</div>
+    </div>
+    <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
+    <div id="pairList"></div>
+    <div id="basicFoot"></div>
+  </section>
+
+  <!-- ======================= AVANZADO ======================= -->
+  <section id="advView" style="display:none;">
+    <div class="advwrap">
+      <nav class="steps" id="stepNav"></nav>
+      <div class="stepbody">
+
+        <div class="step" data-step="0">
+          <h2>Proyecto</h2>
+          <p class="sub">Un nombre para la página. Todo aquí es opcional — pero la página se ve mejor con él.</p>
+          <div class="card">
+            <label class="f">Título</label>
+            <input type="text" id="pjTitle" placeholder="p. ej. Comparación de encodes">
+            <div class="warn" id="pjTitleWarn" style="margin-top:4px;">Vacío — la página mostrará un título genérico. Se ve mejor con uno.</div>
+            <label class="f">Versión (renueva la caché cuando se hospeda como carpeta)</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="number" id="pjVersion" value="1" min="1" style="width:90px;">
+              <button id="pjBump" class="iconbtn">+1</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" data-step="1">
+          <h2>Variantes</h2>
+          <p class="sub">Las versiones que se comparan (fuente, encodes…). Los campos son opcionales —
+             codec / CRF / bitrate son los que mejor lucen en los botones.</p>
+          <div id="varList"></div>
+          <button id="varAdd">+ Agregar variante</button>
+          <div id="varWarns" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="step" data-step="2">
+          <h2>Frames</h2>
+          <p class="sub">Un renglón por momento capturado. El número es el id del frame usado en los nombres de
+             archivo (<span class="mono">variante_numero.png</span>); la etiqueta es el nombre bonito del botón.</p>
+          <div id="frameList"></div>
+          <button id="frameAdd">+ Agregar frame</button>
+          <div id="frameWarns" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="step" data-step="3">
+          <h2>Imágenes</h2>
+          <p class="sub">Llena la tabla. Suelta archivos llamados
+             <span class="mono">&lt;variante&gt;_&lt;frame&gt;.png</span> y caen solos en su casilla.</p>
+          <div class="drop" id="bulkDrop" style="padding:14px;">
+            <div class="big" style="font-size:13px;">Suelta en lote — archivos con nombre automático</div>
+            <div class="hint">se emparejan por id de variante, nombre de variante o número/etiqueta del frame</div>
+          </div>
+          <input type="file" id="bulkFile" accept="image/*" multiple style="display:none">
+          <div id="unassigned" style="margin:10px 0;"></div>
+          <div class="matrix" id="matrix"></div>
+        </div>
+
+        <div class="step" data-step="4">
+          <h2>Final</h2>
+          <p class="sub">Revisa la lista y dale una vuelta a la página.</p>
+          <ul class="vlist" id="checkList"></ul>
+          <div class="exports">
+            <div class="exp">
+              <b>Vista previa</b>
+              <span class="hint">la página exacta que van a ver quienes abran tu export.</span>
+              <button id="btnPreview" class="primary">Abrir vista previa</button>
+            </div>
+            <div class="exp">
+              <b>HTML de un solo archivo</b>
+              <span class="hint">motor + imágenes embebidos. Se abre con doble clic, sin internet.</span>
+              <button id="btnExpHtml">Descargar .html</button>
+            </div>
+            <div class="exp">
+              <b>Carpeta autocontenida (.zip)</b>
+              <span class="hint">index.html + compare.js + manifest.json + img/ — lista para cualquier hosting estático.</span>
+              <button id="btnExpZip">Descargar .zip</button>
+            </div>
+            <div class="exp">
+              <b>Paquete .cmp</b>
+              <span class="hint">el formato de gatos.pics — súbelo directo al servicio cuando lo abras al público.</span>
+              <button id="btnExpCmp">Descargar .cmp</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>gatos.pics — local, sin subidas. Todo pasa en esta pestaña.</span>
+  <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo</span>
+</footer>
+
+<!-- vista previa -->
+<div id="pvFrame">
+  <div id="pvBar">
+    <b>Vista previa</b>
+    <button id="pvClose">Volver al creador</button>
+    <span class="hint">esta es exactamente la página exportada — mismo motor, imágenes embebidas</span>
+  </div>
+  <iframe id="pvBox" title="vista previa"></iframe>
+</div>
+
+<!-- generado por tools/build_app.py: SHELL_HTML + ENGINE_SRC como cadenas -->
+<script>
+/* Generado por tools/build_app.py — no editar a mano.
+   SHELL_HTML: viewer/index.html · ENGINE_SRC: viewer/compare.js */
+const SHELL_HTML = "<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>gatos.pics<\/title>\n<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a1a22'/%3E%3Crect x='2' y='3' width='5' height='10' fill='%237bd389'/%3E%3Crect x='9' y='3' width='5' height='10' fill='%23ffb454'/%3E%3C/svg%3E\">\n<style>\n  :root{\n    --bg:#101014; --panel:#1a1a22; --panel2:#23232e; --text:#e8e8f0; --dim:#9a9aa8;\n    --accent:#ffb454;\n  }\n  *{box-sizing:border-box; margin:0; padding:0;}\n  html,body{height:100%;}\n  body{\n    background:var(--bg); color:var(--text);\n    font:14px/1.4 system-ui,-apple-system,\"Segoe UI\",sans-serif;\n    display:flex; flex-direction:column; overflow:hidden;\n  }\n  header{\n    padding:8px 16px;\n    background:var(--panel); border-bottom:1px solid #000;\n  }\n  /* Two deliberate rows instead of one wrapping row: with a single flex row the\n     Right-hand selector wrapped onto a second line at the LEFT edge, so \"Left\" and\n     \"Right\" ended up in each other's corner. Row 1 is global (title, frames, view\n     modes); row 2 is the panes, Left on the left, Right on the right. */\n  .hrow{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}\n  .hrow + .hrow{margin-top:7px;}\n  /* Pane rows: each side gets an equal half and its own scrollable strip, so the\n     swap toggle stays centred no matter how many variants are on the page.\n     With few panes nothing changes -- the arrows and the scrollbar only appear\n     when a strip actually overflows. */\n  .hrow-panes > .group{flex:1 1 0; min-width:0; flex-wrap:nowrap;}\n  .hrow-panes > .group.r{justify-content:flex-end;}\n  .hrow-panes .variants{flex:0 1 auto; min-width:0; flex-wrap:nowrap;\n    overflow-x:auto; overflow-y:hidden; scroll-behavior:smooth;\n    scrollbar-width:thin; scrollbar-color:#3f4d47 transparent;}\n  .hrow-panes .variants::-webkit-scrollbar{height:7px;}\n  .hrow-panes .variants::-webkit-scrollbar-track{background:transparent;}\n  .hrow-panes .variants::-webkit-scrollbar-thumb{background:#3f4d47; border-radius:4px;}\n  .vscroll{display:none; padding:2px 7px; font-size:14px; line-height:1;}\n  .hrow-panes .group.overflowing .vscroll{display:inline-block;}\n  #swapBtn{flex:0 0 auto;}\n  header h1{font-size:15px; font-weight:600;}\n  .group{display:flex; align-items:center; gap:5px;}\n  .glabel{color:var(--dim); font-size:12px; margin-right:2px;}\n  button{\n    background:var(--panel2); color:var(--text); border:1px solid #333;\n    padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;\n  }\n  button:hover{background:#2d2d3a;}\n  button.vbtn{display:inline-flex;flex-direction:column;align-items:center;padding:2px 7px;line-height:1.2;}\n  button.vbtn .main{font-size:12px;}\n  button.vbtn .sub{font-size:9px;color:var(--dim);white-space:nowrap;}\n  button.vbtn.active .sub{color:#1a1206;opacity:.8;}\n  button.active{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}\n  button.diff-on{background:#ff5d5d; color:#fff; border-color:#ff5d5d;}\n  button.blink-on{background:#7bb3ff; color:#10131a; border-color:#7bb3ff; font-weight:600;}\n  button.crop-on{background:#7bd389; color:#10131a; border-color:#7bd389; font-weight:600;}\n  .spacer{flex:1;}\n  #comp{flex:1; position:relative; overflow:hidden; cursor:crosshair; touch-action:none;}\n  .pane{position:absolute; inset:0; overflow:hidden;}\n  .pane img, #diffCanvas{\n    position:absolute; transform-origin:0 0; user-select:none; -webkit-user-drag:none;\n    will-change:transform; image-rendering:auto; decoding:async;\n  }\n  #diffCanvas{display:none; pointer-events:none;}\n  .label{\n    position:absolute; top:10px; z-index:5; padding:4px 10px; border-radius:6px;\n    background:rgba(0,0,0,.75); font-size:12px; font-weight:600; pointer-events:none;\n    border:1px solid rgba(255,255,255,.15);\n  }\n  #labelA{left:12px;}\n  #labelB{right:12px; text-align:right;}\n  .lstats{display:block; font-size:10px; font-weight:400; color:#c8c8d4; margin-top:1px; white-space:pre-line;}\n  .lstats:empty{display:none;}\n  #divider{\n    position:absolute; top:0; bottom:0; width:2px; background:#fff;\n    z-index:4; transform:translateX(-1px); pointer-events:none; box-shadow:0 0 8px rgba(0,0,0,.8);\n  }\n  #divider::after{\n    content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);\n    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.92);\n    box-shadow:0 2px 10px rgba(0,0,0,.6);\n  }\n  #divider::before{\n    content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);\n    width:20px; height:12px; z-index:1;\n    background:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E\") center/contain no-repeat;\n  }\n  #zoomBadge{\n    position:absolute; left:12px; bottom:10px; z-index:6; font-size:12px; color:#ddd;\n    background:rgba(0,0,0,.65); padding:3px 9px; border-radius:6px; pointer-events:none;\n  }\n  #diffNote{\n    position:absolute; top:44px; left:12px; z-index:6; font-size:11px; color:#ffb0b0;\n    background:rgba(0,0,0,.7); padding:3px 9px; border-radius:6px; display:none;\n  }\n  #modeBadge{\n    position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:7; font-size:11px; font-weight:600;\n    color:#10131a; background:#7bb3ff; padding:3px 10px; border-radius:6px; display:none;\n  }\n  #cropHint{\n    position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:7; font-size:11px;\n    color:#10131a; background:#7bd389; padding:3px 10px; border-radius:6px; display:none;\n  }\n  #cropPanel{\n    position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:8;\n    background:rgba(12,12,16,.92); border:1px solid #444; border-radius:10px;\n    padding:10px 12px; display:none; max-height:72%; overflow:auto;\n    scrollbar-color:#444 #1a1a22; scrollbar-width:thin;\n  }\n  #cropPanel h2{font-size:12px; color:var(--dim); font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:10px;}\n  #cropPanel h2 button{margin-left:auto;}\n  .cropRow{display:flex; align-items:center; gap:10px; margin-top:6px;}\n  .cropRow .cname{font-size:11px; font-weight:600; width:150px; text-align:right;}\n  .cropRow canvas{border:1px solid #444; border-radius:4px; display:block;}\n  footer{\n    display:flex; align-items:center; gap:14px; padding:6px 16px;\n    background:var(--panel); border-top:1px solid #000; color:var(--dim); font-size:12px; flex-wrap:wrap;\n  }\n  kbd{background:#2d2d3a; border:1px solid #444; border-bottom-width:2px; border-radius:4px; padding:1px 5px; font-size:11px;}\n  #metaLine{color:var(--dim);}\n  #cmdTip{display:none; position:fixed; z-index:60; background:rgba(10,10,16,.97);\n    border:1px solid #4a4a5a; color:#cfe8cf; font:11px/1.55 ui-monospace,SFMono-Regular,monospace;\n    border-radius:8px; max-width:min(92vw,760px); overflow:auto;\n    max-height:70vh; pointer-events:auto; white-space:pre; box-shadow:0 6px 24px rgba(0,0,0,.6);}\n  #cmdTip .tiphead{display:flex; align-items:center; gap:8px; padding:7px 10px;\n    background:#1a1a24; border-bottom:1px solid #333; position:sticky; top:0;\n    font:12px system-ui,sans-serif; color:var(--dim);}\n  #cmdTip .tiphead .tt{flex:1;}\n  #cmdTip .tiphead button{padding:3px 10px; font-size:11px;}\n  #cmdTip .cmdtext{padding:10px 12px; user-select:text; cursor:text; color:#8aa39b;}\n  #cmdTip .cmdtext .dline{color:#ffd27f; background:rgba(255,180,84,.09); border-radius:3px;}\n  #cmdTip .copied{color:#7bd389;}\n  .variants, .frames{display:flex; flex-wrap:wrap; gap:5px; max-width:100%;}\n  .vsel{display:none;}\n  .kh{display:contents;}\n  .group{flex-wrap:wrap; min-width:0;}\n  @media (pointer:coarse){\n    button{padding:8px 12px; font-size:13px;}\n    button.vbtn{padding:6px 10px;}\n    button.vbtn .main{font-size:13px;}\n    button.vbtn .sub{font-size:10px;}\n  }\n  @media (max-width:820px){\n    header{gap:8px; padding:6px 8px;}\n    header h1{font-size:13px;}\n    .glabel{width:auto; margin-right:4px;}\n    .variants{display:none;}\n    .vsel{display:block; flex:1; min-width:46%; background:var(--panel2); color:var(--text);\n          border:1px solid #333; border-radius:6px; padding:9px 8px; font-size:13px;}\n    footer .kh{display:none;}\n    #metaLine{font-size:11px;}\n    footer{gap:8px; padding:4px 8px; font-size:11px;}\n    #cropPanel{max-width:94vw;}\n    .cropRow .cname{width:auto; text-align:left;}\n    #labelA{left:6px; top:6px;} #labelB{right:6px; top:6px;}\n    #diffNote{max-width:92vw;}\n  }\n<\/style>\n<\/head>\n<body>\n<header>\n  <div class=\"hrow\">\n    <h1 id=\"pageTitle\">gatos.pics<\/h1>\n    <div class=\"group\"><span class=\"glabel\">Frame<\/span><div class=\"frames\" id=\"frames\"><\/div><\/div>\n    <div class=\"spacer\"><\/div>\n  <button id=\"diffBtn\" title=\"Diferencia amplificada por canal (D)\">Diff<\/button>\n  <button id=\"blinkBtn\" title=\"Parpadeo izquierda/derecha a 2 Hz (B)\">Blink<\/button>\n  <button id=\"cropBtn\" title=\"Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)\">Crops<\/button>\n  <button id=\"oneBtn\" title=\"1:1 real en p\\u00edxeles del dispositivo (O)\">1:1<\/button>\n    <button id=\"resetBtn\" title=\"Reiniciar zoom (F)\">Ajustar<\/button>\n  <\/div>\n  <div class=\"hrow hrow-panes\">\n    <div class=\"group\"><span class=\"glabel\">Izquierda<\/span><button class=\"vscroll\" data-scroll=\"varA\" data-dir=\"-1\" title=\"Desplazar la lista\">&lsaquo;<\/button><div class=\"variants\" id=\"varA\"><\/div><button class=\"vscroll\" data-scroll=\"varA\" data-dir=\"1\" title=\"Desplazar la lista\">&rsaquo;<\/button><select class=\"vsel\" id=\"selA\"><\/select><\/div>\n    <button id=\"swapBtn\" title=\"Intercambiar izquierda y derecha (S)\">&harr;<\/button>\n    <div class=\"group r\"><span class=\"glabel\">Derecha<\/span><button class=\"vscroll\" data-scroll=\"varB\" data-dir=\"-1\" title=\"Desplazar la lista\">&lsaquo;<\/button><div class=\"variants\" id=\"varB\"><\/div><button class=\"vscroll\" data-scroll=\"varB\" data-dir=\"1\" title=\"Desplazar la lista\">&rsaquo;<\/button><select class=\"vsel\" id=\"selB\"><\/select><\/div>\n  <\/div>\n<\/header>\n\n<div id=\"comp\">\n  <div class=\"pane\" id=\"paneA\">\n    <img id=\"imgA\" alt=\"A\" decoding=\"async\">\n    <div class=\"label\" id=\"labelA\"><span id=\"labelAName\">Izquierda<\/span><span class=\"lstats\" id=\"statsA\"><\/span><\/div>\n  <\/div>\n  <div class=\"pane\" id=\"paneB\">\n    <img id=\"imgB\" alt=\"B\" decoding=\"async\">\n    <canvas id=\"diffCanvas\"><\/canvas>\n    <div class=\"label\" id=\"labelB\"><span id=\"labelBName\">Derecha<\/span><span class=\"lstats\" id=\"statsB\"><\/span><\/div>\n  <\/div>\n  <div id=\"divider\"><\/div>\n  <div id=\"zoomBadge\">ajustar<\/div>\n  <div id=\"diffNote\"><\/div>\n  <div id=\"modeBadge\">PARPADEO A/B<\/div>\n  <div id=\"cropHint\">haz clic en un punto para ver recortes 1:1<\/div>\n  <div id=\"cropPanel\">\n    <h2><span id=\"cropTitle\">Recortes 1:1<\/span><button id=\"cropClose\">cerrar (Esc)<\/button><\/h2>\n    <div id=\"cropRows\"><\/div>\n  <\/div>\n<\/div>\n\n<footer>\n  <div class=\"kh\">\n  <span><kbd>&larr;<\/kbd><kbd>&rarr;<\/kbd> frame<\/span>\n  <span><kbd>1<\/kbd>&ndash;<kbd>9<\/kbd> variante (<kbd>Shift<\/kbd> = izquierda)<\/span>\n  <span><kbd>S<\/kbd> intercambiar<\/span>\n  <span><kbd>D<\/kbd> diff<\/span>\n  <span><kbd>B<\/kbd> parpadeo<\/span>\n  <span><kbd>C<\/kbd> recortes<\/span>\n  <span><kbd>O<\/kbd> 1:1<\/span>\n  <span><kbd>F<\/kbd> ajustar<\/span>\n  <span><kbd>+<\/kbd>/<kbd>-<\/kbd> ganancia<\/span>\n  <span><kbd>H<\/kbd> calor<\/span>\n  <span><kbd>,<\/kbd>/<kbd>.<\/kbd> divisor<\/span>\n  <span>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta<\/span>\n  <\/div>\n  <span class=\"spacer\"><\/span>\n  <span id=\"metaLine\"><\/span>\n<\/footer>\n\n<script src=\"compare.js\"><\/script>\n<\/body>\n<\/html>\n";
+
+const ENGINE_SRC = "/* gatos.pics compare engine.\n   Two data sources, picked at boot:\n   - Embedded: window.GATOS_PACKAGE = {format, manifest, images:{\"<id>_<frame>\": dataURL}}\n     Set by a self-contained export or by the builder preview. Works from file://\n     with zero network: images become object URLs (canvas-safe, so diff and\n     1:1 crops keep working).\n   - Http: manifest.json + img/<id>_<frame>.<ext> next to this page (classic\n     static hosting). version -> ?v= cache busting for immutable image caches. */\n'use strict';\n\nconst $ = id => document.getElementById(id);\nconst comp = $('comp'), imgA = $('imgA'), imgB = $('imgB'), diffCanvas = $('diffCanvas');\nconst paneA = $('paneA'), paneB = $('paneB');\nconst labelA = $('labelA'), labelB = $('labelB');\nconst labelAName = $('labelAName'), labelBName = $('labelBName');\nconst statsA = $('statsA'), statsB = $('statsB');\nconst divider = $('divider'), zoomBadge = $('zoomBadge'), diffNote = $('diffNote');\nconst modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropPanel');\nconst cropRows = $('cropRows'), cropTitle = $('cropTitle');\nconst diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');\nconst metaLine = $('metaLine'), pageTitle = $('pageTitle');\nconst diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});\n\nlet FRAMES = [], VARIANTS = [];\nlet FRAME_LABELS = {}, FRAME_META = {};\nlet VERSION = '', CLIP = {};\nconst AMPLIFY_DEFAULT_IDX = 1;\nconst GAINS = [5, 10, 20, 40];\nconst HEAT_T = 4;\n\n/* ---------- data sources ---------- */\nfunction makeHttpSource(){\n  return {\n    async init(){\n      const r = await fetch('manifest.json?t='+Date.now(), {cache:'no-store'});\n      const m = await r.json();\n      VERSION = String(m.version || '');\n      return m;\n    },\n    srcFor(id, f){\n      const ext = variant(id).ext || 'webp';\n      return `img/${id}_${f}.${ext}${VERSION ? '?v='+VERSION : ''}`;\n    }\n  };\n}\nfunction makeEmbeddedSource(pkg){\n  const urls = new Map();   // \"<id>_<frame>\" -> object URL (canvas-safe)\n  function toObjectURL(dataurl){\n    const parts = dataurl.split(',');\n    const mime = (parts[0].match(/^data:([^;]+)/) || [,'image/png'])[1];\n    const bin = atob(parts[1] || '');\n    const buf = new Uint8Array(bin.length);\n    for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);\n    return URL.createObjectURL(new Blob([buf], {type:mime}));\n  }\n  return {\n    async init(){ return pkg.manifest; },\n    srcFor(id, f){\n      const key = id+'_'+f;\n      if (!urls.has(key)){\n        const d = pkg.images && pkg.images[key];\n        urls.set(key, d ? toObjectURL(d) : '');\n      }\n      return urls.get(key);\n    }\n  };\n}\nconst SOURCE = (typeof window !== 'undefined' && window.GATOS_PACKAGE)\n  ? makeEmbeddedSource(window.GATOS_PACKAGE)\n  : makeHttpSource();\n\nlet frame = null, varA = null, varB = null;\nlet mobileZoomPending = matchMedia('(pointer:coarse)').matches || innerWidth <= 820;\nlet diffMode = false, blinkMode = false, heat = false, gainIdx = AMPLIFY_DEFAULT_IDX;\nlet cropMode = false, cropUV = null;\nlet dividerPos = 0.5;\nlet zoom = 1;                       // 1 = fit\nlet pan = {x:0, y:0};               // viewport-space px offset of the content rect\nlet fitScale = 1, rw = 0, rh = 0, ox = 0, oy = 0;\nlet drag = null, pinch = null;\nconst pointers = new Map();\nconst realB = new Image();          // offscreen holder for B's true pixels (diff)\nlet diffData = null;                // cached abs-diff planes for current pair\nconst cropImgs = new Map();         // variant id -> Image for current frame\n\nconst clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));\nfunction variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }\nfunction variantName(id){ return variant(id).name; }\nfunction srcFor(id, f){ return SOURCE.srcFor(id, f); }\nfunction naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }\nfunction dpr(){ return window.devicePixelRatio || 1; }\n\n/* ---------- fit geometry: the content rect is sized/positioned explicitly,\n   so zoom/pan/1:1 math is exact regardless of window aspect ---------- */\nfunction computeFit(){\n  const w = comp.clientWidth, h = comp.clientHeight;\n  const {nw, nh} = naturalDims();\n  fitScale = Math.min(w/nw, h/nh);\n  rw = nw*fitScale; rh = nh*fitScale;\n  ox = (w-rw)/2; oy = (h-rh)/2;\n  for (const el of [imgA, imgB, diffCanvas]){\n    el.style.width = rw+'px'; el.style.height = rh+'px';\n    el.style.left = ox+'px'; el.style.top = oy+'px';\n  }\n}\nfunction zmax(){ return 8/(fitScale*dpr()); }   // 800% of native device pixels\nfunction clampPan(){\n  const w = comp.clientWidth, h = comp.clientHeight;\n  pan.x = clamp(pan.x, Math.min(0, w-ox-rw*zoom), Math.max(0, -ox));\n  pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));\n}\nfunction updateBadge(){\n  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\\u2026'; return; }\n  zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';\n}\nfunction applyTransform(){\n  const t = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;\n  imgA.style.transform = t;\n  imgB.style.transform = t;\n  diffCanvas.style.transform = t;\n  paneB.style.clipPath = blinkMode ? 'inset(0 0 0 0)' : `inset(0 0 0 ${dividerPos*100}%)`;\n  divider.style.display = blinkMode ? 'none' : '';\n  divider.style.left = `${dividerPos*100}%`;\n  updateBadge();\n}\nfunction setZoomAt(cx, cy, Z2){\n  const r = comp.getBoundingClientRect();\n  const x = cx-r.left, y = cy-r.top;\n  const u = (x-ox-pan.x)/zoom, v = (y-oy-pan.y)/zoom;\n  zoom = clamp(Z2, 1, zmax());\n  if (zoom === 1){ pan = {x:0, y:0}; }\n  else { pan.x = x-ox-u*zoom; pan.y = y-oy-v*zoom; clampPan(); }\n  applyTransform(); writeHash();\n}\nfunction oneToOne(){\n  const r = comp.getBoundingClientRect();\n  setZoomAt(r.left+comp.clientWidth/2, r.top+comp.clientHeight/2, 1/(fitScale*dpr()));\n}\nfunction fitView(){ zoom = 1; pan = {x:0, y:0}; applyTransform(); writeHash(); }\n\ncomp.addEventListener('wheel', e => {\n  e.preventDefault();\n  setZoomAt(e.clientX, e.clientY, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15));\n}, {passive:false});\n\n/* ---------- pointer input: mouse + touch unified, pinch zoom ---------- */\nconst pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);\ncomp.addEventListener('pointerdown', e => {\n  comp.setPointerCapture(e.pointerId);\n  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});\n  if (pointers.size === 2){\n    const [p1, p2] = [...pointers.values()];\n    pinch = {d0: pdist(p1,p2) || 1, z0: zoom, mx0:(p1.x+p2.x)/2, my0:(p1.y+p2.y)/2, tx0:pan.x, ty0:pan.y};\n    drag = null;\n  } else if (pointers.size === 1){\n    const r = comp.getBoundingClientRect();\n    const x = e.clientX-r.left, w = comp.clientWidth;\n    if (Math.abs(x - dividerPos*w) < (matchMedia('(pointer:coarse)').matches ? 34 : 18) && !blinkMode){ drag = {mode:'divider', sx:e.clientX, start:dividerPos}; }\n    else if (cropMode){ pickCrop(e.clientX, e.clientY); }\n    else if (zoom > 1){ drag = {mode:'pan', sx:e.clientX, sy:e.clientY, px:pan.x, py:pan.y}; }\n  }\n  e.preventDefault();\n});\ncomp.addEventListener('pointermove', e => {\n  if (!pointers.has(e.pointerId)) return;\n  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});\n  if (pointers.size === 2 && pinch){\n    const [p1, p2] = [...pointers.values()];\n    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;\n    setZoomAt(mx, my, pinch.z0 * pdist(p1,p2)/pinch.d0);\n    pan.x = pinch.tx0 + (mx-pinch.mx0);\n    pan.y = pinch.ty0 + (my-pinch.my0);\n    clampPan(); applyTransform();\n  } else if (drag){\n    const w = comp.clientWidth, h = comp.clientHeight;\n    if (drag.mode === 'divider'){\n      dividerPos = clamp(drag.start + (e.clientX-drag.sx)/w, 0, 1);\n      applyTransform(); writeHash();\n    } else {\n      pan.x = drag.px - (e.clientX-drag.sx);\n      pan.y = drag.py - (e.clientY-drag.sy);\n      clampPan(); applyTransform();\n    }\n  }\n});\nfunction pointerEnd(e){\n  pointers.delete(e.pointerId);\n  if (pointers.size < 2) pinch = null;\n  if (pointers.size === 0) drag = null;\n}\ncomp.addEventListener('pointerup', pointerEnd);\ncomp.addEventListener('pointercancel', pointerEnd);\ncomp.addEventListener('dblclick', fitView);\nwindow.addEventListener('resize', () => { computeFit(); clampPan(); applyTransform(); syncVariantOverflow(); });\n\n/* ---------- pane strips: bounded, horizontally scrollable ---------- */\nfunction syncVariantOverflow(){\n  ['varA','varB'].forEach(id => {\n    const s = $(id); if (!s) return;\n    const g = s.closest('.group');\n    const over = s.scrollWidth - s.clientWidth > 2;\n    if (g) g.classList.toggle('overflowing', over);\n    // keep the selected pane visible when the list is longer than its strip\n    const act = s.querySelector('button.active') || s.querySelector('.on') || s.querySelector('button[aria-pressed=\"true\"]');\n    if (over && act) act.scrollIntoView({inline:'nearest', block:'nearest'});\n  });\n}\ndocument.querySelectorAll('.vscroll').forEach(b => {\n  b.addEventListener('click', () => {\n    const s = $(b.dataset.scroll); if (!s) return;\n    s.scrollBy({left: Number(b.dataset.dir) * 220, behavior:'smooth'});\n  });\n});\n['varA','varB'].forEach(id => {\n  const s = $(id); if (!s) return;\n  s.addEventListener('wheel', e => {\n    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { s.scrollLeft += e.deltaY; e.preventDefault(); }\n  }, {passive:false});\n});\n\n/* ---------- diff mode: cached abs-diff planes, canvas overlay ---------- */\nfunction ensureDiffBase(){\n  if (!imgA.complete || !imgA.naturalWidth || !realB.complete || !realB.naturalWidth) return null;\n  const w = imgA.naturalWidth, h = imgA.naturalHeight;\n  if (realB.naturalWidth !== w || realB.naturalHeight !== h) return null;\n  const keyA = imgA.currentSrc || imgA.src, keyB = realB.currentSrc || realB.src;\n  if (diffData && diffData.keyA === keyA && diffData.keyB === keyB) return diffData;\n  const ca = document.createElement('canvas');\n  ca.width = w; ca.height = h;\n  const ctx = ca.getContext('2d', {willReadFrequently:true});\n  ctx.drawImage(imgA, 0, 0);\n  const a = ctx.getImageData(0,0,w,h).data;\n  ctx.drawImage(realB, 0, 0);\n  const b = ctx.getImageData(0,0,w,h).data;\n  const n = w*h;\n  const dr = new Uint8Array(n), dg = new Uint8Array(n), db = new Uint8Array(n);\n  let sum = 0;\n  for (let i=0, j=0; j<n; i+=4, j++){\n    dr[j] = Math.abs(a[i]-b[i]); dg[j] = Math.abs(a[i+1]-b[i+1]); db[j] = Math.abs(a[i+2]-b[i+2]);\n    sum += dr[j]+dg[j]+db[j];\n  }\n  diffData = {keyA, keyB, w, h, dr, dg, db, mean: sum/(n*3)};\n  return diffData;\n}\nfunction renderDiff(){\n  if (!diffMode) return;\n  const d = ensureDiffBase();\n  if (!d){ diffNote.textContent = 'Diff \\u00D7'+GAINS[gainIdx]+' \\u00B7 cargando\\u2026'; return; }\n  const A = GAINS[gainIdx];\n  const out = diffCtx.createImageData(d.w, d.h);\n  const o = out.data;\n  for (let j=0, i=0; j<d.dr.length; j++, i+=4){\n    if (heat && (d.dr[j] >= HEAT_T || d.dg[j] >= HEAT_T || d.db[j] >= HEAT_T)){\n      o[i] = 255;\n    } else {\n      o[i] = Math.min(255, d.dr[j]*A);\n      o[i+1] = Math.min(255, d.dg[j]*A);\n      o[i+2] = Math.min(255, d.db[j]*A);\n    }\n    o[i+3] = 255;\n  }\n  diffCtx.putImageData(out, 0, 0);\n  diffNote.textContent = `Diff \\u00D7${A}${heat ? ` \\u00B7 calor (\\u0394\\u2265${HEAT_T} en rojo)` : ''} \\u00B7 color = canal que difiere \\u00B7 \\u0394 media ${d.mean.toFixed(2)}/255`;\n}\nfunction setDiff(on){\n  diffMode = on;\n  if (on) setBlink(false, true);\n  diffBtn.classList.toggle('diff-on', on);\n  diffCanvas.style.display = on ? 'block' : 'none';\n  imgB.style.display = on ? 'none' : '';\n  diffNote.style.display = on ? 'block' : 'none';\n  if (on){\n    diffNote.textContent = 'Diff \\u00D7'+GAINS[gainIdx]+' \\u00B7 calculando\\u2026';\n    realB.src = srcFor(varB, frame);\n    imgB.src = realB.src;\n    renderDiff();\n  } else {\n    diffData = null;\n    imgB.src = srcFor(varB, frame);\n  }\n  updateMeta(); writeHash();\n}\nfunction setGain(i){\n  gainIdx = clamp(i, 0, GAINS.length-1);\n  if (diffMode) renderDiff();\n  writeHash();\n}\nfunction setHeat(on){\n  heat = on;\n  if (diffMode) renderDiff();\n  writeHash();\n}\nimgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });\nimgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\\u00f3'; });\nimgB.addEventListener('load', updateBadge);\nrealB.addEventListener('load', renderDiff);\ndiffBtn.addEventListener('click', () => setDiff(!diffMode));\n\n/* ---------- blink mode ---------- */\nlet blinkTimer = null;\nfunction setBlink(on, quiet){\n  blinkMode = on;\n  if (on) setDiff(false);\n  blinkBtn.classList.toggle('blink-on', on);\n  modeBadge.style.display = on ? 'block' : 'none';\n  if (on){\n    imgB.style.opacity = '1';\n    blinkTimer = setInterval(() => { imgB.style.opacity = imgB.style.opacity === '1' ? '0' : '1'; }, 500);\n  } else {\n    clearInterval(blinkTimer);\n    imgB.style.opacity = '';\n  }\n  if (!quiet){ applyTransform(); updateMeta(); writeHash(); }\n}\nblinkBtn.addEventListener('click', () => setBlink(!blinkMode));\n\n/* ---------- crops N-up: 1:1 crops of every variant at a picked point ---------- */\nfunction pickCrop(cx, cy){\n  const r = comp.getBoundingClientRect();\n  const {nw, nh} = naturalDims();\n  const u = clamp(((cx-r.left)-ox-pan.x)/zoom/fitScale, 0, nw);\n  const v = clamp(((cy-r.top)-oy-pan.y)/zoom/fitScale, 0, nh);\n  cropUV = {u: Math.round(u), v: Math.round(v)};\n  openCropPanel();\n  writeHash();\n}\nfunction cropImg(id){\n  const url = srcFor(id, frame);\n  let im = cropImgs.get(id);\n  if (!im || (im.currentSrc||im.src) !== url){\n    im = new Image();\n    im.decoding = 'async';\n    im.src = url;\n    cropImgs.set(id, im);\n  }\n  return im;\n}\nfunction drawCropRow(id, canvas){\n  const ctx = canvas.getContext('2d');\n  ctx.imageSmoothingEnabled = false;\n  const im = cropImg(id);\n  if (!im.complete || !im.naturalWidth){\n    ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);\n    ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\\u2026', 10, 20);\n    im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});\n    return;\n  }\n  const sw = Math.round(canvas.width), sh = Math.round(canvas.height);\n  const sx = clamp(Math.round(cropUV.u - sw/2), 0, im.naturalWidth - sw);\n  const sy = clamp(Math.round(cropUV.v - sh/2), 0, im.naturalHeight - sh);\n  ctx.drawImage(im, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);\n}\nfunction openCropPanel(){\n  cropPanel.style.display = 'block';\n  cropHint.style.display = 'none';\n  const d = dpr();\n  const CW = Math.min(480, comp.clientWidth - 220), CH = Math.round(CW*9/16);\n  cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;\n  cropRows.innerHTML = '';\n  VARIANTS.forEach(v => {\n    const row = document.createElement('div');\n    row.className = 'cropRow';\n    const name = document.createElement('span');\n    name.className = 'cname';\n    name.textContent = v.name;\n    name.style.color = v.color;\n    const canvas = document.createElement('canvas');\n    canvas.width = Math.round(CW*d); canvas.height = Math.round(CH*d);\n    canvas.style.width = CW+'px'; canvas.style.height = CH+'px';\n    row.appendChild(name); row.appendChild(canvas);\n    cropRows.appendChild(row);\n    drawCropRow(v.id, canvas);\n  });\n}\nfunction closeCrop(){\n  cropPanel.style.display = 'none';\n  cropUV = null;\n  if (cropMode) cropHint.style.display = 'block';\n  writeHash();\n}\nfunction setCropMode(on){\n  cropMode = on;\n  cropBtn.classList.toggle('crop-on', on);\n  cropHint.style.display = on ? 'block' : 'none';\n  if (on){ VARIANTS.forEach(v => cropImg(v.id)); }   // warm the cache for current frame\n  else if (cropUV) closeCrop();\n  writeHash();\n}\ncropBtn.addEventListener('click', () => setCropMode(!cropMode));\n$('cropClose').addEventListener('click', () => { setCropMode(false); closeCrop(); });\n\n/* ---------- state: URL hash (shareable) > localStorage > defaults ---------- */\nlet hashTimer = null;\nfunction writeHash(){\n  clearTimeout(hashTimer);\n  hashTimer = setTimeout(() => {\n    const p = new URLSearchParams();\n    if (frame != null) p.set('f', frame);\n    if (varA) p.set('a', varA);\n    if (varB) p.set('b', varB);\n    if (dividerPos !== 0.5) p.set('d', dividerPos.toFixed(3));\n    if (zoom !== 1){ p.set('z', zoom.toFixed(3)); p.set('x', Math.round(pan.x)); p.set('y', Math.round(pan.y)); }\n    if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }\n    if (blinkMode) p.set('blink', 1);\n    if (cropMode) p.set('crops', 1);\n    if (cropUV){\n      const {nw, nh} = naturalDims();\n      p.set('crop', (cropUV.u/nw).toFixed(4)+','+(cropUV.v/nh).toFixed(4));\n    }\n    history.replaceState(null, '', '#'+p.toString());\n    try {\n      localStorage.setItem('gatosState', JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));\n    } catch(e){}\n  }, 150);\n}\nfunction readState(){\n  let saved = {};\n  try { saved = JSON.parse(localStorage.getItem('gatosState')) || {}; } catch(e){}\n  const h = new URLSearchParams(location.hash.slice(1));\n  const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };\n  const hf = num(h.get('f'));\n  frame = FRAMES.includes(hf) ? hf : (FRAMES.includes(saved.f) ? saved.f : FRAMES[Math.floor(FRAMES.length/2)]);\n  const hv = (k, fb) => VARIANTS.some(v=>v.id===h.get(k)) ? h.get(k) : (VARIANTS.some(v=>v.id===fb) ? fb : null);\n  varA = hv('a', saved.a) || (VARIANTS[0] && VARIANTS[0].id);\n  varB = hv('b', saved.b) || (VARIANTS[Math.min(1, VARIANTS.length-1)] || VARIANTS[0] || {}).id;\n  const hd = num(h.get('d'));\n  dividerPos = clamp(hd != null ? hd : (isFinite(saved.d) ? saved.d : 0.5), 0, 1);\n  const hg = parseInt(h.get('g'));\n  gainIdx = clamp(GAINS.includes(hg) ? hg-0 : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);\n  heat = h.get('heat') === '1' || saved.h === true;\n  const hz = num(h.get('z'));\n  if (hz != null && hz >= 1){\n    zoom = hz;\n    pan.x = num(h.get('x')) || 0;\n    pan.y = num(h.get('y')) || 0;\n  }\n  return h;\n}\n\n/* ---------- UI ---------- */\nfunction variantStats(id){\n  const m = variant(id).metrics;\n  if (!m) return '';\n  const lines = [];\n  const pf = m.per_frame && m.per_frame[String(frame)];\n  if (pf){\n    const l = [];\n    if (pf.psnr_avg != null) l.push('PSNR '+pf.psnr_avg.toFixed(2)+' dB');\n    if (pf.ssim_all != null) l.push('SSIM '+pf.ssim_all.toFixed(4));\n    if (l.length) lines.push(l.join(' \\u00B7 ')+' @'+frame+'s');\n  }\n  const l2 = [];\n  if (m.psnr_avg != null) l2.push('clip PSNR '+m.psnr_avg.toFixed(2));\n  if (m.ssim_all != null) l2.push('SSIM '+m.ssim_all.toFixed(4));\n  if (m.size_bytes) l2.push((m.size_bytes/1048576).toFixed(1)+' MB');\n  if (m.kbps) l2.push(Math.round(m.kbps)+' kbps');\n  if (l2.length) lines.push(l2.join(' \\u00B7 '));\n  return lines.join('\\n');\n}\nfunction updateMeta(){\n  const lbl = FRAME_LABELS[frame] || (frame + 's');\n  const m = FRAME_META[frame] || {};\n  const where = m.clip_s != null ? ` \\u00B7 clip +${m.clip_s.toFixed(1)}s` : '';\n  const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \\u00B7 ` : '';\n  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : ''].filter(Boolean).join('+');\n  metaLine.textContent =\n    `${origin}frame ${lbl} (#${frame}${where}) \\u2014 izq. ${varA} \\u00B7 der. ${varB}${modes ? ' \\u00B7 '+modes : ''}`;\n}\nfunction preload(){\n  const i = FRAMES.indexOf(frame);\n  [i-1, i+1].forEach(j => {\n    if (j >= 0 && j < FRAMES.length){\n      new Image().src = srcFor(varA, FRAMES[j]);\n      new Image().src = srcFor(varB, FRAMES[j]);\n    }\n  });\n}\nfunction loadImg(){\n  imgA.src = srcFor(varA, frame);\n  if (diffMode){\n    realB.src = srcFor(varB, frame);\n    imgB.src = realB.src;\n  } else {\n    imgB.src = srcFor(varB, frame);\n  }\n  labelAName.textContent = variantName(varA);\n  labelBName.textContent = variantName(varB);\n  statsA.textContent = variantStats(varA);\n  statsB.textContent = variantStats(varB);\n  labelA.style.color = variant(varA).color;\n  labelB.style.color = variant(varB).color;\n  refreshFrameButtons(); refreshVariantButtons(); syncVariantOverflow();\n  updateMeta();\n  updateBadge();\n  preload();\n  if (cropMode) VARIANTS.forEach(v => cropImg(v.id));\n  if (cropUV && cropPanel.style.display !== 'none') openCropPanel();\n  writeHash();\n}\nfunction makeButtons(containerId, items, activeId, onPick){\n  const c = $(containerId);\n  c.innerHTML = '';\n  items.forEach(item => {\n    const b = document.createElement('button');\n    if (item.sub != null){\n      b.className = 'vbtn' + (item.id === activeId ? ' active' : '');\n      if (item.cmd) b.dataset.cmd = item.cmd;\n      const main = document.createElement('span'); main.className = 'main'; main.textContent = item.main;\n      const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = item.sub;\n      b.append(main, sub);\n    } else {\n      b.textContent = item.label;\n      b.className = item.id === activeId ? 'active' : '';\n    }\n    b.addEventListener('click', () => onPick(item.id));\n    c.appendChild(b);\n  });\n}\nconst cmdTip = document.createElement('div');\ncmdTip.id = 'cmdTip'; document.body.appendChild(cmdTip);\nlet cmdPinned = false, cmdFor = null, cmdTimer = null, cmdText = '';\nfunction cmdKey(t){\n  // a line starting with '|' is the second stage of a piped command\n  return t.startsWith('|') ? '|piped' : t.split(/\\s+/)[0];\n}\nfunction showTip(b){\n  cmdText = b.dataset.cmd;\n  const pane = b.closest('.variants') ? b.closest('.variants').id : null;\n  const otherId = pane === 'varA' ? varB : (pane === 'varB' ? varA : null);\n  const other = otherId ? variant(otherId) : null;\n  const hlOk = {'--crf':1, '--preset':1, '--film-grain':1, '--film-grain-denoise':1};\n  const omap = {};\n  if (other && other.cmd){\n    other.cmd.split('\\n').forEach(l => {\n      const t = l.trim().replace(/\\\\$/,'').trim();\n      if (t) omap[cmdKey(t)] = t;\n    });\n  }\n  const esc = x => x.replace(/&/g,'&amp;').replace(/<\/g,'&lt;');\n  let body;\n  if (other && other.cmd){\n    body = cmdText.split('\\n').map(l => {\n      const t = l.trim().replace(/\\\\$/,'').trim();\n      if (!t) return esc(l);\n      const key = cmdKey(t);\n      const differs = !!hlOk[key] && (!(key in omap) || omap[key] !== t);\n      return differs ? '<span class=\"dline\">' + esc(l) + '<\/span>' : esc(l);\n    }).join('\\n');\n  } else {\n    body = esc(cmdText);\n  }\n  const legend = other && other.cmd ? 'en \\u00e1mbar lo que difiere de <b>' + esc(other.name) + '<\/b>'\n                                     : 'comando';\n  cmdTip.innerHTML = '<div class=\"tiphead\"><span class=\"tt\">' + legend + '<\/span>'\n    + '<button data-act=\"copy\">Copiar<\/button><button data-act=\"close\">\\u00d7<\/button><\/div>'\n    + '<div class=\"cmdtext\">' + body + '<\/div>';\n  cmdTip.style.display = 'block';\n  const r = b.getBoundingClientRect();\n  cmdTip.style.left = Math.min(window.innerWidth - cmdTip.offsetWidth - 8, Math.max(8, r.left)) + 'px';\n  const below = r.bottom + 6;\n  cmdTip.style.top = (below + cmdTip.offsetHeight > window.innerHeight - 8\n    ? Math.max(8, r.top - cmdTip.offsetHeight - 6) : below) + 'px';\n}\nfunction hideTip(){\n  cmdPinned = false; cmdFor = null; clearTimeout(cmdTimer);\n  cmdTip.style.display = 'none';\n}\ndocument.addEventListener('mouseover', e => {\n  const b = e.target.closest('button.vbtn');\n  if (cmdPinned) return;\n  if (!b || !b.dataset.cmd){ clearTimeout(cmdTimer); cmdFor = null; cmdTip.style.display = 'none'; return; }\n  if (cmdFor === b) return;\n  clearTimeout(cmdTimer); cmdFor = b; cmdTip.style.display = 'none';\n  cmdTimer = setTimeout(() => { showTip(b); cmdPinned = true; }, 2000);\n});\ndocument.addEventListener('click', e => {\n  const act = e.target.closest('#cmdTip [data-act]');\n  if (act && act.dataset.act === 'copy'){\n    const done = ok => { const b = act; b.textContent = ok ? 'Copiado \\u2713' : 'Fall\\u00f3 la copia';\n      setTimeout(() => { b.textContent = 'Copiar'; }, 1200); };\n    if (navigator.clipboard && window.isSecureContext){\n      navigator.clipboard.writeText(cmdText).then(() => done(true), () => done(false));\n    } else {\n      const ta = document.createElement('textarea');\n      ta.value = cmdText; document.body.appendChild(ta); ta.select();\n      try { document.execCommand('copy'); done(true); } catch (err) { done(false); }\n      ta.remove();\n    }\n    return;\n  }\n  if (act && act.dataset.act === 'close'){ hideTip(); return; }\n  if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();\n});\ndocument.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });\nfunction refreshFrameButtons(){\n  makeButtons('frames', FRAMES.map(f=>({id:f, label: FRAME_LABELS[f] || (f+'s')})), frame, f => { frame = f; loadImg(); });\n}\nfunction variantButtonItems(){\n  return VARIANTS.map(v => {\n    const cmd = v.cmd || null;\n    if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \\u00B7 /, ''), cmd: null};\n    const m = v.id.match(/^crf(\\d+)_p(\\d)(?:_fg(\\d+))?$/);\n    if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};\n    const parts = (v.note || '').split(' \\u00B7 ');\n    const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');\n    const s2 = (parts[2] || '');\n    const main = `CRF ${m[1]}` + (m[3] ? ` \\u00B7 FG ${m[3]}` : '');\n    return {id: v.id, main: main, sub: `P${m[2]} \\u00B7 ${mbps}${s2 ? ' \\u00B7 ' + s2 : ''}`, cmd: cmd};\n  });\n}\nfunction fillSelect(selId, items, activeId, onPick){\n  const s = $(selId);\n  s.innerHTML = '';\n  items.forEach(it => {\n    const o = document.createElement('option');\n    o.value = it.id;\n    o.textContent = it.id === 'src' ? it.main + ' \\u2014 ' + it.sub : `${it.main} \\u2014 ${it.sub}`;\n    s.appendChild(o);\n  });\n  s.value = activeId;\n  s.onchange = () => onPick(s.value);\n}\nfunction refreshVariantButtons(){\n  const items = variantButtonItems();\n  makeButtons('varA', items, varA, v => { varA = v; loadImg(); });\n  makeButtons('varB', items, varB, v => { varB = v; loadImg(); });\n  fillSelect('selA', items, varA, v => { varA = v; loadImg(); });\n  fillSelect('selB', items, varB, v => { varB = v; loadImg(); });\n}\nfunction swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }\nfunction nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }\n\n$('oneBtn').addEventListener('click', oneToOne);\n$('resetBtn').addEventListener('click', fitView);\n$('swapBtn').addEventListener('click', swapAB);\n\nwindow.addEventListener('keydown', e => {\n  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){\n    const i = FRAMES.indexOf(frame);\n    const ni = e.key === 'ArrowRight' ? i+1 : i-1;\n    if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }\n  } else if (/^[1-9]$/.test(e.key)){\n    const idx = +e.key-1;\n    if (idx >= VARIANTS.length) return;\n    if (e.shiftKey) varA = VARIANTS[idx].id; else varB = VARIANTS[idx].id;\n    loadImg();\n  } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }\n  else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }\n  else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }\n  else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }\n  else if (!e.repeat && (e.key === 'o' || e.key === 'O')){ oneToOne(); }\n  else if (!e.repeat && (e.key === 'f' || e.key === 'F')){ fitView(); }\n  else if (!e.repeat && (e.key === 'h' || e.key === 'H')){ setHeat(!heat); }\n  else if (e.key === '+' || e.key === '='){ setGain(gainIdx+1); }\n  else if (e.key === '-' || e.key === '_'){ setGain(gainIdx-1); }\n  else if (e.key === ','){ nudgeDivider(e.shiftKey ? -0.05 : -0.01); }\n  else if (e.key === '.'){ nudgeDivider(e.shiftKey ? 0.05 : 0.01); }\n  else if (e.key === 'Escape'){ if (cropMode || cropUV){ setCropMode(false); closeCrop(); } }\n});\n\n/* ---------- init ---------- */\nfunction applyManifest(m){\n  FRAMES = m.frames;\n  VARIANTS = m.variants;\n  FRAME_LABELS = m.frame_labels || {};\n  FRAME_META = m.frame_meta || {};\n  CLIP = m.clip || {};\n  if (m.title){ document.title = m.title; pageTitle.textContent = m.title; }\n  const h = readState();\n  if (h.get('z') != null) mobileZoomPending = false;\n  computeFit();\n  loadImg();\n  applyTransform();\n  if (!h.get('z') && matchMedia('(max-width:820px), (pointer:coarse)').matches) oneToOne();\n  if (h.get('diff') === '1') setDiff(true);\n  if (h.get('blink') === '1') setBlink(true);\n  if (h.get('crops') === '1') setCropMode(true);\n  if (h.get('crop')){\n    const [cu, cv] = h.get('crop').split(',').map(Number);\n    if (isFinite(cu) && isFinite(cv)){\n      const {nw, nh} = naturalDims();\n      cropUV = {u: Math.round(cu*nw), v: Math.round(cv*nh)};\n      openCropPanel();\n    }\n  }\n}\n(async () => {\n  computeFit();\n  applyTransform();\n  try {\n    const m = await SOURCE.init();\n    applyManifest(m);\n  } catch (err) {\n    console.error('comparison data unavailable', err);\n    metaLine.textContent = 'no se encontraron datos de comparaci\\u00f3n (sin paquete embebido, sin manifest.json)';\n  }\n})();\n";
+</script>
+<script>
+'use strict';
+/* ============================================================
+   gatos.pics creador — JS puro, sin dependencias.
+   Construye el mismo paquete que consume el motor del visor:
+   {format, manifest:{title, version, frames, frame_labels, variants},
+    images:{"<id>_<frame>": dataURL}}
+   assets.js (generado) define SHELL_HTML y ENGINE_SRC.
+   ============================================================ */
+const $ = id => document.getElementById(id);
+
+const PALETTE = ['#7bd389','#7bb3ff','#f0b429','#e879a6','#67e8f9','#fb923c','#b79bff','#ff5d5d'];
+const FORMAT = 'gatos.pics/cmp@1';
+
+const state = {
+  mode: 'basic',
+  title: '',
+  version: 1,
+  /* avanzado */
+  variants: [],          // {id, name, codec, crf, bitrate, note, cmd, color}
+  frames: [],            // {key, label}
+  cells: new Map(),      // "vid|fkey" -> File
+  unassigned: [],        // {file, why}
+  /* básico */
+  pairs: [],             // [File|null, File|null]
+};
+let nextVar = 1, nextFrame = 1;
+
+const slug = s => String(s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- onboarding ---------- */
+function showOnboard(force){
+  let seen = false;
+  try { seen = localStorage.getItem('gatosOnboarded') === '1'; } catch(e){}
+  if (seen && !force) return;
+  $('onboard').hidden = false;
+}
+$('obStart').addEventListener('click', () => {
+  if ($('obDontShow').checked){ try { localStorage.setItem('gatosOnboarded','1'); } catch(e){} }
+  $('onboard').hidden = true;
+});
+$('obDemo').addEventListener('click', () => {
+  const pkg = makeDemoPackage();
+  $('pvBox').srcdoc = buildStandaloneHTML(pkg);
+  $('pvFrame').classList.add('show');
+});
+$('btnHelp').addEventListener('click', () => showOnboard(true));
+
+/* demo sintética: gradientes + figuras por canvas, sin archivos externos */
+function makeDemoPackage(){
+  const W = 960, H = 540;
+  function draw(seed, blurred){
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    let s = seed;
+    const rnd = () => (s = (s*1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const hue = rnd();
+    const g = x.createLinearGradient(0, 0, W, H);
+    for (let i = 0; i <= 4; i++){
+      const t = i/4;
+      g.addColorStop(t, `hsl(${Math.round((hue*360 + t*120) % 360)}, 62%, ${38 + t*22}%)`);
+    }
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 6; i++){
+      x.strokeStyle = `hsl(${Math.round(rnd()*360)}, 80%, 65%)`;
+      x.lineWidth = 3 + rnd()*7;
+      const cx = 80 + rnd()*(W-160), cy = 60 + rnd()*(H-120), r = 30 + rnd()*70;
+      x.beginPath();
+      if (rnd() < .5) x.arc(cx, cy, r, 0, Math.PI*2);
+      else x.rect(cx-r, cy-r/2, r*2, r);
+      x.stroke();
+    }
+    x.font = '600 26px system-ui, sans-serif';
+    x.fillStyle = '#fff';
+    x.fillText('ejemplo sintético — nada real', 26, 42);
+    if (blurred){
+      const c2 = document.createElement('canvas');
+      c2.width = W; c2.height = H;
+      const x2 = c2.getContext('2d');
+      x2.filter = 'blur(1.4px)';
+      x2.drawImage(c, 0, 0);
+      x2.filter = 'none';
+      const id = x2.getImageData(0, 0, W, H), d = id.data;
+      for (let i = 0; i < d.length; i += 4){
+        const n = (rnd()*12) - 6;
+        d[i] = Math.max(0, Math.min(255, d[i]+n));
+        d[i+1] = Math.max(0, Math.min(255, d[i+1]+n));
+        d[i+2] = Math.max(0, Math.min(255, d[i+2]+n));
+      }
+      x2.putImageData(id, 0, 0);
+      return c2.toDataURL('image/png');
+    }
+    return c.toDataURL('image/png');
+  }
+  const images = {};
+  [1, 2, 3].forEach((f, i) => {
+    images['src_'+f] = draw(100+i*7, false);
+    images['enc_'+f] = draw(100+i*7, true);
+  });
+  return {
+    format: FORMAT,
+    manifest: {
+      title: 'gatos.pics — ejemplo',
+      version: 1,
+      frames: [1, 2, 3],
+      frame_labels: {1: 'ejemplo 1', 2: 'ejemplo 2', 3: 'ejemplo 3'},
+      variants: [
+        {id: 'src', name: 'Fuente', color: '#7bd389', note: 'referencia'},
+        {id: 'enc', name: 'Encode', color: '#7bb3ff', note: 'desenfoque + ruido simulados',
+         cmd: 'encoder --entrada in.png --salida out.png --crf 26 --preset 4'},
+      ],
+    },
+    images,
+  };
+}
+
+/* ---------- archivos ---------- */
+const fileURLs = new Map();   // File -> object URL (miniaturas)
+function thumb(f){ if (f && !fileURLs.has(f)) fileURLs.set(f, URL.createObjectURL(f)); return f ? fileURLs.get(f) : ''; }
+const fileDims = new Map();   // File -> "WxH"
+function probeDims(f){
+  if (!f || fileDims.has(f)) return;
+  const im = new Image();
+  im.onload = () => fileDims.set(f, im.naturalWidth+'x'+im.naturalHeight);
+  im.src = thumb(f);
+}
+function readAsDataURL(f){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(f);
+  });
+}
+function readAsText(f){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsText(f);
+  });
+}
+
+/* ---------- pestañas de modo ---------- */
+function setMode(m){
+  state.mode = m;
+  $('tabBasic').classList.toggle('primary', m==='basic');
+  $('tabAdv').classList.toggle('primary', m==='advanced');
+  $('basicView').style.display = m==='basic' ? '' : 'none';
+  $('advView').style.display = m==='advanced' ? '' : 'none';
+}
+$('tabBasic').addEventListener('click', () => setMode('basic'));
+$('tabAdv').addEventListener('click', () => setMode('advanced'));
+
+/* ============================================================
+   MODO BÁSICO — pares, nada más
+   ============================================================ */
+const basicDrop = $('basicDrop'), basicFile = $('basicFile');
+basicDrop.addEventListener('click', () => basicFile.click());
+basicFile.addEventListener('change', () => { addBasicFiles([...basicFile.files]); basicFile.value=''; });
+['dragover','dragenter'].forEach(ev => basicDrop.addEventListener(ev, e => { e.preventDefault(); basicDrop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => basicDrop.addEventListener(ev, e => { e.preventDefault(); basicDrop.classList.remove('over'); }));
+basicDrop.addEventListener('drop', e => addBasicFiles([...e.dataTransfer.files]));
+
+function addBasicFiles(files){
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  imgs.forEach(probeDims);
+  const loose = [...imgs];
+  // completa primero el par cojo del final
+  for (let i = state.pairs.length-1; i >= 0; i--){
+    const p = state.pairs[i];
+    if (p[0] && !p[1] && loose.length){ p[1] = loose.shift(); }
+  }
+  while (loose.length >= 2) state.pairs.push([loose.shift(), loose.shift()]);
+  if (loose.length) state.pairs.push([loose.shift(), null]);
+  renderPairs();
+}
+
+function renderPairs(){
+  const host = $('pairList');
+  host.innerHTML = '';
+  state.pairs.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'pair';
+    const mk = (f, side) => {
+      const s = document.createElement('div');
+      s.className = 'slot ' + (f ? 'filled' : 'empty');
+      s.innerHTML = f ? `<img src="${thumb(f)}" alt="">` : 'vacío';
+      s.title = f ? f.name + (fileDims.get(f) ? ' — '+fileDims.get(f) : '') : 'clic para elegir una imagen';
+      s.addEventListener('click', () => pickOne(file => { state.pairs[i][side] = file; probeDims(file); renderPairs(); }));
+      return s;
+    };
+    row.innerHTML = `<span class="no">par ${i+1}</span>`;
+    row.appendChild(mk(p[0], 0));
+    row.appendChild(mk(p[1], 1));
+    const tools = document.createElement('div');
+    tools.className = 'tools';
+    const up = document.createElement('button'); up.textContent='↑'; up.title='subir';
+    up.onclick = () => { if (i>0){ [state.pairs[i-1], state.pairs[i]] = [state.pairs[i], state.pairs[i-1]]; renderPairs(); } };
+    const dn = document.createElement('button'); dn.textContent='↓'; dn.title='bajar';
+    dn.onclick = () => { if (i<state.pairs.length-1){ [state.pairs[i+1], state.pairs[i]] = [state.pairs[i], state.pairs[i+1]]; renderPairs(); } };
+    const rm = document.createElement('button'); rm.textContent='×'; rm.title='quitar par';
+    rm.onclick = () => { state.pairs.splice(i,1); renderPairs(); };
+    tools.append(up, dn, rm);
+    row.appendChild(tools);
+    host.appendChild(row);
+  });
+  const foot = $('basicFoot');
+  const half = state.pairs.some(p => !p[0] || !p[1]);
+  const dims = new Set([...state.pairs.flat()].filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
+  let h = '';
+  if (half) h += `<div class="warn">A un par le falta una imagen — se verá un lado vacío. Suelta una imagen más para completarlo.</div>`;
+  if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) — el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
+  if (state.pairs.length && !half) h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} — dale Vista previa.</div>`;
+  foot.innerHTML = h;
+}
+function pickOne(cb){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => { if (inp.files[0]) cb(inp.files[0]); };
+  inp.click();
+}
+
+/* básico -> paquete */
+async function basicPackage(){
+  const pairs = state.pairs.filter(p => p[0] && p[1]);
+  const manifest = {
+    title: 'Comparación',
+    version: state.version,
+    frames: pairs.map((_, i) => i+1),
+    frame_labels: Object.fromEntries(pairs.map((_, i) => [String(i+1), String(i+1)])),
+    variants: [
+      {id:'a', name:'A', color:PALETTE[0]},
+      {id:'b', name:'B', color:PALETTE[1]},
+    ],
+  };
+  const images = {};
+  for (let i = 0; i < pairs.length; i++){
+    images['a_'+(i+1)] = await readAsDataURL(pairs[i][0]);
+    images['b_'+(i+1)] = await readAsDataURL(pairs[i][1]);
+  }
+  return {format: FORMAT, manifest, images};
+}
+
+/* ============================================================
+   MODO AVANZADO — pasos
+   ============================================================ */
+const STEPS = ['Proyecto','Variantes','Frames','Imágenes','Final'];
+let curStep = 0;
+function renderSteps(){
+  const nav = $('stepNav');
+  nav.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="n">${i+1}</span>${esc(s)}`;
+    if (i === curStep) b.classList.add('on');
+    nav.appendChild(b);
+    b.onclick = () => { curStep = i; renderSteps(); };
+  });
+  document.querySelectorAll('.step').forEach(el => el.style.display = (+el.dataset.step === curStep) ? '' : 'none');
+  if (curStep === 4) renderFinish();
+}
+
+/* ---------- paso: proyecto ---------- */
+$('pjTitle').addEventListener('input', () => { state.title = $('pjTitle').value; $('pjTitleWarn').style.display = state.title.trim() ? 'none' : ''; });
+$('pjVersion').addEventListener('change', () => { state.version = Math.max(1, parseInt($('pjVersion').value)||1); });
+$('pjBump').addEventListener('click', () => { state.version++; $('pjVersion').value = state.version; });
+
+/* ---------- paso: variantes ---------- */
+function defVariant(){
+  return {id:'v'+(nextVar++), name:'', codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
+}
+function ensureSeed(){
+  if (!state.variants.length){
+    const a = defVariant(); a.name = 'Fuente'; a.note = 'referencia';
+    const b = defVariant(); b.name = 'Encode';
+    state.variants.push(a, b);
+  }
+  if (!state.frames.length){
+    state.frames.push({key:String(nextFrame++), label:''});
+  }
+}
+function variantNote(v){
+  return [v.codec, v.crf, v.bitrate, v.note].map(s => String(s||'').trim()).filter(Boolean).join(' \u00B7 ');
+}
+function renderVariants(){
+  ensureSeed();
+  const host = $('varList');
+  host.innerHTML = '';
+  state.variants.forEach((v, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const badge = i===0 ? '<span class="badge">izquierda por defecto</span>' : i===1 ? '<span class="badge">derecha por defecto</span>' : '';
+    card.innerHTML = `
+      <div class="vrow">
+        <div class="dot" style="background:${v.color}" title="clic para cambiar el color"></div>
+        <input type="text" data-k="name" placeholder="nombre (p. ej. Fuente, CRF 26)" value="${esc(v.name)}">
+        <input type="text" class="opt" data-k="codec" placeholder="codec" value="${esc(v.codec)}" title="codec — p. ej. AV1, x264, HEVC">
+        <input type="text" class="opt" data-k="crf" placeholder="CRF" value="${esc(v.crf)}" title="número de calidad">
+        <input type="text" class="opt" data-k="bitrate" placeholder="Mb/s" value="${esc(v.bitrate)}" title="bitrate">
+        <button class="iconbtn" data-a="up" title="subir">↑</button>
+        <button class="iconbtn" data-a="dn" title="bajar">↓</button>
+        <button class="iconbtn" data-a="rm" title="quitar">×</button>
+      </div>
+      <div class="vrow2">
+        <span class="hint">${esc(v.id)}${badge}</span>
+        <input type="text" data-k="note" placeholder="nota extra — sale bajo el botón" value="${esc(v.note)}">
+        <input type="text" class="mono" data-k="cmd" placeholder="comando del encoder (tooltip)" value="${esc(v.cmd)}">
+      </div>`;
+    card.querySelector('.dot').onclick = () => {
+      v.color = PALETTE[(PALETTE.indexOf(v.color)+1) % PALETTE.length];
+      renderVariants();
+    };
+    card.querySelectorAll('input[data-k]').forEach(inp => {
+      inp.addEventListener('input', () => { v[inp.dataset.k] = inp.value; renderVarWarns(); });
+    });
+    card.querySelectorAll('button[data-a]').forEach(b => {
+      b.onclick = () => {
+        if (b.dataset.a==='up' && i>0) [state.variants[i-1], state.variants[i]] = [state.variants[i], state.variants[i-1]];
+        if (b.dataset.a==='dn' && i<state.variants.length-1) [state.variants[i+1], state.variants[i]] = [state.variants[i], state.variants[i+1]];
+        if (b.dataset.a==='rm') removeVariant(v.id);
+        renderVariants(); renderMatrix();
+      };
+    });
+    host.appendChild(card);
+  });
+  renderVarWarns();
+}
+function removeVariant(vid){
+  state.variants = state.variants.filter(v => v.id !== vid);
+  for (const k of [...state.cells.keys()]) if (k.startsWith(vid+'|')) state.cells.delete(k);
+}
+function renderVarWarns(){
+  const w = $('varWarns');
+  const lines = [];
+  if (state.variants.length < 2) lines.push(`<div class="err">Hacen falta al menos dos variantes para comparar.</div>`);
+  const bare = state.variants.filter(v => !variantNote(v));
+  if (bare.length && state.variants.length >= 2)
+    lines.push(`<div class="warn">${bare.length} variante${bare.length>1?'s':''} sin codec/CRF/bitrate — la página funciona, pero se ve mejor con ellos.</div>`);
+  if (state.variants.length >= 2 && state.variants.every(v => !v.cmd.trim()))
+    lines.push(`<div class="warn">Sin comandos del encoder — opcional, pero los tooltips se ven mejor con ellos.</div>`);
+  w.innerHTML = lines.join('');
+}
+$('varAdd').addEventListener('click', () => { state.variants.push(defVariant()); renderVariants(); renderMatrix(); });
+
+/* ---------- paso: frames ---------- */
+function renderFrames(){
+  ensureSeed();
+  const host = $('frameList');
+  host.innerHTML = '';
+  state.frames.forEach((fr, i) => {
+    const row = document.createElement('div');
+    row.className = 'frow';
+    row.innerHTML = `
+      <input type="text" class="mono" data-k="key" placeholder="1" value="${esc(fr.key)}" title="número del frame — se usa en los nombres de archivo">
+      <input type="text" data-k="label" placeholder="etiqueta (opcional — p. ej. escena oscura, primer plano de grano)" value="${esc(fr.label)}">
+      <button class="iconbtn" data-a="up" title="subir">↑</button>
+      <button class="iconbtn" data-a="dn" title="bajar">↓</button>
+      <button class="iconbtn" data-a="rm" title="quitar">×</button>`;
+    row.querySelectorAll('input[data-k]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const old = fr.key;
+        fr[inp.dataset.k] = inp.value;
+        if (inp.dataset.k === 'key' && old !== fr.key){
+          for (const k of [...state.cells.keys()]){
+            const [vid, fk] = k.split('|');
+            if (fk === old){ state.cells.set(vid+'|'+fr.key, state.cells.get(k)); state.cells.delete(k); }
+          }
+        }
+      });
+    });
+    row.querySelectorAll('button[data-a]').forEach(b => {
+      b.onclick = () => {
+        if (b.dataset.a==='up' && i>0) [state.frames[i-1], state.frames[i]] = [state.frames[i], state.frames[i-1]];
+        if (b.dataset.a==='dn' && i<state.frames.length-1) [state.frames[i+1], state.frames[i]] = [state.frames[i], state.frames[i+1]];
+        if (b.dataset.a==='rm'){
+          for (const k of [...state.cells.keys()]) if (k.endsWith('|'+fr.key)) state.cells.delete(k);
+          state.frames = state.frames.filter(x => x !== fr);
+        }
+        renderFrames(); renderMatrix();
+      };
+    });
+    host.appendChild(row);
+  });
+  const w = $('frameWarns');
+  const noLabel = state.frames.filter(f => !f.label.trim()).length;
+  w.innerHTML = state.frames.length < 1 ? `<div class="err">Hace falta al menos un frame.</div>`
+    : noLabel ? `<div class="warn">${noLabel} frame${noLabel>1?'s':''} sin etiqueta — el botón muestra el número. Se ve mejor con una.</div>`
+    : '';
+}
+$('frameAdd').addEventListener('click', () => {
+  let n = nextFrame;
+  while (state.frames.some(f => f.key === String(n))) n++;
+  nextFrame = n+1;
+  state.frames.push({key:String(n), label:''});
+  renderFrames(); renderMatrix();
+});
+
+/* ---------- paso: imágenes (tabla + autocompletado por nombre) ---------- */
+const bulkDrop = $('bulkDrop'), bulkFile = $('bulkFile');
+bulkDrop.addEventListener('click', () => bulkFile.click());
+bulkFile.addEventListener('change', () => { bulkAdd([...bulkFile.files]); bulkFile.value=''; });
+['dragover','dragenter'].forEach(ev => bulkDrop.addEventListener(ev, e => { e.preventDefault(); bulkDrop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => bulkDrop.addEventListener(ev, e => { e.preventDefault(); bulkDrop.classList.remove('over'); }));
+bulkDrop.addEventListener('drop', e => bulkAdd([...e.dataTransfer.files]));
+
+function matchVariant(token){
+  const t = slug(token);
+  if (!t) return null;
+  return state.variants.find(v => v.id === t)
+      || state.variants.find(v => slug(v.name) === t)
+      || state.variants.find(v => slug(v.name).startsWith(t) && t.length >= 3)
+      || null;
+}
+function matchFrame(token){
+  const t = slug(token);
+  if (!t) return null;
+  return state.frames.find(f => slug(f.key) === t)
+      || state.frames.find(f => slug(f.label) === t)
+      || null;
+}
+function bulkAdd(files){
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  const misses = [];
+  for (const f of imgs){
+    const stem = f.name.replace(/\.[^.]+$/, '');
+    const cut = stem.lastIndexOf('_');
+    if (cut > 0){
+      const v = matchVariant(stem.slice(0, cut));
+      const fr = matchFrame(stem.slice(cut+1));
+      if (v && fr){ state.cells.set(v.id+'|'+fr.key, f); probeDims(f); continue; }
+    }
+    const why = cut > 0
+      ? (matchVariant(stem.slice(0, cut)) ? 'no hay frame "'+stem.slice(cut+1)+'"' : 'no hay variante "'+stem.slice(0, cut)+'"')
+      : 'nombre sin guion bajo — se espera <variante>_<frame>';
+    misses.push({file:f, why});
+  }
+  state.unassigned.push(...misses);
+  renderMatrix();
+}
+function renderMatrix(){
+  const host = $('matrix');
+  if (!state.variants.length || !state.frames.length){ host.innerHTML = '<p class="hint">Primero define variantes y frames.</p>'; return; }
+  let html = '<table class="mtx"><tr><th></th>';
+  for (const v of state.variants) html += `<th><span style="color:${v.color}">\u25CF</span> ${esc(v.name || v.id)}</th>`;
+  html += '</tr>';
+  for (const fr of state.frames){
+    html += `<tr><th class="mono">${esc(fr.key)}${fr.label ? '<br><span style="font-weight:400">'+esc(fr.label)+'</span>' : ''}</th>`;
+    for (const v of state.variants){
+      const f = state.cells.get(v.id+'|'+fr.key);
+      html += `<td><div class="cell ${f?'filled':'empty'}" data-cell="${v.id}|${esc(fr.key)}">${
+        f ? `<img src="${thumb(f)}" alt=""><button class="rm" title="quitar">×</button>` : 'suelta / clic'
+      }</div></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  host.innerHTML = html;
+  host.querySelectorAll('.cell').forEach(cell => {
+    const key = cell.dataset.cell;
+    cell.addEventListener('click', e => {
+      if (e.target.classList.contains('rm')){ state.cells.delete(key); renderMatrix(); return; }
+      pickOne(file => { state.cells.set(key, file); probeDims(file); renderMatrix(); });
+    });
+    cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('over'); });
+    cell.addEventListener('dragleave', () => cell.classList.remove('over'));
+    cell.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation(); cell.classList.remove('over');
+      const f = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+      if (f){ state.cells.set(key, f); probeDims(f); renderMatrix(); }
+    });
+  });
+  /* archivos sin asignar */
+  const un = $('unassigned');
+  if (state.unassigned.length){
+    let h = '<div class="card"><b>Archivos sin asignar</b><ul style="list-style:none;margin-top:6px;">';
+    state.unassigned.forEach((u, i) => {
+      h += `<li style="display:flex;gap:8px;align-items:center;margin:4px 0;flex-wrap:wrap;">
+        <img src="${thumb(u.file)}" style="width:54px;height:32px;object-fit:contain;border-radius:4px;background:#000;">
+        <span class="mono" style="min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:280px;">${esc(u.file.name)}</span>
+        <span class="hint">${esc(u.why)}</span>
+        <span style="margin-left:auto;"></span>
+        <select data-i="${i}" data-w="v" class="asSel">
+          <option value="">variante…</option>${state.variants.map(v=>`<option value="${v.id}">${esc(v.name||v.id)}</option>`).join('')}
+        </select>
+        <select data-i="${i}" data-w="f" class="asSel">
+          <option value="">frame…</option>${state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' — '+esc(f.label):''}</option>`).join('')}
+        </select>
+        <button class="iconbtn" data-rm="${i}" title="descartar este archivo">×</button>
+      </li>`;
+    });
+    h += '</ul></div>';
+    un.innerHTML = h;
+    un.querySelectorAll('.asSel').forEach(sel => sel.addEventListener('change', () => {
+      const i = +sel.dataset.i;
+      const vs = un.querySelector(`select[data-i="${i}"][data-w="v"]`);
+      const fs = un.querySelector(`select[data-i="${i}"][data-w="f"]`);
+      if (vs.value && fs.value){
+        state.cells.set(vs.value+'|'+fs.value, state.unassigned[i].file);
+        state.unassigned.splice(i,1);
+        renderMatrix();
+      }
+    }));
+    un.querySelectorAll('button[data-rm]').forEach(b => b.addEventListener('click', () => { state.unassigned.splice(+b.dataset.rm,1); renderMatrix(); }));
+  } else un.innerHTML = '';
+}
+
+/* ---------- avanzado -> paquete ---------- */
+async function advancedPackage(){
+  const manifest = {
+    title: state.title.trim() || 'Comparación',
+    version: state.version,
+    frames: state.frames.map(f => f.key),
+    frame_labels: Object.fromEntries(state.frames.filter(f => f.label.trim()).map(f => [f.key, f.label.trim()])),
+    variants: state.variants.map(v => {
+      const o = {id: v.id, name: v.name.trim() || v.id, color: v.color};
+      const n = variantNote(v);
+      if (n) o.note = n;
+      if (v.cmd.trim()) o.cmd = v.cmd.trim();
+      return o;
+    }),
+  };
+  const images = {};
+  for (const [k, f] of state.cells){
+    const [vid, fk] = k.split('|');
+    images[vid+'_'+fk] = await readAsDataURL(f);
+  }
+  return {format: FORMAT, manifest, images};
+}
+
+/* ---------- validación (paso final) ---------- */
+function validateAdvanced(){
+  const out = [];
+  const missing = [];
+  for (const fr of state.frames) for (const v of state.variants)
+    if (!state.cells.get(v.id+'|'+fr.key)) missing.push(`${v.name||v.id} \u00B7 frame ${fr.key}`);
+  if (missing.length) out.push(['bad', `${missing.length} casilla${missing.length>1?'s':''} vacía${missing.length>1?'s':''} — ahí la página mostrará un cuadro roto.`]);
+  else if (state.variants.length && state.frames.length) out.push(['good', `Las ${state.variants.length * state.frames.length} casillas llenas.`]);
+  if (state.variants.length < 2) out.push(['bad','Hacen falta al menos dos variantes.']);
+  if (!state.frames.length) out.push(['bad','Hace falta al menos un frame.']);
+  if (!state.title.trim()) out.push(['warnl','Sin título — la página se ve mejor con uno.']);
+  const bare = state.variants.filter(v => !variantNote(v)).length;
+  if (bare) out.push(['warnl',`${bare} variante${bare>1?'s':''} sin codec/CRF/bitrate — se ve mejor con ellos.`]);
+  const dims = new Set([...state.cells.values()].map(f => fileDims.get(f)).filter(Boolean));
+  if (dims.size > 1) out.push(['bad',`Tamaños de imagen mezclados (${[...dims].join(', ')}) — el diff y los recortes 1:1 necesitan dimensiones idénticas.`]);
+  let total = 0; for (const f of state.cells.values()) total += f.size;
+  out.push([total > 60*1048576 ? 'warnl' : 'good', `Tamaño del paquete ≈ ${(total*1.34/1048576).toFixed(1)} MB en base64.`]);
+  if (total > 60*1048576) out.push(['warnl','Pesado — considera menos frames o imágenes más chicas.']);
+  if (state.unassigned.length) out.push(['warnl',`${state.unassigned.length} archivo${state.unassigned.length>1?'s':''} sin asignar NO ${state.unassigned.length>1?'van':'va'} a entrar a la página.`]);
+  return out;
+}
+function renderFinish(){
+  $('checkList').innerHTML = validateAdvanced()
+    .map(([cls, msg]) => `<li class="${cls==='bad'?'bad':cls==='warnl'?'warnl':'good'}">${esc(msg)}</li>`).join('');
+}
+
+/* ============================================================
+   vista previa + exportaciones
+   ============================================================ */
+async function currentPackage(){
+  return state.mode === 'basic' ? basicPackage() : advancedPackage();
+}
+function buildStandaloneHTML(pkg){
+  const json = JSON.stringify(pkg).replace(/</g, '\\u003c');
+  const injection = '<script>window.GATOS_PACKAGE = ' + json + ';<\/script>\n';
+  const engineTag = '<script>\n' + ENGINE_SRC + '\n<\/script>';
+  return SHELL_HTML.replace('<script src="compare.js"><\/script>', injection + engineTag);
+}
+async function openPreviewOverlay(){
+  const pkg = await currentPackage();
+  $('pvBox').srcdoc = buildStandaloneHTML(pkg);
+  $('pvFrame').classList.add('show');
+}
+$('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; });
+$('btnPreviewTop').addEventListener('click', openPreviewOverlay);
+$('btnPreview').addEventListener('click', openPreviewOverlay);
+
+function download(name, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+function fileBase(){
+  return slug(state.title || 'comparacion') || 'comparacion';
+}
+
+/* dataURL -> bytes */
+function dataURLtoBytes(du){
+  const parts = du.split(',');
+  const mime = (parts[0].match(/^data:([^;]+)/) || [,'image/png'])[1];
+  const bin = atob(parts[1] || '');
+  const buf = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
+  return {mime, buf};
+}
+const te = new TextEncoder();
+function strBytes(s){ return te.encode(s); }
+
+/* ---------- zip (sin compresión, sin dependencias) ---------- */
+let CRC_T = null;
+function crc32(buf){
+  if (!CRC_T){
+    CRC_T = new Uint32Array(256);
+    for (let n = 0; n < 256; n++){
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      CRC_T[n] = c >>> 0;
+    }
+  }
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = CRC_T[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function makeZip(entries){
+  // entradas: [{name, data:Uint8Array}] — método STORE
+  const chunks = [], central = [];
+  let offset = 0;
+  const enc = new TextEncoder();
+  for (const e of entries){
+    const nameB = enc.encode(e.name);
+    const crc = crc32(e.data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);            // versión necesaria
+    lh.setUint16(6, 0x0800, true);        // nombres UTF-8
+    lh.setUint16(8, 0, true);             // store
+    lh.setUint16(10, 0, true); lh.setUint16(12, 0x2100, true);   // hora/fecha DOS fija
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, e.data.length, true);
+    lh.setUint32(22, e.data.length, true);
+    lh.setUint16(26, nameB.length, true);
+    lh.setUint16(28, 0, true);
+    chunks.push(new Uint8Array(lh.buffer), nameB, e.data);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true);
+    cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+    cd.setUint16(8, 0x0800, true); cd.setUint16(10, 0, true);
+    cd.setUint16(12, 0, true); cd.setUint16(14, 0x2100, true);
+    cd.setUint32(16, crc, true);
+    cd.setUint32(20, e.data.length, true); cd.setUint32(24, e.data.length, true);
+    cd.setUint16(28, nameB.length, true);
+    cd.setUint32(42, offset, true);
+    central.push(new Uint8Array(cd.buffer), nameB);
+    offset += 30 + nameB.length + e.data.length;
+  }
+  const cdStart = offset;
+  let cdLen = 0;
+  for (const c of central) cdLen += c.length;
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, entries.length, true);
+  end.setUint16(10, entries.length, true);
+  end.setUint32(12, cdLen, true);
+  end.setUint32(16, cdStart, true);
+  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], {type:'application/zip'});
+}
+
+/* ---------- export: HTML / .cmp / .zip ---------- */
+$('btnExpHtml').addEventListener('click', async () => {
+  const pkg = await currentPackage();
+  download(fileBase()+'.html', new Blob([buildStandaloneHTML(pkg)], {type:'text/html'}));
+});
+$('btnExpCmp').addEventListener('click', async () => {
+  const pkg = await currentPackage();
+  download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
+});
+$('btnExpZip').addEventListener('click', async () => {
+  const pkg = await currentPackage();
+  // el visor hospedado resuelve img/<id>_<frame>.<ext>: la extensión va en el
+  // manifest por variante, derivada de los archivos reales
+  const exts = {};
+  for (const v of pkg.manifest.variants){
+    const anyKey = Object.keys(pkg.images).find(k => k.startsWith(v.id+'_'));
+    const du = anyKey ? pkg.images[anyKey] : null;
+    exts[v.id] = du ? (dataURLtoBytes(du).mime.split('/')[1] || 'png').replace('jpeg','jpg') : 'png';
+    v.ext = exts[v.id];
+  }
+  const entries = [
+    {name:'index.html', data: strBytes(SHELL_HTML)},
+    {name:'compare.js', data: strBytes(ENGINE_SRC)},
+    {name:'manifest.json', data: strBytes(JSON.stringify(pkg.manifest, null, 2))},
+  ];
+  for (const [key, du] of Object.entries(pkg.images)){
+    const {buf} = dataURLtoBytes(du);
+    const vid = key.slice(0, key.lastIndexOf('_'));
+    entries.push({name:'img/'+key+'.'+(exts[vid]||'png'), data: buf});
+  }
+  download(fileBase()+'.zip', makeZip(entries));
+});
+
+/* ---------- importar .cmp (en ambos modos) ---------- */
+async function importCmp(file){
+  try {
+    const pkg = JSON.parse(await readAsText(file));
+    if (pkg.format !== FORMAT) { alert('No es un paquete '+FORMAT+'.'); return; }
+    state.title = pkg.manifest.title === 'Comparación' ? '' : (pkg.manifest.title || '');
+    state.version = pkg.manifest.version || 1;
+    const b64toFile = async (key, du) => {
+      const {mime, buf} = dataURLtoBytes(du);
+      return new File([buf], key.replace(/[\\/:*?"<>|]/g,'_')+'.'+mime.split('/')[1], {type:mime});
+    };
+    if (state.mode === 'basic'){
+      state.pairs = [];
+      const frames = pkg.manifest.frames;
+      const vs = pkg.manifest.variants;
+      for (const f of frames){
+        const fa = pkg.images[vs[0].id+'_'+f], fb = pkg.images[(vs[1]||vs[0]).id+'_'+f];
+        state.pairs.push([fa ? await b64toFile(vs[0].id+'_'+f, fa) : null, fb ? await b64toFile(vs[1].id+'_'+f, fb) : null]);
+      }
+      renderPairs();
+    } else {
+      state.variants = (pkg.manifest.variants||[]).map(v => ({
+        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', color: v.color||'#7bd389',
+      }));
+      state.frames = (pkg.manifest.frames||[]).map(f => ({key:String(f), label:(pkg.manifest.frame_labels||{})[String(f)]||''}));
+      state.cells = new Map(); state.unassigned = [];
+      for (const v of state.variants) for (const fr of state.frames){
+        const du = pkg.images[v.id+'_'+fr.key];
+        if (du) state.cells.set(v.id+'|'+fr.key, await b64toFile(v.id+'_'+fr.key, du));
+      }
+      nextVar = state.variants.length+1; nextFrame = state.frames.length+1;
+      $('pjTitle').value = state.title; $('pjTitleWarn').style.display = state.title.trim()?'none':'';
+      $('pjVersion').value = state.version;
+      renderVariants(); renderFrames(); renderMatrix();
+    }
+  } catch (e) { alert('No se pudo leer este paquete: ' + e.message); }
+}
+window.addEventListener('dragover', e => { if ([...e.dataTransfer.items].some(i => /\.cmp$/i.test(i.name||''))) e.preventDefault(); });
+window.addEventListener('drop', e => {
+  const f = [...e.dataTransfer.files].find(f => /\.cmp$/i.test(f.name));
+  if (f){ e.preventDefault(); importCmp(f); }
+});
+
+/* ============================================================
+   arranque
+   ============================================================ */
+ensureSeed();
+renderVariants();
+renderFrames();
+renderMatrix();
+renderPairs();
+renderSteps();
+setMode('basic');
+showOnboard(false);
+window.addEventListener('beforeunload', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });
+
+/* gancho de prueba/consola: permite manejar la página sin mouse (útil también para usuarios avanzados) */
+window.BUILDER = {state, currentPackage, buildStandaloneHTML, addBasicFiles, bulkAdd, importCmp, validateAdvanced, makeDemoPackage, setMode, renderSteps};
+</script>
+</body>
+</html>

@@ -110,8 +110,8 @@ function clampPan(){
   pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));
 }
 function updateBadge(){
-  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'loading\u2026'; return; }
-  zoomBadge.textContent = zoom === 1 ? 'fit' : Math.round(fitScale*zoom*dpr()*100)+'%';
+  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
+  zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
 function applyTransform(){
   const t = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
@@ -245,7 +245,7 @@ function ensureDiffBase(){
 function renderDiff(){
   if (!diffMode) return;
   const d = ensureDiffBase();
-  if (!d){ diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 loading\u2026'; return; }
+  if (!d){ diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 cargando\u2026'; return; }
   const A = GAINS[gainIdx];
   const out = diffCtx.createImageData(d.w, d.h);
   const o = out.data;
@@ -260,7 +260,7 @@ function renderDiff(){
     o[i+3] = 255;
   }
   diffCtx.putImageData(out, 0, 0);
-  diffNote.textContent = `Diff \u00D7${A}${heat ? ` \u00B7 heat (\u0394\u2265${HEAT_T} red)` : ''} \u00B7 color = which channel differs \u00B7 mean \u0394 ${d.mean.toFixed(2)}/255`;
+  diffNote.textContent = `Diff \u00D7${A}${heat ? ` \u00B7 calor (\u0394\u2265${HEAT_T} en rojo)` : ''} \u00B7 color = canal que difiere \u00B7 \u0394 media ${d.mean.toFixed(2)}/255`;
 }
 function setDiff(on){
   diffMode = on;
@@ -270,7 +270,7 @@ function setDiff(on){
   imgB.style.display = on ? 'none' : '';
   diffNote.style.display = on ? 'block' : 'none';
   if (on){
-    diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 computing\u2026';
+    diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 calculando\u2026';
     realB.src = srcFor(varB, frame);
     imgB.src = realB.src;
     renderDiff();
@@ -291,7 +291,7 @@ function setHeat(on){
   writeHash();
 }
 imgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });
-imgA.addEventListener('error', () => { zoomBadge.textContent = 'image failed to load'; });
+imgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\u00f3'; });
 imgB.addEventListener('load', updateBadge);
 realB.addEventListener('load', renderDiff);
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
@@ -341,7 +341,7 @@ function drawCropRow(id, canvas){
   const im = cropImg(id);
   if (!im.complete || !im.naturalWidth){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#9a9aa8'; ctx.fillText('loading\u2026', 10, 20);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\u2026', 10, 20);
     im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});
     return;
   }
@@ -355,7 +355,7 @@ function openCropPanel(){
   cropHint.style.display = 'none';
   const d = dpr();
   const CW = Math.min(480, comp.clientWidth - 220), CH = Math.round(CW*9/16);
-  cropTitle.textContent = `1:1 crops @ ${cropUV.u},${cropUV.v} (native px)`;
+  cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
   cropRows.innerHTML = '';
   VARIANTS.forEach(v => {
     const row = document.createElement('div');
@@ -464,7 +464,7 @@ function updateMeta(){
   const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \u00B7 ` : '';
   const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}frame ${lbl} (#${frame}${where}) \u2014 left ${varA} \u00B7 right ${varB}${modes ? ' \u00B7 '+modes : ''}`;
+    `${origin}frame ${lbl} (#${frame}${where}) \u2014 izq. ${varA} \u00B7 der. ${varB}${modes ? ' \u00B7 '+modes : ''}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
@@ -549,10 +549,10 @@ function showTip(b){
   } else {
     body = esc(cmdText);
   }
-  const legend = other && other.cmd ? 'differs from <b>' + esc(other.name) + '</b> in amber'
-                                     : 'command';
+  const legend = other && other.cmd ? 'en \u00e1mbar lo que difiere de <b>' + esc(other.name) + '</b>'
+                                     : 'comando';
   cmdTip.innerHTML = '<div class="tiphead"><span class="tt">' + legend + '</span>'
-    + '<button data-act="copy">Copy</button><button data-act="close">\u00d7</button></div>'
+    + '<button data-act="copy">Copiar</button><button data-act="close">\u00d7</button></div>'
     + '<div class="cmdtext">' + body + '</div>';
   cmdTip.style.display = 'block';
   const r = b.getBoundingClientRect();
@@ -576,8 +576,8 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('click', e => {
   const act = e.target.closest('#cmdTip [data-act]');
   if (act && act.dataset.act === 'copy'){
-    const done = ok => { const b = act; b.textContent = ok ? 'Copied \u2713' : 'Copy failed';
-      setTimeout(() => { b.textContent = 'Copy'; }, 1200); };
+    const done = ok => { const b = act; b.textContent = ok ? 'Copiado \u2713' : 'Fall\u00f3 la copia';
+      setTimeout(() => { b.textContent = 'Copiar'; }, 1200); };
     if (navigator.clipboard && window.isSecureContext){
       navigator.clipboard.writeText(cmdText).then(() => done(true), () => done(false));
     } else {
@@ -692,6 +692,6 @@ function applyManifest(m){
     applyManifest(m);
   } catch (err) {
     console.error('comparison data unavailable', err);
-    metaLine.textContent = 'no comparison data found (no embedded package, no manifest.json)';
+    metaLine.textContent = 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
   }
 })();

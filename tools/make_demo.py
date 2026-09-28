@@ -33,7 +33,7 @@ def base_image(seed):
             d.ellipse([cx-rad, cy-rad, cx+rad, cy+rad], outline=col, width=rng.randint(3, 9))
         else:
             d.rectangle([cx-rad, cy-rad//2, cx+rad, cy+rad//2], outline=col, width=rng.randint(3, 9))
-    d.text((24, 20), f"synthetic demo frame", fill=(255, 255, 255))
+    d.text((24, 20), "demo sintética — nada real", fill=(255, 255, 255))
     return im
 
 def encode_like(im):
@@ -61,16 +61,16 @@ for i, f in enumerate(FRAMES):
 pkg = {
   "format": "gatos.pics/cmp@1",
   "manifest": {
-    "title": "gatos.pics demo — synthetic frames",
+    "title": "gatos.pics — demo con cuadros sintéticos",
     "version": 1,
     "frames": FRAMES,
     "frame_labels": {str(f): f"demo {i+1}" for i, f in enumerate(FRAMES)},
     "variants": [
-      {"id": "src", "name": "Source", "color": "#7bd389",
-       "note": "synthetic reference"},
+      {"id": "src", "name": "Fuente", "color": "#7bd389",
+       "note": "referencia"},
       {"id": "enc1", "name": "Encode", "color": "#7bb3ff",
-       "note": "blur + noise simulation",
-       "cmd": "encoder --input in.png --quality 42 --preset demo --output out.png"},
+       "note": "desenfoque + ruido simulados",
+       "cmd": "encoder --entrada in.png --crf 42 --preset demo --salida out.png"},
     ],
   },
   "images": images,

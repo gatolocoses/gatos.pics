@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gatos.pics — creador</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a1a22'/%3E%3Crect x='2' y='3' width='5' height='10' fill='%237bd389'/%3E%3Crect x='9' y='3' width='5' height='10' fill='%23ffb454'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#101014; --panel:#1a1a22; --panel2:#23232e; --text:#e8e8f0; --dim:#9a9aa8;
+    --accent:#ffb454; --warn:#f0b429; --err:#ff5d5d; --ok:#7bd389;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    padding:8px 16px; background:var(--panel); border-bottom:1px solid #000;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  header h1{font-size:15px; font-weight:600;}
+  header h1 .dim{color:var(--dim); font-weight:400;}
+  .tabs{display:flex; gap:4px;}
+  .tabs button{padding:4px 14px;}
+  .spacer{flex:1;}
+  button{
+    background:var(--panel2); color:var(--text); border:1px solid #333;
+    padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;
+  }
+  button:hover{background:#2d2d3a;}
+  button.primary{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
+  button.primary:hover{background:#ffc670;}
+  button:disabled{opacity:.4; cursor:default;}
+  main{flex:1; overflow:auto; padding:18px; max-width:1180px; width:100%; margin:0 auto;}
+  .hint{color:var(--dim); font-size:12px;}
+  .warn{color:var(--warn); font-size:12px;}
+  .err{color:var(--err); font-size:12px;}
+  .okline{color:var(--ok); font-size:12px;}
+
+  /* onboarding */
+  #onboard{
+    position:fixed; inset:0; z-index:50; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .obcard{max-width:640px; background:var(--panel); border:1px solid #2a2a36; border-radius:14px; padding:28px 30px;}
+  .obcard h1{font-size:26px; letter-spacing:.3px;}
+  .obcard h1 .cat{color:var(--accent);}
+  .obcard .tag{color:var(--dim); margin:6px 0 18px; font-size:15px;}
+  .obsteps{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .obstep{flex:1 1 160px; background:var(--panel2); border:1px solid #333; border-radius:10px; padding:10px 12px;}
+  .obstep b{display:block; margin-bottom:3px; font-size:13px;}
+  .obstep span{font-size:12px; color:var(--dim); line-height:1.35; display:block;}
+  .obpriv{display:flex; gap:8px; align-items:center; color:var(--ok); font-size:12.5px; margin-bottom:18px;}
+  .obrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  .obskip{font-size:12px; color:var(--dim); display:flex; align-items:center; gap:5px;}
+
+  /* drop zones */
+  .drop{
+    border:2px dashed #3a3a48; border-radius:10px; background:var(--panel);
+    padding:26px 18px; text-align:center; cursor:pointer; transition:border-color .12s, background .12s;
+  }
+  .drop:hover, .drop.over{border-color:var(--accent); background:#1f1f29;}
+  .drop .big{font-size:15px; margin-bottom:4px;}
+  .drop.over .big{color:var(--accent);}
+
+  /* pares (básico) */
+  .pair{
+    display:flex; align-items:center; gap:10px; background:var(--panel);
+    border:1px solid #2a2a36; border-radius:10px; padding:8px 10px; margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .pair .no{color:var(--dim); font-size:12px; width:56px;}
+  .slot{
+    width:150px; height:86px; border:1px solid #333; border-radius:8px; background:var(--panel2);
+    display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:11px;
+    cursor:pointer; overflow:hidden; position:relative;
+  }
+  .slot img{width:100%; height:100%; object-fit:contain;}
+  .slot.filled{border-color:var(--ok);}
+  .slot.empty:hover{border-color:var(--accent); color:var(--accent);}
+  .pair .tools{display:flex; gap:4px; margin-left:auto;}
+  .pair .tools button{padding:2px 8px; font-size:11px;}
+
+  /* pasos (avanzado) */
+  .advwrap{display:flex; gap:18px; min-height:100%;}
+  .steps{flex:0 0 172px; display:flex; flex-direction:column; gap:4px;}
+  .steps button{
+    text-align:left; padding:7px 10px; color:var(--dim); background:transparent; border-color:transparent;
+  }
+  .steps button .n{display:inline-block; width:18px; color:inherit; font-weight:600;}
+  .steps button.on{color:var(--text); background:var(--panel2); border-color:#333;}
+  .steps button.done{color:var(--ok);}
+
+  /* forms */
+  label.f{display:block; margin:10px 0 2px; font-size:12px; color:var(--dim);}
+  input[type=text], input[type=number]{
+    background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px;
+    padding:6px 9px; font:13px/1.3 system-ui,sans-serif; width:100%;
+  }
+  input:focus{outline:none; border-color:var(--accent);}
+  .card{background:var(--panel); border:1px solid #2a2a36; border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .vrow{display:grid; grid-template-columns:26px 1fr 92px 60px 90px 30px 30px 30px; gap:6px; align-items:center; margin-bottom:6px;}
+  .vrow2{display:grid; grid-template-columns:26px 5fr 8fr 30px; gap:6px; align-items:center; margin-bottom:4px;}
+  .dot{width:22px; height:22px; border-radius:50%; border:2px solid #000; cursor:pointer;}
+  .frow{display:grid; grid-template-columns:90px 1fr 30px 30px 30px; gap:6px; align-items:center; margin-bottom:6px;}
+  .iconbtn{padding:2px 6px; font-size:12px; line-height:1.3;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px;}
+  .badge{font-size:10px; color:var(--dim); border:1px solid #333; border-radius:4px; padding:0 4px; margin-left:6px; white-space:nowrap;}
+
+  /* tabla de imágenes */
+  .matrix{overflow-x:auto;}
+  table.mtx{border-collapse:collapse; min-width:100%;}
+  table.mtx th{color:var(--dim); font-size:12px; font-weight:500; padding:4px 6px; text-align:left; white-space:nowrap;}
+  table.mtx td{padding:3px 6px;}
+  .cell{
+    width:118px; height:68px; border:1px dashed #3a3a48; border-radius:8px; background:var(--panel2);
+    display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:10px;
+    cursor:pointer; overflow:hidden; position:relative;
+  }
+  .cell img{width:100%; height:100%; object-fit:contain;}
+  .cell.filled{border:1px solid var(--ok); border-style:solid;}
+  .cell.empty:hover, .cell.over{border-color:var(--accent); color:var(--accent);}
+  .cell .rm{
+    position:absolute; top:2px; right:2px; background:#000c; border:none; border-radius:4px;
+    color:#fff; font-size:10px; padding:1px 5px; display:none;
+  }
+  .cell.filled:hover .rm{display:block;}
+
+  /* final */
+  .vlist{list-style:none; margin:8px 0;}
+  .vlist li{padding:3px 0 3px 20px; position:relative; font-size:13px;}
+  .vlist li::before{position:absolute; left:2px;}
+  .vlist li.bad::before{content:'\2716'; color:var(--err);}
+  .vlist li.warnl::before{content:'\26A0'; color:var(--warn);}
+  .vlist li.good::before{content:'\2714'; color:var(--ok);}
+  .exports{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .exp{background:var(--panel); border:1px solid #2a2a36; border-radius:10px; padding:10px 12px; flex:1 1 200px;}
+  .exp b{font-size:13px; display:block; margin-bottom:3px;}
+  .exp .hint{display:block; margin-bottom:8px;}
+
+  /* vista previa */
+  #pvFrame{position:fixed; inset:0; background:var(--bg); z-index:40; display:none; flex-direction:column;}
+  #pvFrame.show{display:flex;}
+  #pvBar{padding:6px 12px; background:var(--panel); border-bottom:1px solid #000; display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  #pvBox{flex:1; border:none; background:#000;}
+
+  footer{padding:6px 16px; background:var(--panel); border-top:1px solid #000; color:var(--dim); font-size:11px; display:flex; gap:14px; flex-wrap:wrap;}
+  @media (max-width:820px){
+    .advwrap{flex-direction:column;}
+    .steps{flex-direction:row; flex-wrap:wrap; flex-basis:auto;}
+    .vrow{grid-template-columns:26px 1fr 30px 30px 30px;}
+    .vrow .opt{display:none;}
+    .vrow2{grid-template-columns:26px 1fr 30px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== ONBOARDING ===================== -->
+<div id="onboard" hidden>
+  <div class="obcard">
+    <h1><span class="cat">gatos.pics</span></h1>
+    <p class="tag">Páginas de comparación de imágenes — sin servidor, sin cuentas, sin subir nada.</p>
+    <div class="obsteps">
+      <div class="obstep"><b>1 · Suelta tus capturas</b><span>Cada dos imágenes forman un par: izquierda contra derecha.</span></div>
+      <div class="obstep"><b>2 · Describe (opcional)</b><span>En modo avanzado: variantes, codec, CRF, bitrate, comandos.</span></div>
+      <div class="obstep"><b>3 · Exporta</b><span>Un HTML que se abre en cualquier lado, una carpeta lista para hospedar, o un .cmp para subir a gatos.pics.</span></div>
+    </div>
+    <div class="obpriv">&#128274; Todo corre en tu computadora. Ninguna imagen sale de esta pestaña.</div>
+    <div class="obrow">
+      <button id="obStart" class="primary" style="font-size:14px; padding:8px 22px;">Empezar</button>
+      <button id="obDemo" style="font-size:13px;">Ver un ejemplo</button>
+      <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>gatos.pics <span class="dim">creador</span></h1>
+  <nav class="tabs">
+    <button id="tabBasic">Básico</button>
+    <button id="tabAdv">Avanzado</button>
+  </nav>
+  <span class="spacer"></span>
+  <button id="btnHelp">?</button>
+  <button id="btnPreviewTop" class="primary">Vista previa</button>
+</header>
+
+<main>
+  <!-- ======================= BÁSICO ======================= -->
+  <section id="basicView">
+    <h2 style="font-size:16px;">Pares, nada más</h2>
+    <p class="hint" style="margin:4px 0 14px;">
+      Suelta tus capturas. Cada dos imágenes forman un par — la primera va a la izquierda,
+      la segunda a la derecha. Sin títulos, sin configuración, solo la comparación.
+    </p>
+    <div class="drop" id="basicDrop">
+      <div class="big">Suelta imágenes aquí</div>
+      <div class="hint">o haz clic para explorar — PNG / WebP / JPEG, en cualquier orden (se ordenan por nombre)</div>
+    </div>
+    <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
+    <div id="pairList"></div>
+    <div id="basicFoot"></div>
+  </section>
+
+  <!-- ======================= AVANZADO ======================= -->
+  <section id="advView" style="display:none;">
+    <div class="advwrap">
+      <nav class="steps" id="stepNav"></nav>
+      <div class="stepbody">
+
+        <div class="step" data-step="0">
+          <h2>Proyecto</h2>
+          <p class="sub">Un nombre para la página. Todo aquí es opcional — pero la página se ve mejor con él.</p>
+          <div class="card">
+            <label class="f">Título</label>
+            <input type="text" id="pjTitle" placeholder="p. ej. Comparación de encodes">
+            <div class="warn" id="pjTitleWarn" style="margin-top:4px;">Vacío — la página mostrará un título genérico. Se ve mejor con uno.</div>
+            <label class="f">Versión (renueva la caché cuando se hospeda como carpeta)</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="number" id="pjVersion" value="1" min="1" style="width:90px;">
+              <button id="pjBump" class="iconbtn">+1</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" data-step="1">
+          <h2>Variantes</h2>
+          <p class="sub">Las versiones que se comparan (fuente, encodes…). Los campos son opcionales —
+             codec / CRF / bitrate son los que mejor lucen en los botones.</p>
+          <div id="varList"></div>
+          <button id="varAdd">+ Agregar variante</button>
+          <div id="varWarns" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="step" data-step="2">
+          <h2>Frames</h2>
+          <p class="sub">Un renglón por momento capturado. El número es el id del frame usado en los nombres de
+             archivo (<span class="mono">variante_numero.png</span>); la etiqueta es el nombre bonito del botón.</p>
+          <div id="frameList"></div>
+          <button id="frameAdd">+ Agregar frame</button>
+          <div id="frameWarns" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="step" data-step="3">
+          <h2>Imágenes</h2>
+          <p class="sub">Llena la tabla. Suelta archivos llamados
+             <span class="mono">&lt;variante&gt;_&lt;frame&gt;.png</span> y caen solos en su casilla.</p>
+          <div class="drop" id="bulkDrop" style="padding:14px;">
+            <div class="big" style="font-size:13px;">Suelta en lote — archivos con nombre automático</div>
+            <div class="hint">se emparejan por id de variante, nombre de variante o número/etiqueta del frame</div>
+          </div>
+          <input type="file" id="bulkFile" accept="image/*" multiple style="display:none">
+          <div id="unassigned" style="margin:10px 0;"></div>
+          <div class="matrix" id="matrix"></div>
+        </div>
+
+        <div class="step" data-step="4">
+          <h2>Final</h2>
+          <p class="sub">Revisa la lista y dale una vuelta a la página.</p>
+          <ul class="vlist" id="checkList"></ul>
+          <div class="exports">
+            <div class="exp">
+              <b>Vista previa</b>
+              <span class="hint">la página exacta que van a ver quienes abran tu export.</span>
+              <button id="btnPreview" class="primary">Abrir vista previa</button>
+            </div>
+            <div class="exp">
+              <b>HTML de un solo archivo</b>
+              <span class="hint">motor + imágenes embebidos. Se abre con doble clic, sin internet.</span>
+              <button id="btnExpHtml">Descargar .html</button>
+            </div>
+            <div class="exp">
+              <b>Carpeta autocontenida (.zip)</b>
+              <span class="hint">index.html + compare.js + manifest.json + img/ — lista para cualquier hosting estático.</span>
+              <button id="btnExpZip">Descargar .zip</button>
+            </div>
+            <div class="exp">
+              <b>Paquete .cmp</b>
+              <span class="hint">el formato de gatos.pics — súbelo directo al servicio cuando lo abras al público.</span>
+              <button id="btnExpCmp">Descargar .cmp</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>gatos.pics — local, sin subidas. Todo pasa en esta pestaña.</span>
+  <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo</span>
+</footer>
+
+<!-- vista previa -->
+<div id="pvFrame">
+  <div id="pvBar">
+    <b>Vista previa</b>
+    <button id="pvClose">Volver al creador</button>
+    <span class="hint">esta es exactamente la página exportada — mismo motor, imágenes embebidas</span>
+  </div>
+  <iframe id="pvBox" title="vista previa"></iframe>
+</div>
+
+<!-- generado por tools/build_app.py: SHELL_HTML + ENGINE_SRC como cadenas -->
+<script src="assets.js"></script>
+<script src="builder.js"></script>
+</body>
+</html>
