@@ -18,6 +18,7 @@ const divider = $('divider'), zoomBadge = $('zoomBadge'), diffNote = $('diffNote
 const modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropPanel');
 const cropRows = $('cropRows'), cropTitle = $('cropTitle');
 const diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');
+const pixBtn = $('pixBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
@@ -292,6 +293,18 @@ function setHeat(on){
 }
 imgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });
 imgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\u00f3'; });
+
+/* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
+let smoothScale = true;
+try { smoothScale = localStorage.getItem('gatosSmooth') !== '0'; } catch(e){}
+function setSmooth(on){
+  smoothScale = on;
+  for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';
+  pixBtn.classList.toggle('active', !on);
+  try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
+}
+pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
+setSmooth(smoothScale);
 imgB.addEventListener('load', updateBadge);
 realB.addEventListener('load', renderDiff);
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
@@ -639,6 +652,12 @@ window.addEventListener('keydown', e => {
     const i = FRAMES.indexOf(frame);
     const ni = e.key === 'ArrowRight' ? i+1 : i-1;
     if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }
+  } else if (e.key === ' ' && !e.repeat){
+    e.preventDefault();   // no hacer scroll de página
+    const ids = VARIANTS.map(v => v.id);
+    varB = ids[(ids.indexOf(varB)+1) % ids.length];
+    loadImg();
+  } else if (!e.repeat && (e.key === 'n' || e.key === 'N')){ setSmooth(!smoothScale);
   } else if (/^[1-9]$/.test(e.key)){
     const idx = +e.key-1;
     if (idx >= VARIANTS.length) return;

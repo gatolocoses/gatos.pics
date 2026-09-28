@@ -170,7 +170,8 @@
   <button id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
   <button id="blinkBtn" title="Parpadeo izquierda/derecha a 2 Hz (B)">Blink</button>
   <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Crops</button>
-  <button id="oneBtn" title="1:1 real en p\u00edxeles del dispositivo (O)">1:1</button>
+  <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
+  <button id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
   </div>
   <div class="hrow hrow-panes">
@@ -213,6 +214,8 @@
   <span><kbd>F</kbd> ajustar</span>
   <span><kbd>+</kbd>/<kbd>-</kbd> ganancia</span>
   <span><kbd>H</kbd> calor</span>
+  <span><kbd>Espacio</kbd> siguiente variante</span>
+  <span><kbd>N</kbd> nítido</span>
   <span><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
   <span>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
   </div>
@@ -242,6 +245,7 @@ const divider = $('divider'), zoomBadge = $('zoomBadge'), diffNote = $('diffNote
 const modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropPanel');
 const cropRows = $('cropRows'), cropTitle = $('cropTitle');
 const diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');
+const pixBtn = $('pixBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
@@ -516,6 +520,18 @@ function setHeat(on){
 }
 imgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });
 imgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\u00f3'; });
+
+/* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
+let smoothScale = true;
+try { smoothScale = localStorage.getItem('gatosSmooth') !== '0'; } catch(e){}
+function setSmooth(on){
+  smoothScale = on;
+  for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';
+  pixBtn.classList.toggle('active', !on);
+  try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
+}
+pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
+setSmooth(smoothScale);
 imgB.addEventListener('load', updateBadge);
 realB.addEventListener('load', renderDiff);
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
@@ -863,6 +879,12 @@ window.addEventListener('keydown', e => {
     const i = FRAMES.indexOf(frame);
     const ni = e.key === 'ArrowRight' ? i+1 : i-1;
     if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }
+  } else if (e.key === ' ' && !e.repeat){
+    e.preventDefault();   // no hacer scroll de página
+    const ids = VARIANTS.map(v => v.id);
+    varB = ids[(ids.indexOf(varB)+1) % ids.length];
+    loadImg();
+  } else if (!e.repeat && (e.key === 'n' || e.key === 'N')){ setSmooth(!smoothScale);
   } else if (/^[1-9]$/.test(e.key)){
     const idx = +e.key-1;
     if (idx >= VARIANTS.length) return;
