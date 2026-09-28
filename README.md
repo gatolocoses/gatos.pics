@@ -25,10 +25,13 @@ derecha). Nada más que decidir.
 - **Variantes**: fuente, encodes, lo que quieras. Codec, CRF y bitrate van en el
   botón; el comando completo del encoder queda como tooltip.
 - **Frames**: número + etiqueta (`6052 · escena oscura`).
-- **Autocompletado**: suelta archivos llamados `variante_frame.png` y cada uno
-  cae solo en su casilla de la tabla.
+- **Volcado mágico**: suelta todos los archivos de golpe — `blu-ray_1001.png`
+  crea la variante "Blu Ray" y el frame 1001 solos, y llena su casilla.
 - Todo campo es opcional — pero la página se ve mejor con ellos llenos, y el
   creador te lo avisa.
+
+El proyecto se guarda como `.cmp` (Ctrl+S) y se abre de nuevo con el botón
+Abrir o soltándolo en la ventana.
 
 ## Tres exportaciones
 
@@ -42,14 +45,18 @@ derecha). Nada más que decidir.
 
 - Divisor vertical arrastrable + **diff amplificado ×5–×40** con modo calor.
 - **Parpadeo A/B** a 2 Hz para cazar diferencias a simple ojo.
+- **Modo ciego**: oculta qué variante es cuál — juzga sin sesgo de marca.
+- **Curva solar**: estira los tonos oscuros y convierte el banding en acantilados
+  visibles.
 - **Recortes 1:1**: elige un punto, compara píxel por píxel todas las variantes.
 - Zoom hasta 800 % con arrastre, ajuste exacto a píxeles del dispositivo.
 - Estado compartible por URL (`#f=6052&a=src&b=enc&diff=1`).
 - Funciona en el teléfono: menús desplegables, pellizco para zoom.
 
 Atajos: `←/→` frame · `Espacio` siguiente variante · `1–9` variante (`Shift` =
-izquierda) · `S` intercambiar · `D` diff · `B` parpadeo · `C` recortes · `O` 1:1 ·
-`F` ajustar · `N` píxeles nítidos · `+/−` ganancia · `H` calor · `,/.` divisor.
+izquierda) · `S` intercambiar · `D` diff · `B` parpadeo · `G` ciego · `L` solar ·
+`C` recortes · `O` 1:1 · `F` ajustar · `N` píxeles nítidos · `+/−` ganancia ·
+`H` calor · `,/.` divisor.
 
 ## Por qué no slow.pics / comp.pics
 

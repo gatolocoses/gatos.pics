@@ -20,6 +20,7 @@ const cropRows = $('cropRows'), cropTitle = $('cropTitle');
 const diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');
 const pixBtn = $('pixBtn');
 const blindBtn = $('blindBtn');
+const solarBtn = $('solarBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
@@ -345,6 +346,19 @@ function setBlind(on){
 }
 blindBtn.addEventListener('click', () => setBlind(!blindMode));
 
+/* ---------- curva solar: revela banding ---------- */
+let solarMode = false;
+function setSolar(on){
+  solarMode = on;
+  solarBtn.classList.toggle('solar-on', on);
+  const f = on ? 'url(#solarCurve)' : '';
+  imgA.style.filter = f;
+  imgB.style.filter = f;
+  updateMeta();
+  writeHash();
+}
+solarBtn.addEventListener('click', () => setSolar(!solarMode));
+
 /* ---------- crops N-up: 1:1 crops of every variant at a picked point ---------- */
 function pickCrop(cx, cy){
   const r = comp.getBoundingClientRect();
@@ -434,6 +448,7 @@ function writeHash(){
     if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }
     if (blinkMode) p.set('blink', 1);
     if (blindMode) p.set('blind', 1);
+    if (solarMode) p.set('solar', 1);
     if (cropMode) p.set('crops', 1);
     if (cropUV){
       const {nw, nh} = naturalDims();
@@ -495,7 +510,7 @@ function updateMeta(){
   const m = FRAME_META[frame] || {};
   const where = m.clip_s != null ? ` \u00B7 clip +${m.clip_s.toFixed(1)}s` : '';
   const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \u00B7 ` : '';
-  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : ''].filter(Boolean).join('+');
+  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
     `${origin}frame ${lbl} (#${frame}${where}) \u2014 izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}`;
 }
@@ -688,6 +703,7 @@ window.addEventListener('keydown', e => {
   } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }
   else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }
   else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ setBlind(!blindMode); }
+  else if (!e.repeat && (e.key === 'l' || e.key === 'L')){ setSolar(!solarMode); }
   else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }
   else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }
   else if (!e.repeat && (e.key === 'o' || e.key === 'O')){ oneToOne(); }
@@ -717,6 +733,7 @@ function applyManifest(m){
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('blind') === '1') setBlind(true);
+  if (h.get('solar') === '1') setSolar(true);
   if (h.get('crops') === '1') setCropMode(true);
   if (h.get('crop')){
     const [cu, cv] = h.get('crop').split(',').map(Number);

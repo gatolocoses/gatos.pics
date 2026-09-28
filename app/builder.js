@@ -816,7 +816,11 @@ renderPairs();
 renderSteps();
 setMode('basic');
 showOnboard(false);
-window.addEventListener('beforeunload', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });
+window.addEventListener('beforeunload', e => {
+  const hasWork = state.pairs.some(p => p[0] || p[1]) || state.cells.size;
+  if (hasWork){ e.preventDefault(); e.returnValue = ''; }
+});
+window.addEventListener('unload', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });
 
 /* gancho de prueba/consola: permite manejar la página sin mouse (útil también para usuarios avanzados) */
 window.BUILDER = {state, currentPackage, buildStandaloneHTML, addBasicFiles, bulkAdd, importCmp, validateAdvanced, makeDemoPackage, setMode, renderSteps};
