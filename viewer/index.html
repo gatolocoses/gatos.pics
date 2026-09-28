@@ -249,9 +249,11 @@
     <div class="hint" style="font-size:11px; margin-bottom:8px;">la imagen es exactamente lo que estás viendo: frame, variantes, divisor y zoom, en PNG sin pérdida.</div>
     <div id="shareRows"></div>
     <img id="sharePreview" alt="vista a compartir" style="width:100%; border:1px solid #333; border-radius:8px; background:#000; margin-top:8px; display:none;">
-    <div style="display:flex; gap:8px; margin-top:10px;">
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
       <button id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>
+      <button id="shareUp" style="display:none;" title="sube esta imagen exacta a gatos.pics y arma el BBCode para foros">Subir y obtener BBCode</button>
     </div>
+    <div id="shareCodes" style="display:none;"></div>
   </div>
 </div>
 <script src="compare.js"></script>

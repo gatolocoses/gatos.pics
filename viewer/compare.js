@@ -833,6 +833,54 @@ async function openShare(){
     a.download = shareName;
     a.click();
   };
+  // subir la imagen exacta y armar los formatos para compartir
+  const up = $('shareUp');
+  up.style.display = 'inline-block';
+  up.onclick = async () => {
+    up.disabled = true; up.textContent = 'Subiendo…';
+    try {
+      const api = (location.protocol === 'http:' || location.protocol === 'https:') ? location.origin : 'https://gatos.pics';
+      const resp = await fetch(api + '/api/shot', { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
+      let j = null;
+      try { j = await resp.json(); } catch(e){}
+      if (!resp.ok) throw new Error((j && j.error) || ('HTTP ' + resp.status));
+      const page = location.href.split('#')[0];
+      const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
+      const codes = [
+        ['BBCode (foros, la vista exacta clicable)', '[url=' + page + '][img]' + j.url + '[/img][/url]'],
+        ['Markdown', '[![' + title + '](' + j.url + ')](' + page + ')'],
+        ['HTML', '<a href="' + page + '"><img src="' + j.url + '" alt="' + title + '" loading="lazy"></a>'],
+        ['Imagen directa', j.url],
+      ];
+      const host2 = $('shareCodes');
+      host2.innerHTML = '';
+      for (const [label, text] of codes){
+        const l = document.createElement('div');
+        l.style.cssText = 'font-size:11px; color:var(--dim); margin:10px 0 3px;';
+        l.textContent = label;
+        const box = document.createElement('textarea');
+        box.readOnly = true;
+        box.value = text;
+        box.style.cssText = 'width:100%; height:40px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:5px 8px; font:11px ui-monospace,Menlo,Consolas,monospace; resize:none;';
+        box.onclick = async () => {
+          box.select();
+          let ok2 = false;
+          if (navigator.clipboard && window.isSecureContext){ try { await navigator.clipboard.writeText(text); ok2 = true; } catch(e){} }
+          if (!ok2){ try { ok2 = document.execCommand('copy'); } catch(e){} }
+          $('shareHint').textContent = ok2 ? 'copiado \u2713' : 'seleccionado: Ctrl+C';
+          box.style.borderColor = ok2 ? '#7bd389' : '#ffb454';
+          setTimeout(() => { $('shareHint').textContent = ''; box.style.borderColor = '#333'; }, 1500);
+        };
+        host2.appendChild(l);
+        host2.appendChild(box);
+      }
+      host2.style.display = 'block';
+    } catch (e) {
+      alert('No se pudo subir la imagen: ' + e.message);
+    } finally {
+      up.disabled = false; up.textContent = 'Subir y obtener BBCode';
+    }
+  };
 }
 $('shareBtn').addEventListener('click', openShare);
 $('shareClose').addEventListener('click', closeShareIfOpen);
