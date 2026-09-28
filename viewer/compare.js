@@ -688,6 +688,12 @@ $('resetBtn').addEventListener('click', fitView);
 $('swapBtn').addEventListener('click', swapAB);
 
 window.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT')){
+    if (e.key === 'Escape'){ t.blur(); closeShareIfOpen(); }
+    return;   // escribiendo/seleccionando: los atajos esperan
+  }
+  if (e.key === 'Escape' && sharePanel.style.display === 'flex'){ sharePanel.style.display = 'none'; return; }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
     const i = FRAMES.indexOf(frame);
     const ni = e.key === 'ArrowRight' ? i+1 : i-1;
@@ -740,14 +746,28 @@ function openShare(){
     box.readOnly = true;
     box.value = text;
     box.style.cssText = 'width:100%; height:44px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:5px 8px; font:11px ui-monospace,Menlo,Consolas,monospace; resize:none;';
-    box.onclick = () => { box.select(); try { document.execCommand('copy'); } catch(e){ if (navigator.clipboard) navigator.clipboard.writeText(text); } };
+    box.onclick = async () => {
+      box.select();
+      let ok = false;
+      if (navigator.clipboard && window.isSecureContext){
+        try { await navigator.clipboard.writeText(text); ok = true; } catch(e){}
+      }
+      if (!ok){ try { ok = document.execCommand('copy'); } catch(e){} }
+      const hint = $('shareHint');
+      hint.textContent = ok ? 'copiado \u2713' : 'seleccionado: Ctrl+C';
+      box.style.borderColor = ok ? '#7bd389' : '#ffb454';
+      setTimeout(() => { hint.textContent = ''; box.style.borderColor = '#333'; }, 1500);
+    };
     shareRows.appendChild(l);
     shareRows.appendChild(box);
   }
   sharePanel.style.display = 'flex';
 }
 $('shareBtn').addEventListener('click', openShare);
-$('shareClose').addEventListener('click', () => { sharePanel.style.display = 'none'; });
+for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
+  sharePanel.addEventListener(ev, e => e.stopPropagation());
+$('shareClose').addEventListener('click', closeShareIfOpen);
+function closeShareIfOpen(){ if (sharePanel.style.display === 'flex') sharePanel.style.display = 'none'; }
 
 /* ---------- init ---------- */
 function applyManifest(m){
