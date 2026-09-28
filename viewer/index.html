@@ -227,6 +227,7 @@
     <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
   <button id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
+  <button id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
     </div>
   </div>
   <div class="hrow hrow-panes">
@@ -315,6 +316,23 @@
   <p style="margin-top:10px;">Los atajos no cambian la comparación mientras escribes en un campo.</p>
 </dialog>
 
+<div id="reportPanel" role="dialog" aria-modal="true" aria-label="Reportar página" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
+  <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:440px; width:100%;">
+    <h2 style="font-size:14px; margin-bottom:8px;">Reportar esta página</h2>
+    <select id="reportReason" style="width:100%; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:6px 8px; font-size:13px;">
+      <option value="contenido inapropiado">Contenido inapropiado</option>
+      <option value="material ajeno / derechos">Material ajeno / derechos</option>
+      <option value="spam o engaño">Spam o engaño</option>
+      <option value="otro">Otro</option>
+    </select>
+    <textarea id="reportNote" rows="3" placeholder="detalle (opcional)" style="width:100%; margin-top:8px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:6px 8px; font-size:12px; resize:none;"></textarea>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button id="reportSend" class="xbtn">Enviar reporte</button>
+      <button id="reportClose">Cerrar</button>
+    </div>
+    <div id="reportStatus" class="hint" style="margin-top:8px; min-height:14px;"></div>
+  </div>
+</div>
 <div id="sharePanel" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
   <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:560px; width:100%; max-height:86%; overflow:auto;">
     <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">Compartir
