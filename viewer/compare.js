@@ -126,6 +126,11 @@ function updateBadge(){
   if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
   zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
+/* la marca del encabezado es un espejo del visor: el circulito sigue al divisor */
+function syncBrandSlider(){
+  const dot = document.querySelector('.brand-dot');
+  if (dot) dot.style.left = (blinkMode ? 50 : dividerPos*100) + '%';
+}
 function applyTransform(){
   const t = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
   imgA.style.transform = t;
@@ -134,6 +139,7 @@ function applyTransform(){
   paneB.style.clipPath = blinkMode ? 'inset(0 0 0 0)' : `inset(0 0 0 ${dividerPos*100}%)`;
   divider.style.display = blinkMode ? 'none' : '';
   divider.style.left = `${dividerPos*100}%`;
+  syncBrandSlider();
   updateBadge();
 }
 function setZoomAt(cx, cy, Z2){
@@ -595,6 +601,9 @@ function loadImg(){
   statsB.textContent = variantStats(varB);
   labelA.style.color = blindMode ? '#e8e8f0' : variant(varA).color;
   labelB.style.color = blindMode ? '#e8e8f0' : variant(varB).color;
+  const bg = document.querySelector('.brand-gato'), bp = document.querySelector('.brand-pics');
+  if (bg) bg.style.background = blindMode ? '#9a9aa8' : (variant(varA).color || '#7bd389');
+  if (bp) bp.style.background = blindMode ? '#9a9aa8' : (variant(varB).color || '#ffb454');
   refreshFrameButtons(); refreshVariantButtons(); syncVariantOverflow();
   updateMeta();
   updateBadge();
@@ -792,24 +801,32 @@ let shareBlobUrl = null, shareName = 'gatos.pics.png';
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 function drawBrand(ctx, x, y){
+  // espejo en miniatura: cajas del color de las variantes, circulito en la
+  // posicion real del divisor
+  const colA = blindMode ? '#9a9aa8' : (variant(varA).color || '#7bd389');
+  const colB = blindMode ? '#9a9aa8' : (variant(varB).color || '#ffb454');
+  const W = 104, H = 16, cy = y + H/2;
   ctx.save();
-  ctx.fillStyle = '#7bd389';
-  ctx.beginPath(); ctx.roundRect(x, y, 40, 22, [4,0,0,4]); ctx.fill();
-  ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+58, y, 36, 22, [0,4,4,0]); ctx.fill();
-  // control del divisor en miniatura: circulo blanco con las dos flechas
+  ctx.globalAlpha = .9;
+  ctx.fillStyle = colA;
+  ctx.beginPath(); ctx.roundRect(x, y, 34, H, [3,0,0,3]); ctx.fill();
+  ctx.fillStyle = colB;
+  ctx.beginPath(); ctx.roundRect(x+W-32, y, 32, H, [0,3,3,0]); ctx.fill();
+  // circulito sobre el track, en la posicion del divisor
+  const trackL = x+34, trackR = x+W-32;
+  const cx = trackL + (trackR-trackL) * (blinkMode ? .5 : dividerPos);
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.arc(x+49, y+11, 8, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
   ctx.shadowColor = 'transparent';
   ctx.strokeStyle = '#111'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(x+47.2, y+7.8); ctx.lineTo(x+44.6, y+11); ctx.lineTo(x+47.2, y+14.2);
-  ctx.moveTo(x+50.8, y+7.8); ctx.lineTo(x+53.4, y+11); ctx.lineTo(x+50.8, y+14.2);
+  ctx.moveTo(cx-1.8, cy-3.2); ctx.lineTo(cx-4.4, cy); ctx.lineTo(cx-1.8, cy+3.2);
+  ctx.moveTo(cx+1.8, cy-3.2); ctx.lineTo(cx+4.4, cy); ctx.lineTo(cx+1.8, cy+3.2);
   ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right'; ctx.fillText('gato', x+35, y+11);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+63, y+11);
+  ctx.font = '700 9px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right'; ctx.fillText('gato', x+30, cy);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+W-28, cy);
   ctx.restore();
 }
 
@@ -887,7 +904,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-94)/2, ib-30);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-104)/2, ib-24);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
