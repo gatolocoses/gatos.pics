@@ -19,6 +19,17 @@ en tu computadora. Las imágenes solo se suben cuando eliges Publicar.
 | **[Formato .cmp](docs/formato-cmp.md)** | especificación del paquete (el contrato de publicación) |
 | **[Desarrollo](docs/desarrollo.md)** | estructura del repo, cómo regenerar, cómo contribuir |
 
+## Así se ve
+
+![Comparación con divisor arrastrable y diff amplificado](docs/img/comparacion.gif)
+
+| | |
+|---|---|
+| ![Vista con divisor](docs/img/vista.png) | ![Diff amplificado](docs/img/diff.png) |
+| ![Recortes 1:1](docs/img/recortes.png) | ![El creador](docs/img/creador.png) |
+
+Las capturas usan la demo sintética incluida en el repo.
+
 ## Empezar en 20 segundos
 
 1. Descarga **`dist/gatos.html`** — un solo archivo, ese es todo el programa.
