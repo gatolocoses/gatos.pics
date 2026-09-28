@@ -89,9 +89,9 @@ function makeDemoPackage(){
         d[i+2] = Math.max(0, Math.min(255, d[i+2]+n));
       }
       x2.putImageData(id, 0, 0);
-      return c2.toDataURL('image/png');
+      return c2.toDataURL('image/jpeg', 0.72);
     }
-    return c.toDataURL('image/png');
+    return c.toDataURL('image/jpeg', 0.92);
   }
   const images = {};
   [1, 2, 3].forEach((f, i) => {
