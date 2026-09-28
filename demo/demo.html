@@ -24,13 +24,17 @@
     position:relative;
   }
   /* 92 × 22 px. The middle column owns the gap and its single centered dot. */
-  .brand{display:inline-grid; grid-template-columns:40px 3px 36px; width:79px; height:22px;
-    flex:0 0 79px; align-items:stretch; pointer-events:none; user-select:none;
+  .brand{display:inline-grid; grid-template-columns:40px 18px 36px; width:94px; height:22px;
+    flex:0 0 94px; align-items:stretch; pointer-events:none; user-select:none;
     font:700 12px/22px system-ui,sans-serif; color:#fff;
     text-shadow:0 1px 2px #000c,0 0 1px #000;}
   .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:5px;}
   .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:5px;}
-  .brand-dot{width:3px; height:3px; place-self:end center; margin-bottom:3px; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
+  /* el punto fue reemplazado por el control del divisor en miniatura */
+  .brand-dot{place-self:center; width:16px; height:16px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 3px #000c;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E"); background-size:11px 6.6px;
+    background-position:center; background-repeat:no-repeat;}
   .hrow.hrow-main{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:12px;}
   .frame-tools{display:flex; align-items:center; flex:1 1 300px; gap:12px; min-width:0;}
   .frame-tools h1{max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -168,7 +172,7 @@
   @media (max-width:820px){
     header{gap:8px; padding:6px 8px;}
     header h1{font-size:13px;}
-    .hrow.hrow-main{display:grid; grid-template-columns:minmax(0,1fr) 79px; gap:8px;}
+    .hrow.hrow-main{display:grid; grid-template-columns:minmax(0,1fr) 94px; gap:8px;}
     .frame-tools{flex-wrap:wrap; gap:4px;}
     .frame-tools h1{max-width:100%; width:100%;}
     .view-tools{grid-column:1 / -1; justify-content:flex-start;}
@@ -1094,12 +1098,20 @@ function drawBrand(ctx, x, y){
   ctx.fillStyle = '#7bd389';
   ctx.beginPath(); ctx.roundRect(x, y, 40, 22, [4,0,0,4]); ctx.fill();
   ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+43, y, 36, 22, [0,4,4,0]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+58, y, 36, 22, [0,4,4,0]); ctx.fill();
+  // control del divisor en miniatura: circulo blanco con las dos flechas
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.arc(x+41.5, y+17.5, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+49, y+11, 8, 0, Math.PI*2); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x+47.2, y+7.8); ctx.lineTo(x+44.6, y+11); ctx.lineTo(x+47.2, y+14.2);
+  ctx.moveTo(x+50.8, y+7.8); ctx.lineTo(x+53.4, y+11); ctx.lineTo(x+50.8, y+14.2);
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
   ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
   ctx.textAlign = 'right'; ctx.fillText('gato', x+35, y+11);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+48, y+11);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+63, y+11);
   ctx.restore();
 }
 
@@ -1177,7 +1189,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-79)/2, ib-30);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-94)/2, ib-30);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';

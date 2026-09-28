@@ -183,13 +183,17 @@
     .obcard{padding:20px;}
     table.mtx th{max-width:96px; overflow:hidden; text-overflow:ellipsis;}
   }
-  .brand{display:inline-grid; grid-template-columns:40px 3px 36px; width:79px; height:22px;
-    flex:0 0 79px; align-items:stretch; pointer-events:none; user-select:none;
+  .brand{display:inline-grid; grid-template-columns:40px 18px 36px; width:94px; height:22px;
+    flex:0 0 94px; align-items:stretch; pointer-events:none; user-select:none;
     font:700 12px/22px system-ui,sans-serif; color:#fff;
     text-shadow:0 1px 2px #000c,0 0 1px #000;}
   .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:5px;}
   .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:5px;}
-  .brand-dot{width:3px; height:3px; place-self:end center; margin-bottom:3px; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
+  /* el punto fue reemplazado por el control del divisor en miniatura */
+  .brand-dot{place-self:center; width:16px; height:16px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 3px #000c;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E"); background-size:11px 6.6px;
+    background-position:center; background-repeat:no-repeat;}
 </style>
 </head>
 <body>

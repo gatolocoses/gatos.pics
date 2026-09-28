@@ -796,12 +796,20 @@ function drawBrand(ctx, x, y){
   ctx.fillStyle = '#7bd389';
   ctx.beginPath(); ctx.roundRect(x, y, 40, 22, [4,0,0,4]); ctx.fill();
   ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+43, y, 36, 22, [0,4,4,0]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+58, y, 36, 22, [0,4,4,0]); ctx.fill();
+  // control del divisor en miniatura: circulo blanco con las dos flechas
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.arc(x+41.5, y+17.5, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+49, y+11, 8, 0, Math.PI*2); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x+47.2, y+7.8); ctx.lineTo(x+44.6, y+11); ctx.lineTo(x+47.2, y+14.2);
+  ctx.moveTo(x+50.8, y+7.8); ctx.lineTo(x+53.4, y+11); ctx.lineTo(x+50.8, y+14.2);
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
   ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
   ctx.textAlign = 'right'; ctx.fillText('gato', x+35, y+11);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+48, y+11);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+63, y+11);
   ctx.restore();
 }
 
@@ -879,7 +887,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-79)/2, ib-30);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-94)/2, ib-30);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
