@@ -727,24 +727,50 @@ window.addEventListener('keydown', e => {
 
 /* ---------- compartir: link, BBCode, Markdown, HTML ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
+let shareStrip = [];
 function openShare(){
   const fs = $('shareFrame'), vs = $('shareVariant');
   fs.innerHTML = FRAMES.map(f => `<option value="${f}">${escq(FRAME_LABELS[f] || f + 's')}</option>`).join('');
   vs.innerHTML = VARIANTS.map(v => `<option value="${v.id}">${escq(variantName(v.id))}</option>`).join('');
   fs.value = String(frame); vs.value = varA;
-  fs.onchange = vs.onchange = () => shareRowsRender(+fs.value || fs.value, vs.value);
+  shareStrip = [{v: varA, f: frame}];
+  $('shareAdd').onclick = () => {
+    const f = +fs.value || fs.value, v = vs.value;
+    if (!shareStrip.some(s => s.v === v && String(s.f) === String(f))) shareStrip.push({v, f});
+    shareRowsRender(f, v);
+  };
   shareRowsRender(frame, varA);
+}
+function renderShareChips(){
+  const host = $('shareChips');
+  host.innerHTML = '';
+  shareStrip.forEach((s, i) => {
+    const chip = document.createElement('span');
+    chip.style.cssText = 'background:#23232e; border:1px solid #333; border-radius:12px; padding:2px 8px; font-size:11px; cursor:default;';
+    const name = variantName(s.v);
+    chip.textContent = (blindMode ? String(VARIANTS.findIndex(x => x.id === s.v)+1) : name) + ' · ' + (FRAME_LABELS[s.f] || s.f + 's') + ' ';
+    const x = document.createElement('b');
+    x.textContent = '\u00d7';
+    x.style.cssText = 'color:#9a9aa8; cursor:pointer; margin-left:4px;';
+    x.onclick = () => { if (shareStrip.length > 1){ shareStrip.splice(i, 1); shareRowsRender(s.f, s.v); } };
+    chip.appendChild(x);
+    host.appendChild(chip);
+  });
 }
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function shareRowsRender(f, v){
   const url = location.href.split('#')[0];
   const abs = new URL(srcFor(v, f), location.href).href.split('?')[0];
   const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
+  renderShareChips();
+  // una [url][img] por toma de la tira: el formato clásico de comparación en foros
+  const shots = shareStrip.map(s => new URL(srcFor(s.v, s.f), location.href).href.split('?')[0]);
   const rows = [
     ['Link', url],
-    ['BBCode (foros, con vista previa clicable)', '[url=' + url + '][img]' + abs + '[/img][/url]'],
-    ['Markdown', '[![' + title + '](' + abs + ')](' + url + ')'],
-    ['HTML', '<a href="' + url + '"><img src="' + abs + '" alt="' + title + '" loading="lazy"></a>'],
+    ['BBCode (foros, ' + shots.length + ' toma' + (shots.length > 1 ? 's' : '') + ' clicables)',
+      shots.map(u => '[url=' + url + '][img]' + u + '[/img][/url]').join('\n')],
+    ['Markdown', shots.map(u => '[![' + title + '](' + u + ')](' + url + ')').join(' ')],
+    ['HTML', shots.map(u => '<a href="' + url + '"><img src="' + u + '" alt="' + title + '" loading="lazy"></a>').join('')],
   ];
   shareRows.innerHTML = '';
   for (const [label, text] of rows){
