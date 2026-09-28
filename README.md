@@ -36,8 +36,7 @@ sin configuración. Exporta HTML, carpeta .zip o .cmp cuando quieras.
 ### Video — de los archivos a la comparación
 Suelta el máster y los encodes, marca momentos en la línea de tiempo y la
 herramienta captura cada variante en los tiempos marcados. Revisa la sincronía
-entre versiones antes de compartir. PNG sin pérdida por defecto (para grano), JPEG si prefieres
-ligero.
+entre versiones antes de compartir. capturas en PNG sin pérdida, siempre.
 
 Límites honestos: abre lo que tu navegador sepa decodificar (MP4 / WebM / MOV;
 HEVC depende de la plataforma). El HDR pasa por la conversión de color del
