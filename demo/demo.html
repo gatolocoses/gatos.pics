@@ -1094,13 +1094,15 @@ async function openShare(){
     a.click();
   };
   // subir la imagen exacta y armar los formatos para compartir
+  // una sola imagen por pagina: el link es siempre el mismo y no se rompe
+  const m = location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/);
   const up = $('shareUp');
+  if (!m){ up.style.display = 'none'; return; }
   up.style.display = 'inline-block';
   up.onclick = async () => {
     up.disabled = true; up.textContent = 'Subiendo…';
     try {
-      const api = (location.protocol === 'http:' || location.protocol === 'https:') ? location.origin : 'https://gatos.pics';
-      const resp = await fetch(api + '/api/shot', { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
+      const resp = await fetch('/api/shot/' + m[1], { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
       let j = null;
       try { j = await resp.json(); } catch(e){}
       if (!resp.ok) throw new Error((j && j.error) || ('HTTP ' + resp.status));
