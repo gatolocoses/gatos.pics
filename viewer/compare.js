@@ -767,7 +767,7 @@ function shareRowsRender(f, v){
   const shots = shareStrip.map(s => new URL(srcFor(s.v, s.f), location.href).href.split('?')[0]);
   const rows = [
     ['Link', url],
-    ['BBCode (foros, ' + shots.length + ' toma' + (shots.length > 1 ? 's' : '') + ' clicables)',
+    ['BBCode (foros, ' + shots.length + ' toma' + (shots.length > 1 ? 's clicables' : ' clicable') + ')',
       shots.map(u => '[url=' + url + '][img]' + u + '[/img][/url]').join('\n')],
     ['Markdown', shots.map(u => '[![' + title + '](' + u + ')](' + url + ')').join(' ')],
     ['HTML', shots.map(u => '<a href="' + url + '"><img src="' + u + '" alt="' + title + '" loading="lazy"></a>').join('')],
