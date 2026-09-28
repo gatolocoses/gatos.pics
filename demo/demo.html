@@ -341,6 +341,9 @@
       <button id="shotRetry" hidden>Reintentar esta imagen</button>
     </div>
     <div id="shareCodes" style="display:none;"></div>
+    <div id="shareDel" style="display:none; margin-top:14px; border-top:1px solid #33333a; padding-top:10px;">
+      <button id="pageDelete" style="background:none; border:none; color:#9a9aa8; font-size:11px; text-decoration:underline; padding:0; cursor:pointer;">Borrar esta página…</button>
+    </div>
   </div>
 </div>
 <script>
@@ -1455,7 +1458,31 @@ async function openShare(){
   // una sola imagen por pagina: el link es siempre el mismo y no se rompe
   const m = location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/);
   const up = $('shareUp');
-  if (!m){ up.style.display = 'none'; return; }
+  if (!m){ up.style.display = 'none'; $('shareDel').style.display = 'none'; return; }
+  $('shareDel').style.display = 'block';
+  $('pageDelete').onclick = async () => {
+    const key = ($('shareKey').value || '').trim();
+    if (!key){
+      $('shareHint').textContent = 'pega la llave de borrado para poder eliminar la página';
+      $('shareKey').focus();
+      return;
+    }
+    if (!confirm('¿Borrar esta página y su imagen compartida? No se puede deshacer.')) return;
+    const btn = $('pageDelete');
+    btn.disabled = true; btn.textContent = 'Borrando…';
+    try {
+      const resp = await fetch('/api/page/' + m[1], { method: 'DELETE', headers: { 'x-delete-key': key } });
+      if (!resp.ok){
+        let j = null; try { j = await resp.json(); } catch(e){}
+        throw new Error((j && j.error) || ('HTTP ' + resp.status));
+      }
+      alert('Página borrada.');
+      location.href = '/';
+    } catch (e) {
+      alert('No se pudo borrar: ' + e.message);
+      btn.disabled = false; btn.textContent = 'Borrar esta página…';
+    }
+  };
   up.style.display = 'inline-block';
   up.disabled = false;
   $('shareOwner').hidden = false;
