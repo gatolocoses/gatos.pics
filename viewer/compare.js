@@ -493,11 +493,13 @@ function variantStats(id){
   const pf = m.per_frame && m.per_frame[String(frame)];
   if (pf){
     const l = [];
+    if (pf.ssimulacra2 != null) l.push('S2 '+pf.ssimulacra2.toFixed(1));
     if (pf.psnr_avg != null) l.push('PSNR '+pf.psnr_avg.toFixed(2)+' dB');
     if (pf.ssim_all != null) l.push('SSIM '+pf.ssim_all.toFixed(4));
     if (l.length) lines.push(l.join(' \u00B7 ')+' @'+frame+'s');
   }
   const l2 = [];
+  if (m.ssimulacra2 != null) l2.push('S2 media '+m.ssimulacra2.toFixed(1));
   if (m.psnr_avg != null) l2.push('clip PSNR '+m.psnr_avg.toFixed(2));
   if (m.ssim_all != null) l2.push('SSIM '+m.ssim_all.toFixed(4));
   if (m.size_bytes) l2.push((m.size_bytes/1048576).toFixed(1)+' MB');

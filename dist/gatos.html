@@ -83,6 +83,13 @@
   .slot.empty:hover{border-color:var(--accent); color:var(--accent);}
   .pair .tools{display:flex; gap:4px; margin-left:auto;}
   .pair .tools button{padding:2px 8px; font-size:11px;}
+  .markchip{
+    display:inline-block; background:var(--panel2); border:1px solid #333; border-radius:14px;
+    padding:3px 10px; font-size:12px; cursor:pointer; margin:2px 4px 2px 0;
+  }
+  .markchip:hover{border-color:var(--accent);}
+  .markchip b{margin-left:5px; color:var(--dim); font-weight:600;}
+  .markchip b:hover{color:var(--err);}
 
   /* pasos (avanzado) */
   .advwrap{display:flex; gap:18px; min-height:100%;}
@@ -187,6 +194,7 @@
   <h1>gatos.pics <span class="dim">creador</span></h1>
   <nav class="tabs">
     <button id="tabBasic">Básico</button>
+    <button id="tabVideo">Video</button>
     <button id="tabAdv">Avanzado</button>
   </nav>
   <span class="spacer"></span>
@@ -212,6 +220,49 @@
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
     <div id="pairList"></div>
     <div id="basicFoot"></div>
+  </section>
+
+  <!-- ======================= VIDEO ======================= -->
+  <section id="videoView" style="display:none;">
+    <h2 style="font-size:16px;">De videos a comparación</h2>
+    <p class="hint" style="margin:4px 0 14px;">
+      Suelta el máster y los encodes. Marcas momentos en la línea de tiempo y la
+      herramienta captura el frame exacto de cada variante — sin ffmpeg, sin subir nada.
+    </p>
+    <div class="drop" id="vidDrop">
+      <div class="big">Suelta los videos aquí</div>
+      <div class="hint">MP4 / WebM / MOV que tu navegador sepa abrir — el máster y cada encode</div>
+    </div>
+    <input type="file" id="vidFile" accept="video/*" multiple style="display:none">
+    <div id="vidList" style="margin-top:10px;"></div>
+    <div id="vidStage" class="card" style="display:none;">
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
+        <b id="vidWho">—</b>
+        <span class="hint" id="vidDur"></span>
+        <span class="spacer"></span>
+        <button id="vidPrev">← anterior</button>
+        <button id="vidNext">siguiente →</button>
+      </div>
+      <video id="vidPlayer" controls style="width:100%; max-height:44vh; background:#000; border-radius:8px;"></video>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+        <button id="vidMark" class="primary">Marcar aquí</button>
+        <label class="hint">formato de captura
+          <select id="vidFmt" style="background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 6px; margin-left:6px;">
+            <option value="png">PNG (sin pérdida — grano)</option>
+            <option value="jpeg">JPEG 92 (más ligero)</option>
+          </select>
+        </label>
+        <span class="spacer"></span>
+        <button id="vidGo" class="primary">Capturar todo</button>
+      </div>
+      <div id="vidMarks" style="margin-top:10px;"></div>
+      <div id="vidProg" class="okline" style="margin-top:8px; min-height:16px;"></div>
+      <div class="hint" style="margin-top:8px;">
+        HDR: el navegador aplica su propia conversión a SDR — consistente entre variantes,
+        pero no controlada. Para páginas de encode exigentes usa capturas de tu propio pipeline.
+      </div>
+    </div>
+    <div id="vidDone" style="margin-top:10px;"></div>
   </section>
 
   <!-- ======================= AVANZADO ======================= -->
@@ -272,6 +323,14 @@
           <h2>Final</h2>
           <p class="sub">Revisa la lista y dale una vuelta a la página.</p>
           <ul class="vlist" id="checkList"></ul>
+          <div class="card">
+            <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer;">
+              <input type="checkbox" id="s2Toggle" style="margin-top:2px;">
+              <span><b>Calcular S2 (SSIMULACRA2)</b>
+              <span class="hint" style="display:block;">puntúa cada frame de cada variante contra la primera (la referencia). Sale en la página bajo el nombre de cada variante. Tarda unos segundos por imagen — se calcula localmente, como todo lo demás.</span></span>
+            </label>
+            <div id="s2Prog" class="okline" style="margin-top:6px; min-height:16px;"></div>
+          </div>
           <div class="exports">
             <div class="exp">
               <b>Vista previa</b>
@@ -322,7 +381,316 @@
    SHELL_HTML: viewer/index.html · ENGINE_SRC: viewer/compare.js */
 const SHELL_HTML = "<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>gatos.pics<\/title>\n<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a1a22'/%3E%3Crect x='2' y='3' width='5' height='10' fill='%237bd389'/%3E%3Crect x='9' y='3' width='5' height='10' fill='%23ffb454'/%3E%3C/svg%3E\">\n<style>\n  :root{\n    --bg:#101014; --panel:#1a1a22; --panel2:#23232e; --text:#e8e8f0; --dim:#9a9aa8;\n    --accent:#ffb454;\n  }\n  *{box-sizing:border-box; margin:0; padding:0;}\n  html,body{height:100%;}\n  body{\n    background:var(--bg); color:var(--text);\n    font:14px/1.4 system-ui,-apple-system,\"Segoe UI\",sans-serif;\n    display:flex; flex-direction:column; overflow:hidden;\n  }\n  header{\n    padding:8px 16px;\n    background:var(--panel); border-bottom:1px solid #000;\n  }\n  /* Two deliberate rows instead of one wrapping row: with a single flex row the\n     Right-hand selector wrapped onto a second line at the LEFT edge, so \"Left\" and\n     \"Right\" ended up in each other's corner. Row 1 is global (title, frames, view\n     modes); row 2 is the panes, Left on the left, Right on the right. */\n  .hrow{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}\n  .hrow + .hrow{margin-top:7px;}\n  /* Pane rows: each side gets an equal half and its own scrollable strip, so the\n     swap toggle stays centred no matter how many variants are on the page.\n     With few panes nothing changes -- the arrows and the scrollbar only appear\n     when a strip actually overflows. */\n  .hrow-panes > .group{flex:1 1 0; min-width:0; flex-wrap:nowrap;}\n  .hrow-panes > .group.r{justify-content:flex-end;}\n  .hrow-panes .variants{flex:0 1 auto; min-width:0; flex-wrap:nowrap;\n    overflow-x:auto; overflow-y:hidden; scroll-behavior:smooth;\n    scrollbar-width:thin; scrollbar-color:#3f4d47 transparent;}\n  .hrow-panes .variants::-webkit-scrollbar{height:7px;}\n  .hrow-panes .variants::-webkit-scrollbar-track{background:transparent;}\n  .hrow-panes .variants::-webkit-scrollbar-thumb{background:#3f4d47; border-radius:4px;}\n  .vscroll{display:none; padding:2px 7px; font-size:14px; line-height:1;}\n  .hrow-panes .group.overflowing .vscroll{display:inline-block;}\n  #swapBtn{flex:0 0 auto;}\n  header h1{font-size:15px; font-weight:600;}\n  .group{display:flex; align-items:center; gap:5px;}\n  .glabel{color:var(--dim); font-size:12px; margin-right:2px;}\n  button{\n    background:var(--panel2); color:var(--text); border:1px solid #333;\n    padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;\n  }\n  button:hover{background:#2d2d3a;}\n  button.vbtn{display:inline-flex;flex-direction:column;align-items:center;padding:2px 7px;line-height:1.2;}\n  button.vbtn .main{font-size:12px;}\n  button.vbtn .sub{font-size:9px;color:var(--dim);white-space:nowrap;}\n  button.vbtn.active .sub{color:#1a1206;opacity:.8;}\n  button.active{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}\n  button.diff-on{background:#ff5d5d; color:#fff; border-color:#ff5d5d;}\n  button.blink-on{background:#7bb3ff; color:#10131a; border-color:#7bb3ff; font-weight:600;}\n  button.blind-on{background:#9a9aa8; color:#10131a; border-color:#9a9aa8; font-weight:600;}\n  button.solar-on{background:#f0b429; color:#1a1206; border-color:#f0b429; font-weight:600;}\n  button.crop-on{background:#7bd389; color:#10131a; border-color:#7bd389; font-weight:600;}\n  .spacer{flex:1;}\n  #comp{flex:1; position:relative; overflow:hidden; cursor:crosshair; touch-action:none;}\n  .pane{position:absolute; inset:0; overflow:hidden;}\n  .pane img, #diffCanvas{\n    position:absolute; transform-origin:0 0; user-select:none; -webkit-user-drag:none;\n    will-change:transform; image-rendering:auto; decoding:async;\n  }\n  #diffCanvas{display:none; pointer-events:none;}\n  .label{\n    position:absolute; top:10px; z-index:5; padding:4px 10px; border-radius:6px;\n    background:rgba(0,0,0,.75); font-size:12px; font-weight:600; pointer-events:none;\n    border:1px solid rgba(255,255,255,.15);\n  }\n  #labelA{left:12px;}\n  #labelB{right:12px; text-align:right;}\n  .lstats{display:block; font-size:10px; font-weight:400; color:#c8c8d4; margin-top:1px; white-space:pre-line;}\n  .lstats:empty{display:none;}\n  #divider{\n    position:absolute; top:0; bottom:0; width:2px; background:#fff;\n    z-index:4; transform:translateX(-1px); pointer-events:none; box-shadow:0 0 8px rgba(0,0,0,.8);\n  }\n  #divider::after{\n    content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);\n    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.92);\n    box-shadow:0 2px 10px rgba(0,0,0,.6);\n  }\n  #divider::before{\n    content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);\n    width:20px; height:12px; z-index:1;\n    background:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E\") center/contain no-repeat;\n  }\n  #zoomBadge{\n    position:absolute; left:12px; bottom:10px; z-index:6; font-size:12px; color:#ddd;\n    background:rgba(0,0,0,.65); padding:3px 9px; border-radius:6px; pointer-events:none;\n  }\n  #diffNote{\n    position:absolute; top:44px; left:12px; z-index:6; font-size:11px; color:#ffb0b0;\n    background:rgba(0,0,0,.7); padding:3px 9px; border-radius:6px; display:none;\n  }\n  #modeBadge{\n    position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:7; font-size:11px; font-weight:600;\n    color:#10131a; background:#7bb3ff; padding:3px 10px; border-radius:6px; display:none;\n  }\n  #cropHint{\n    position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:7; font-size:11px;\n    color:#10131a; background:#7bd389; padding:3px 10px; border-radius:6px; display:none;\n  }\n  #cropPanel{\n    position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:8;\n    background:rgba(12,12,16,.92); border:1px solid #444; border-radius:10px;\n    padding:10px 12px; display:none; max-height:72%; overflow:auto;\n    scrollbar-color:#444 #1a1a22; scrollbar-width:thin;\n  }\n  #cropPanel h2{font-size:12px; color:var(--dim); font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:10px;}\n  #cropPanel h2 button{margin-left:auto;}\n  .cropRow{display:flex; align-items:center; gap:10px; margin-top:6px;}\n  .cropRow .cname{font-size:11px; font-weight:600; width:150px; text-align:right;}\n  .cropRow canvas{border:1px solid #444; border-radius:4px; display:block;}\n  footer{\n    display:flex; align-items:center; gap:14px; padding:6px 16px;\n    background:var(--panel); border-top:1px solid #000; color:var(--dim); font-size:12px; flex-wrap:wrap;\n  }\n  kbd{background:#2d2d3a; border:1px solid #444; border-bottom-width:2px; border-radius:4px; padding:1px 5px; font-size:11px;}\n  #metaLine{color:var(--dim);}\n  #cmdTip{display:none; position:fixed; z-index:60; background:rgba(10,10,16,.97);\n    border:1px solid #4a4a5a; color:#cfe8cf; font:11px/1.55 ui-monospace,SFMono-Regular,monospace;\n    border-radius:8px; max-width:min(92vw,760px); overflow:auto;\n    max-height:70vh; pointer-events:auto; white-space:pre; box-shadow:0 6px 24px rgba(0,0,0,.6);}\n  #cmdTip .tiphead{display:flex; align-items:center; gap:8px; padding:7px 10px;\n    background:#1a1a24; border-bottom:1px solid #333; position:sticky; top:0;\n    font:12px system-ui,sans-serif; color:var(--dim);}\n  #cmdTip .tiphead .tt{flex:1;}\n  #cmdTip .tiphead button{padding:3px 10px; font-size:11px;}\n  #cmdTip .cmdtext{padding:10px 12px; user-select:text; cursor:text; color:#8aa39b;}\n  #cmdTip .cmdtext .dline{color:#ffd27f; background:rgba(255,180,84,.09); border-radius:3px;}\n  #cmdTip .copied{color:#7bd389;}\n  .variants, .frames{display:flex; flex-wrap:wrap; gap:5px; max-width:100%;}\n  .vsel{display:none;}\n  .kh{display:contents;}\n  .group{flex-wrap:wrap; min-width:0;}\n  @media (pointer:coarse){\n    button{padding:8px 12px; font-size:13px;}\n    button.vbtn{padding:6px 10px;}\n    button.vbtn .main{font-size:13px;}\n    button.vbtn .sub{font-size:10px;}\n  }\n  @media (max-width:820px){\n    header{gap:8px; padding:6px 8px;}\n    header h1{font-size:13px;}\n    .glabel{width:auto; margin-right:4px;}\n    .variants{display:none;}\n    .vsel{display:block; flex:1; min-width:46%; background:var(--panel2); color:var(--text);\n          border:1px solid #333; border-radius:6px; padding:9px 8px; font-size:13px;}\n    footer .kh{display:none;}\n    #metaLine{font-size:11px;}\n    footer{gap:8px; padding:4px 8px; font-size:11px;}\n    #cropPanel{max-width:94vw;}\n    .cropRow .cname{width:auto; text-align:left;}\n    #labelA{left:6px; top:6px;} #labelB{right:6px; top:6px;}\n    #diffNote{max-width:92vw;}\n  }\n<\/style>\n<\/head>\n<body>\n<header>\n  <div class=\"hrow\">\n    <h1 id=\"pageTitle\">gatos.pics<\/h1>\n    <div class=\"group\"><span class=\"glabel\">Frame<\/span><div class=\"frames\" id=\"frames\"><\/div><\/div>\n    <div class=\"spacer\"><\/div>\n  <button id=\"diffBtn\" title=\"Diferencia amplificada por canal (D)\">Diff<\/button>\n  <button id=\"blinkBtn\" title=\"Parpadeo izquierda/derecha a 2 Hz (B)\">Blink<\/button>\n  <button id=\"blindBtn\" title=\"Modo ciego: oculta qué variante es cuál (G)\">Ciego<\/button>\n  <button id=\"solarBtn\" title=\"Curva solar: revela banding y degradados (L)\">Solar<\/button>\n  <button id=\"cropBtn\" title=\"Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)\">Crops<\/button>\n  <button id=\"oneBtn\" title=\"1:1 real en píxeles del dispositivo (O)\">1:1<\/button>\n  <button id=\"pixBtn\" title=\"Escala con píxeles nítidos al hacer zoom (N)\">Nítido<\/button>\n    <button id=\"resetBtn\" title=\"Reiniciar zoom (F)\">Ajustar<\/button>\n  <\/div>\n  <div class=\"hrow hrow-panes\">\n    <div class=\"group\"><span class=\"glabel\">Izquierda<\/span><button class=\"vscroll\" data-scroll=\"varA\" data-dir=\"-1\" title=\"Desplazar la lista\">&lsaquo;<\/button><div class=\"variants\" id=\"varA\"><\/div><button class=\"vscroll\" data-scroll=\"varA\" data-dir=\"1\" title=\"Desplazar la lista\">&rsaquo;<\/button><select class=\"vsel\" id=\"selA\"><\/select><\/div>\n    <button id=\"swapBtn\" title=\"Intercambiar izquierda y derecha (S)\">&harr;<\/button>\n    <div class=\"group r\"><span class=\"glabel\">Derecha<\/span><button class=\"vscroll\" data-scroll=\"varB\" data-dir=\"-1\" title=\"Desplazar la lista\">&lsaquo;<\/button><div class=\"variants\" id=\"varB\"><\/div><button class=\"vscroll\" data-scroll=\"varB\" data-dir=\"1\" title=\"Desplazar la lista\">&rsaquo;<\/button><select class=\"vsel\" id=\"selB\"><\/select><\/div>\n  <\/div>\n<\/header>\n\n<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n  <filter id=\"solarCurve\" color-interpolation-filters=\"sRGB\">\n    <feComponentTransfer>\n      <feFuncR type=\"table\" tableValues=\"0 3 6 9 13 16 19 22 25 28 31 34 38 41 44 47 50 53 56 59 62 65 68 71 74 77 80 83 86 89 92 95 98 101 104 107 109 112 115 118 121 123 126 129 132 134 137 140 142 145 147 150 152 155 157 160 162 165 167 169 172 174 176 179 181 183 185 187 190 192 194 196 198 200 202 203 205 207 209 211 213 214 216 218 219 221 222 224 225 227 228 230 231 232 234 235 236 237 238 239 241 242 243 243 244 245 246 247 248 248 249 250 250 251 251 252 252 253 253 254 254 254 254 255 255 255 255 255 255 255 255 255 255 254 254 254 254 253 253 252 252 251 251 250 250 249 248 248 247 246 245 244 243 243 242 241 239 238 237 236 235 234 232 231 230 228 227 225 224 222 221 219 218 216 214 213 211 209 207 205 203 202 200 198 196 194 192 190 187 185 183 181 179 176 174 172 169 167 165 162 160 157 155 152 150 147 145 142 140 137 134 132 129 126 123 121 118 115 112 109 107 104 101 98 95 92 89 86 83 80 77 74 71 68 65 62 59 56 53 50 47 44 41 38 34 31 28 25 22 19 16 13 9 6 3 0\"/>\n      <feFuncG type=\"table\" tableValues=\"0 3 6 9 13 16 19 22 25 28 31 34 38 41 44 47 50 53 56 59 62 65 68 71 74 77 80 83 86 89 92 95 98 101 104 107 109 112 115 118 121 123 126 129 132 134 137 140 142 145 147 150 152 155 157 160 162 165 167 169 172 174 176 179 181 183 185 187 190 192 194 196 198 200 202 203 205 207 209 211 213 214 216 218 219 221 222 224 225 227 228 230 231 232 234 235 236 237 238 239 241 242 243 243 244 245 246 247 248 248 249 250 250 251 251 252 252 253 253 254 254 254 254 255 255 255 255 255 255 255 255 255 255 254 254 254 254 253 253 252 252 251 251 250 250 249 248 248 247 246 245 244 243 243 242 241 239 238 237 236 235 234 232 231 230 228 227 225 224 222 221 219 218 216 214 213 211 209 207 205 203 202 200 198 196 194 192 190 187 185 183 181 179 176 174 172 169 167 165 162 160 157 155 152 150 147 145 142 140 137 134 132 129 126 123 121 118 115 112 109 107 104 101 98 95 92 89 86 83 80 77 74 71 68 65 62 59 56 53 50 47 44 41 38 34 31 28 25 22 19 16 13 9 6 3 0\"/>\n      <feFuncB type=\"table\" tableValues=\"0 3 6 9 13 16 19 22 25 28 31 34 38 41 44 47 50 53 56 59 62 65 68 71 74 77 80 83 86 89 92 95 98 101 104 107 109 112 115 118 121 123 126 129 132 134 137 140 142 145 147 150 152 155 157 160 162 165 167 169 172 174 176 179 181 183 185 187 190 192 194 196 198 200 202 203 205 207 209 211 213 214 216 218 219 221 222 224 225 227 228 230 231 232 234 235 236 237 238 239 241 242 243 243 244 245 246 247 248 248 249 250 250 251 251 252 252 253 253 254 254 254 254 255 255 255 255 255 255 255 255 255 255 254 254 254 254 253 253 252 252 251 251 250 250 249 248 248 247 246 245 244 243 243 242 241 239 238 237 236 235 234 232 231 230 228 227 225 224 222 221 219 218 216 214 213 211 209 207 205 203 202 200 198 196 194 192 190 187 185 183 181 179 176 174 172 169 167 165 162 160 157 155 152 150 147 145 142 140 137 134 132 129 126 123 121 118 115 112 109 107 104 101 98 95 92 89 86 83 80 77 74 71 68 65 62 59 56 53 50 47 44 41 38 34 31 28 25 22 19 16 13 9 6 3 0\"/>\n    <\/feComponentTransfer>\n  <\/filter>\n<\/svg>\n<div id=\"comp\">\n  <div class=\"pane\" id=\"paneA\">\n    <img id=\"imgA\" alt=\"A\" decoding=\"async\">\n    <div class=\"label\" id=\"labelA\"><span id=\"labelAName\">Izquierda<\/span><span class=\"lstats\" id=\"statsA\"><\/span><\/div>\n  <\/div>\n  <div class=\"pane\" id=\"paneB\">\n    <img id=\"imgB\" alt=\"B\" decoding=\"async\">\n    <canvas id=\"diffCanvas\"><\/canvas>\n    <div class=\"label\" id=\"labelB\"><span id=\"labelBName\">Derecha<\/span><span class=\"lstats\" id=\"statsB\"><\/span><\/div>\n  <\/div>\n  <div id=\"divider\"><\/div>\n  <div id=\"zoomBadge\">ajustar<\/div>\n  <div id=\"diffNote\"><\/div>\n  <div id=\"modeBadge\">PARPADEO A/B<\/div>\n  <div id=\"cropHint\">haz clic en un punto para ver recortes 1:1<\/div>\n  <div id=\"cropPanel\">\n    <h2><span id=\"cropTitle\">Recortes 1:1<\/span><button id=\"cropClose\">cerrar (Esc)<\/button><\/h2>\n    <div id=\"cropRows\"><\/div>\n  <\/div>\n<\/div>\n\n<footer>\n  <div class=\"kh\">\n  <span><kbd>&larr;<\/kbd><kbd>&rarr;<\/kbd> frame<\/span>\n  <span><kbd>1<\/kbd>&ndash;<kbd>9<\/kbd> variante (<kbd>Shift<\/kbd> = izquierda)<\/span>\n  <span><kbd>S<\/kbd> intercambiar<\/span>\n  <span><kbd>D<\/kbd> diff<\/span>\n  <span><kbd>B<\/kbd> parpadeo<\/span>\n  <span><kbd>C<\/kbd> recortes<\/span>\n  <span><kbd>O<\/kbd> 1:1<\/span>\n  <span><kbd>F<\/kbd> ajustar<\/span>\n  <span><kbd>+<\/kbd>/<kbd>-<\/kbd> ganancia<\/span>\n  <span><kbd>H<\/kbd> calor<\/span>\n  <span><kbd>Espacio<\/kbd> siguiente variante<\/span>\n  <span><kbd>N<\/kbd> nítido<\/span>\n  <span><kbd>G<\/kbd> ciego<\/span>\n  <span><kbd>L<\/kbd> solar<\/span>\n  <span><kbd>,<\/kbd>/<kbd>.<\/kbd> divisor<\/span>\n  <span>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta<\/span>\n  <\/div>\n  <span class=\"spacer\"><\/span>\n  <span id=\"metaLine\"><\/span>\n<\/footer>\n\n<script src=\"compare.js\"><\/script>\n<\/body>\n<\/html>\n";
 
-const ENGINE_SRC = "/* gatos.pics compare engine.\n   Two data sources, picked at boot:\n   - Embedded: window.GATOS_PACKAGE = {format, manifest, images:{\"<id>_<frame>\": dataURL}}\n     Set by a self-contained export or by the builder preview. Works from file://\n     with zero network: images become object URLs (canvas-safe, so diff and\n     1:1 crops keep working).\n   - Http: manifest.json + img/<id>_<frame>.<ext> next to this page (classic\n     static hosting). version -> ?v= cache busting for immutable image caches. */\n'use strict';\n\nconst $ = id => document.getElementById(id);\nconst comp = $('comp'), imgA = $('imgA'), imgB = $('imgB'), diffCanvas = $('diffCanvas');\nconst paneA = $('paneA'), paneB = $('paneB');\nconst labelA = $('labelA'), labelB = $('labelB');\nconst labelAName = $('labelAName'), labelBName = $('labelBName');\nconst statsA = $('statsA'), statsB = $('statsB');\nconst divider = $('divider'), zoomBadge = $('zoomBadge'), diffNote = $('diffNote');\nconst modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropPanel');\nconst cropRows = $('cropRows'), cropTitle = $('cropTitle');\nconst diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');\nconst pixBtn = $('pixBtn');\nconst blindBtn = $('blindBtn');\nconst solarBtn = $('solarBtn');\nconst metaLine = $('metaLine'), pageTitle = $('pageTitle');\nconst diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});\n\nlet FRAMES = [], VARIANTS = [];\nlet FRAME_LABELS = {}, FRAME_META = {};\nlet VERSION = '', CLIP = {};\nconst AMPLIFY_DEFAULT_IDX = 1;\nconst GAINS = [5, 10, 20, 40];\nconst HEAT_T = 4;\n\n/* ---------- data sources ---------- */\nfunction makeHttpSource(){\n  return {\n    async init(){\n      const r = await fetch('manifest.json?t='+Date.now(), {cache:'no-store'});\n      const m = await r.json();\n      VERSION = String(m.version || '');\n      return m;\n    },\n    srcFor(id, f){\n      const ext = variant(id).ext || 'webp';\n      return `img/${id}_${f}.${ext}${VERSION ? '?v='+VERSION : ''}`;\n    }\n  };\n}\nfunction makeEmbeddedSource(pkg){\n  const urls = new Map();   // \"<id>_<frame>\" -> object URL (canvas-safe)\n  function toObjectURL(dataurl){\n    const parts = dataurl.split(',');\n    const mime = (parts[0].match(/^data:([^;]+)/) || [,'image/png'])[1];\n    const bin = atob(parts[1] || '');\n    const buf = new Uint8Array(bin.length);\n    for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);\n    return URL.createObjectURL(new Blob([buf], {type:mime}));\n  }\n  return {\n    async init(){ return pkg.manifest; },\n    srcFor(id, f){\n      const key = id+'_'+f;\n      if (!urls.has(key)){\n        const d = pkg.images && pkg.images[key];\n        urls.set(key, d ? toObjectURL(d) : '');\n      }\n      return urls.get(key);\n    }\n  };\n}\nconst SOURCE = (typeof window !== 'undefined' && window.GATOS_PACKAGE)\n  ? makeEmbeddedSource(window.GATOS_PACKAGE)\n  : makeHttpSource();\n\nlet frame = null, varA = null, varB = null;\nlet mobileZoomPending = matchMedia('(pointer:coarse)').matches || innerWidth <= 820;\nlet diffMode = false, blinkMode = false, heat = false, gainIdx = AMPLIFY_DEFAULT_IDX;\nlet cropMode = false, cropUV = null;\nlet dividerPos = 0.5;\nlet zoom = 1;                       // 1 = fit\nlet pan = {x:0, y:0};               // viewport-space px offset of the content rect\nlet fitScale = 1, rw = 0, rh = 0, ox = 0, oy = 0;\nlet drag = null, pinch = null;\nconst pointers = new Map();\nconst realB = new Image();          // offscreen holder for B's true pixels (diff)\nlet diffData = null;                // cached abs-diff planes for current pair\nconst cropImgs = new Map();         // variant id -> Image for current frame\n\nconst clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));\nfunction variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }\nfunction variantName(id){\n  const v = variant(id);\n  if (blindMode) return String(VARIANTS.findIndex(x => x.id === id)+1);\n  return v.name;\n}\nfunction srcFor(id, f){ return SOURCE.srcFor(id, f); }\nfunction naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }\nfunction dpr(){ return window.devicePixelRatio || 1; }\n\n/* ---------- fit geometry: the content rect is sized/positioned explicitly,\n   so zoom/pan/1:1 math is exact regardless of window aspect ---------- */\nfunction computeFit(){\n  const w = comp.clientWidth, h = comp.clientHeight;\n  const {nw, nh} = naturalDims();\n  fitScale = Math.min(w/nw, h/nh);\n  rw = nw*fitScale; rh = nh*fitScale;\n  ox = (w-rw)/2; oy = (h-rh)/2;\n  for (const el of [imgA, imgB, diffCanvas]){\n    el.style.width = rw+'px'; el.style.height = rh+'px';\n    el.style.left = ox+'px'; el.style.top = oy+'px';\n  }\n}\nfunction zmax(){ return 8/(fitScale*dpr()); }   // 800% of native device pixels\nfunction clampPan(){\n  const w = comp.clientWidth, h = comp.clientHeight;\n  pan.x = clamp(pan.x, Math.min(0, w-ox-rw*zoom), Math.max(0, -ox));\n  pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));\n}\nfunction updateBadge(){\n  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\\u2026'; return; }\n  zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';\n}\nfunction applyTransform(){\n  const t = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;\n  imgA.style.transform = t;\n  imgB.style.transform = t;\n  diffCanvas.style.transform = t;\n  paneB.style.clipPath = blinkMode ? 'inset(0 0 0 0)' : `inset(0 0 0 ${dividerPos*100}%)`;\n  divider.style.display = blinkMode ? 'none' : '';\n  divider.style.left = `${dividerPos*100}%`;\n  updateBadge();\n}\nfunction setZoomAt(cx, cy, Z2){\n  const r = comp.getBoundingClientRect();\n  const x = cx-r.left, y = cy-r.top;\n  const u = (x-ox-pan.x)/zoom, v = (y-oy-pan.y)/zoom;\n  zoom = clamp(Z2, 1, zmax());\n  if (zoom === 1){ pan = {x:0, y:0}; }\n  else { pan.x = x-ox-u*zoom; pan.y = y-oy-v*zoom; clampPan(); }\n  applyTransform(); writeHash();\n}\nfunction oneToOne(){\n  const r = comp.getBoundingClientRect();\n  setZoomAt(r.left+comp.clientWidth/2, r.top+comp.clientHeight/2, 1/(fitScale*dpr()));\n}\nfunction fitView(){ zoom = 1; pan = {x:0, y:0}; applyTransform(); writeHash(); }\n\ncomp.addEventListener('wheel', e => {\n  e.preventDefault();\n  setZoomAt(e.clientX, e.clientY, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15));\n}, {passive:false});\n\n/* ---------- pointer input: mouse + touch unified, pinch zoom ---------- */\nconst pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);\ncomp.addEventListener('pointerdown', e => {\n  comp.setPointerCapture(e.pointerId);\n  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});\n  if (pointers.size === 2){\n    const [p1, p2] = [...pointers.values()];\n    pinch = {d0: pdist(p1,p2) || 1, z0: zoom, mx0:(p1.x+p2.x)/2, my0:(p1.y+p2.y)/2, tx0:pan.x, ty0:pan.y};\n    drag = null;\n  } else if (pointers.size === 1){\n    const r = comp.getBoundingClientRect();\n    const x = e.clientX-r.left, w = comp.clientWidth;\n    if (Math.abs(x - dividerPos*w) < (matchMedia('(pointer:coarse)').matches ? 34 : 18) && !blinkMode){ drag = {mode:'divider', sx:e.clientX, start:dividerPos}; }\n    else if (cropMode){ pickCrop(e.clientX, e.clientY); }\n    else if (zoom > 1){ drag = {mode:'pan', sx:e.clientX, sy:e.clientY, px:pan.x, py:pan.y}; }\n  }\n  e.preventDefault();\n});\ncomp.addEventListener('pointermove', e => {\n  if (!pointers.has(e.pointerId)) return;\n  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});\n  if (pointers.size === 2 && pinch){\n    const [p1, p2] = [...pointers.values()];\n    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;\n    setZoomAt(mx, my, pinch.z0 * pdist(p1,p2)/pinch.d0);\n    pan.x = pinch.tx0 + (mx-pinch.mx0);\n    pan.y = pinch.ty0 + (my-pinch.my0);\n    clampPan(); applyTransform();\n  } else if (drag){\n    const w = comp.clientWidth, h = comp.clientHeight;\n    if (drag.mode === 'divider'){\n      dividerPos = clamp(drag.start + (e.clientX-drag.sx)/w, 0, 1);\n      applyTransform(); writeHash();\n    } else {\n      pan.x = drag.px - (e.clientX-drag.sx);\n      pan.y = drag.py - (e.clientY-drag.sy);\n      clampPan(); applyTransform();\n    }\n  }\n});\nfunction pointerEnd(e){\n  pointers.delete(e.pointerId);\n  if (pointers.size < 2) pinch = null;\n  if (pointers.size === 0) drag = null;\n}\ncomp.addEventListener('pointerup', pointerEnd);\ncomp.addEventListener('pointercancel', pointerEnd);\ncomp.addEventListener('dblclick', fitView);\nwindow.addEventListener('resize', () => { computeFit(); clampPan(); applyTransform(); syncVariantOverflow(); });\n\n/* ---------- pane strips: bounded, horizontally scrollable ---------- */\nfunction syncVariantOverflow(){\n  ['varA','varB'].forEach(id => {\n    const s = $(id); if (!s) return;\n    const g = s.closest('.group');\n    const over = s.scrollWidth - s.clientWidth > 2;\n    if (g) g.classList.toggle('overflowing', over);\n    // keep the selected pane visible when the list is longer than its strip\n    const act = s.querySelector('button.active') || s.querySelector('.on') || s.querySelector('button[aria-pressed=\"true\"]');\n    if (over && act) act.scrollIntoView({inline:'nearest', block:'nearest'});\n  });\n}\ndocument.querySelectorAll('.vscroll').forEach(b => {\n  b.addEventListener('click', () => {\n    const s = $(b.dataset.scroll); if (!s) return;\n    s.scrollBy({left: Number(b.dataset.dir) * 220, behavior:'smooth'});\n  });\n});\n['varA','varB'].forEach(id => {\n  const s = $(id); if (!s) return;\n  s.addEventListener('wheel', e => {\n    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { s.scrollLeft += e.deltaY; e.preventDefault(); }\n  }, {passive:false});\n});\n\n/* ---------- diff mode: cached abs-diff planes, canvas overlay ---------- */\nfunction ensureDiffBase(){\n  if (!imgA.complete || !imgA.naturalWidth || !realB.complete || !realB.naturalWidth) return null;\n  const w = imgA.naturalWidth, h = imgA.naturalHeight;\n  if (realB.naturalWidth !== w || realB.naturalHeight !== h) return null;\n  const keyA = imgA.currentSrc || imgA.src, keyB = realB.currentSrc || realB.src;\n  if (diffData && diffData.keyA === keyA && diffData.keyB === keyB) return diffData;\n  const ca = document.createElement('canvas');\n  ca.width = w; ca.height = h;\n  const ctx = ca.getContext('2d', {willReadFrequently:true});\n  ctx.drawImage(imgA, 0, 0);\n  const a = ctx.getImageData(0,0,w,h).data;\n  ctx.drawImage(realB, 0, 0);\n  const b = ctx.getImageData(0,0,w,h).data;\n  const n = w*h;\n  const dr = new Uint8Array(n), dg = new Uint8Array(n), db = new Uint8Array(n);\n  let sum = 0;\n  for (let i=0, j=0; j<n; i+=4, j++){\n    dr[j] = Math.abs(a[i]-b[i]); dg[j] = Math.abs(a[i+1]-b[i+1]); db[j] = Math.abs(a[i+2]-b[i+2]);\n    sum += dr[j]+dg[j]+db[j];\n  }\n  diffData = {keyA, keyB, w, h, dr, dg, db, mean: sum/(n*3)};\n  return diffData;\n}\nfunction renderDiff(){\n  if (!diffMode) return;\n  const d = ensureDiffBase();\n  if (!d){ diffNote.textContent = 'Diff \\u00D7'+GAINS[gainIdx]+' \\u00B7 cargando\\u2026'; return; }\n  const A = GAINS[gainIdx];\n  const out = diffCtx.createImageData(d.w, d.h);\n  const o = out.data;\n  for (let j=0, i=0; j<d.dr.length; j++, i+=4){\n    if (heat && (d.dr[j] >= HEAT_T || d.dg[j] >= HEAT_T || d.db[j] >= HEAT_T)){\n      o[i] = 255;\n    } else {\n      o[i] = Math.min(255, d.dr[j]*A);\n      o[i+1] = Math.min(255, d.dg[j]*A);\n      o[i+2] = Math.min(255, d.db[j]*A);\n    }\n    o[i+3] = 255;\n  }\n  diffCtx.putImageData(out, 0, 0);\n  diffNote.textContent = `Diff \\u00D7${A}${heat ? ` \\u00B7 calor (\\u0394\\u2265${HEAT_T} en rojo)` : ''} \\u00B7 color = canal que difiere \\u00B7 \\u0394 media ${d.mean.toFixed(2)}/255`;\n}\nfunction setDiff(on){\n  diffMode = on;\n  if (on) setBlink(false, true);\n  diffBtn.classList.toggle('diff-on', on);\n  diffCanvas.style.display = on ? 'block' : 'none';\n  imgB.style.display = on ? 'none' : '';\n  diffNote.style.display = on ? 'block' : 'none';\n  if (on){\n    diffNote.textContent = 'Diff \\u00D7'+GAINS[gainIdx]+' \\u00B7 calculando\\u2026';\n    realB.src = srcFor(varB, frame);\n    imgB.src = realB.src;\n    renderDiff();\n  } else {\n    diffData = null;\n    imgB.src = srcFor(varB, frame);\n  }\n  updateMeta(); writeHash();\n}\nfunction setGain(i){\n  gainIdx = clamp(i, 0, GAINS.length-1);\n  if (diffMode) renderDiff();\n  writeHash();\n}\nfunction setHeat(on){\n  heat = on;\n  if (diffMode) renderDiff();\n  writeHash();\n}\nimgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });\nimgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\\u00f3'; });\n\n/* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */\nlet smoothScale = true;\ntry { smoothScale = localStorage.getItem('gatosSmooth') !== '0'; } catch(e){}\nfunction setSmooth(on){\n  smoothScale = on;\n  for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';\n  pixBtn.classList.toggle('active', !on);\n  try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}\n}\npixBtn.addEventListener('click', () => setSmooth(!smoothScale));\nsetSmooth(smoothScale);\nimgB.addEventListener('load', updateBadge);\nrealB.addEventListener('load', renderDiff);\ndiffBtn.addEventListener('click', () => setDiff(!diffMode));\n\n/* ---------- blink mode ---------- */\nlet blinkTimer = null;\nfunction setBlink(on, quiet){\n  blinkMode = on;\n  if (on) setDiff(false);\n  blinkBtn.classList.toggle('blink-on', on);\n  modeBadge.style.display = on ? 'block' : 'none';\n  if (on){\n    imgB.style.opacity = '1';\n    blinkTimer = setInterval(() => { imgB.style.opacity = imgB.style.opacity === '1' ? '0' : '1'; }, 500);\n  } else {\n    clearInterval(blinkTimer);\n    imgB.style.opacity = '';\n  }\n  if (!quiet){ applyTransform(); updateMeta(); writeHash(); }\n}\nblinkBtn.addEventListener('click', () => setBlink(!blinkMode));\n\n/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ---------- */\nlet blindMode = false;\nfunction setBlind(on){\n  blindMode = on;\n  blindBtn.classList.toggle('blind-on', on);\n  if (on) hideTip();\n  refreshVariantButtons();\n  loadImg();\n  updateMeta();\n  writeHash();\n}\nblindBtn.addEventListener('click', () => setBlind(!blindMode));\n\n/* ---------- curva solar: revela banding ---------- */\nlet solarMode = false;\nfunction setSolar(on){\n  solarMode = on;\n  solarBtn.classList.toggle('solar-on', on);\n  const f = on ? 'url(#solarCurve)' : '';\n  imgA.style.filter = f;\n  imgB.style.filter = f;\n  updateMeta();\n  writeHash();\n}\nsolarBtn.addEventListener('click', () => setSolar(!solarMode));\n\n/* ---------- crops N-up: 1:1 crops of every variant at a picked point ---------- */\nfunction pickCrop(cx, cy){\n  const r = comp.getBoundingClientRect();\n  const {nw, nh} = naturalDims();\n  const u = clamp(((cx-r.left)-ox-pan.x)/zoom/fitScale, 0, nw);\n  const v = clamp(((cy-r.top)-oy-pan.y)/zoom/fitScale, 0, nh);\n  cropUV = {u: Math.round(u), v: Math.round(v)};\n  openCropPanel();\n  writeHash();\n}\nfunction cropImg(id){\n  const url = srcFor(id, frame);\n  let im = cropImgs.get(id);\n  if (!im || (im.currentSrc||im.src) !== url){\n    im = new Image();\n    im.decoding = 'async';\n    im.src = url;\n    cropImgs.set(id, im);\n  }\n  return im;\n}\nfunction drawCropRow(id, canvas){\n  const ctx = canvas.getContext('2d');\n  ctx.imageSmoothingEnabled = false;\n  const im = cropImg(id);\n  if (!im.complete || !im.naturalWidth){\n    ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);\n    ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\\u2026', 10, 20);\n    im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});\n    return;\n  }\n  const sw = Math.round(canvas.width), sh = Math.round(canvas.height);\n  const sx = clamp(Math.round(cropUV.u - sw/2), 0, im.naturalWidth - sw);\n  const sy = clamp(Math.round(cropUV.v - sh/2), 0, im.naturalHeight - sh);\n  ctx.drawImage(im, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);\n}\nfunction openCropPanel(){\n  cropPanel.style.display = 'block';\n  cropHint.style.display = 'none';\n  const d = dpr();\n  const CW = Math.min(480, comp.clientWidth - 220), CH = Math.round(CW*9/16);\n  cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;\n  cropRows.innerHTML = '';\n  VARIANTS.forEach(v => {\n    const row = document.createElement('div');\n    row.className = 'cropRow';\n    const name = document.createElement('span');\n    name.className = 'cname';\n    name.textContent = variantName(v.id);\n    name.style.color = v.color;\n    const canvas = document.createElement('canvas');\n    canvas.width = Math.round(CW*d); canvas.height = Math.round(CH*d);\n    canvas.style.width = CW+'px'; canvas.style.height = CH+'px';\n    row.appendChild(name); row.appendChild(canvas);\n    cropRows.appendChild(row);\n    drawCropRow(v.id, canvas);\n  });\n}\nfunction closeCrop(){\n  cropPanel.style.display = 'none';\n  cropUV = null;\n  if (cropMode) cropHint.style.display = 'block';\n  writeHash();\n}\nfunction setCropMode(on){\n  cropMode = on;\n  cropBtn.classList.toggle('crop-on', on);\n  cropHint.style.display = on ? 'block' : 'none';\n  if (on){ VARIANTS.forEach(v => cropImg(v.id)); }   // warm the cache for current frame\n  else if (cropUV) closeCrop();\n  writeHash();\n}\ncropBtn.addEventListener('click', () => setCropMode(!cropMode));\n$('cropClose').addEventListener('click', () => { setCropMode(false); closeCrop(); });\n\n/* ---------- state: URL hash (shareable) > localStorage > defaults ---------- */\nlet hashTimer = null;\nfunction writeHash(){\n  clearTimeout(hashTimer);\n  hashTimer = setTimeout(() => {\n    const p = new URLSearchParams();\n    if (frame != null) p.set('f', frame);\n    if (varA) p.set('a', varA);\n    if (varB) p.set('b', varB);\n    if (dividerPos !== 0.5) p.set('d', dividerPos.toFixed(3));\n    if (zoom !== 1){ p.set('z', zoom.toFixed(3)); p.set('x', Math.round(pan.x)); p.set('y', Math.round(pan.y)); }\n    if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }\n    if (blinkMode) p.set('blink', 1);\n    if (blindMode) p.set('blind', 1);\n    if (solarMode) p.set('solar', 1);\n    if (cropMode) p.set('crops', 1);\n    if (cropUV){\n      const {nw, nh} = naturalDims();\n      p.set('crop', (cropUV.u/nw).toFixed(4)+','+(cropUV.v/nh).toFixed(4));\n    }\n    history.replaceState(null, '', '#'+p.toString());\n    try {\n      localStorage.setItem('gatosState', JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));\n    } catch(e){}\n  }, 150);\n}\nfunction readState(){\n  let saved = {};\n  try { saved = JSON.parse(localStorage.getItem('gatosState')) || {}; } catch(e){}\n  const h = new URLSearchParams(location.hash.slice(1));\n  const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };\n  const hf = num(h.get('f'));\n  frame = FRAMES.includes(hf) ? hf : (FRAMES.includes(saved.f) ? saved.f : FRAMES[Math.floor(FRAMES.length/2)]);\n  const hv = (k, fb) => VARIANTS.some(v=>v.id===h.get(k)) ? h.get(k) : (VARIANTS.some(v=>v.id===fb) ? fb : null);\n  varA = hv('a', saved.a) || (VARIANTS[0] && VARIANTS[0].id);\n  varB = hv('b', saved.b) || (VARIANTS[Math.min(1, VARIANTS.length-1)] || VARIANTS[0] || {}).id;\n  const hd = num(h.get('d'));\n  dividerPos = clamp(hd != null ? hd : (isFinite(saved.d) ? saved.d : 0.5), 0, 1);\n  const hg = parseInt(h.get('g'));\n  gainIdx = clamp(GAINS.includes(hg) ? hg-0 : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);\n  heat = h.get('heat') === '1' || saved.h === true;\n  const hz = num(h.get('z'));\n  if (hz != null && hz >= 1){\n    zoom = hz;\n    pan.x = num(h.get('x')) || 0;\n    pan.y = num(h.get('y')) || 0;\n  }\n  return h;\n}\n\n/* ---------- UI ---------- */\nfunction variantStats(id){\n  if (blindMode) return '';\n  const m = variant(id).metrics;\n  if (!m) return '';\n  const lines = [];\n  const pf = m.per_frame && m.per_frame[String(frame)];\n  if (pf){\n    const l = [];\n    if (pf.psnr_avg != null) l.push('PSNR '+pf.psnr_avg.toFixed(2)+' dB');\n    if (pf.ssim_all != null) l.push('SSIM '+pf.ssim_all.toFixed(4));\n    if (l.length) lines.push(l.join(' \\u00B7 ')+' @'+frame+'s');\n  }\n  const l2 = [];\n  if (m.psnr_avg != null) l2.push('clip PSNR '+m.psnr_avg.toFixed(2));\n  if (m.ssim_all != null) l2.push('SSIM '+m.ssim_all.toFixed(4));\n  if (m.size_bytes) l2.push((m.size_bytes/1048576).toFixed(1)+' MB');\n  if (m.kbps) l2.push(Math.round(m.kbps)+' kbps');\n  if (l2.length) lines.push(l2.join(' \\u00B7 '));\n  return lines.join('\\n');\n}\nfunction updateMeta(){\n  const lbl = FRAME_LABELS[frame] || (frame + 's');\n  const m = FRAME_META[frame] || {};\n  const where = m.clip_s != null ? ` \\u00B7 clip +${m.clip_s.toFixed(1)}s` : '';\n  const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \\u00B7 ` : '';\n  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');\n  metaLine.textContent =\n    `${origin}frame ${lbl} (#${frame}${where}) \\u2014 izq. ${blindMode ? '?' : varA} \\u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \\u00B7 '+modes : ''}`;\n}\nfunction preload(){\n  const i = FRAMES.indexOf(frame);\n  [i-1, i+1].forEach(j => {\n    if (j >= 0 && j < FRAMES.length){\n      new Image().src = srcFor(varA, FRAMES[j]);\n      new Image().src = srcFor(varB, FRAMES[j]);\n    }\n  });\n}\nfunction loadImg(){\n  imgA.src = srcFor(varA, frame);\n  if (diffMode){\n    realB.src = srcFor(varB, frame);\n    imgB.src = realB.src;\n  } else {\n    imgB.src = srcFor(varB, frame);\n  }\n  labelAName.textContent = variantName(varA);\n  labelBName.textContent = variantName(varB);\n  statsA.textContent = variantStats(varA);\n  statsB.textContent = variantStats(varB);\n  labelA.style.color = variant(varA).color;\n  labelB.style.color = variant(varB).color;\n  refreshFrameButtons(); refreshVariantButtons(); syncVariantOverflow();\n  updateMeta();\n  updateBadge();\n  preload();\n  if (cropMode) VARIANTS.forEach(v => cropImg(v.id));\n  if (cropUV && cropPanel.style.display !== 'none') openCropPanel();\n  writeHash();\n}\nfunction makeButtons(containerId, items, activeId, onPick){\n  const c = $(containerId);\n  c.innerHTML = '';\n  items.forEach(item => {\n    const b = document.createElement('button');\n    if (item.sub != null){\n      b.className = 'vbtn' + (item.id === activeId ? ' active' : '');\n      if (item.cmd) b.dataset.cmd = item.cmd;\n      const main = document.createElement('span'); main.className = 'main'; main.textContent = item.main;\n      const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = item.sub;\n      b.append(main, sub);\n    } else {\n      b.textContent = item.label;\n      b.className = item.id === activeId ? 'active' : '';\n    }\n    b.addEventListener('click', () => onPick(item.id));\n    c.appendChild(b);\n  });\n}\nconst cmdTip = document.createElement('div');\ncmdTip.id = 'cmdTip'; document.body.appendChild(cmdTip);\nlet cmdPinned = false, cmdFor = null, cmdTimer = null, cmdText = '';\nfunction cmdKey(t){\n  // a line starting with '|' is the second stage of a piped command\n  return t.startsWith('|') ? '|piped' : t.split(/\\s+/)[0];\n}\nfunction showTip(b){\n  if (blindMode) return;\n  cmdText = b.dataset.cmd;\n  const pane = b.closest('.variants') ? b.closest('.variants').id : null;\n  const otherId = pane === 'varA' ? varB : (pane === 'varB' ? varA : null);\n  const other = otherId ? variant(otherId) : null;\n  const hlOk = {'--crf':1, '--preset':1, '--film-grain':1, '--film-grain-denoise':1};\n  const omap = {};\n  if (other && other.cmd){\n    other.cmd.split('\\n').forEach(l => {\n      const t = l.trim().replace(/\\\\$/,'').trim();\n      if (t) omap[cmdKey(t)] = t;\n    });\n  }\n  const esc = x => x.replace(/&/g,'&amp;').replace(/<\/g,'&lt;');\n  let body;\n  if (other && other.cmd){\n    body = cmdText.split('\\n').map(l => {\n      const t = l.trim().replace(/\\\\$/,'').trim();\n      if (!t) return esc(l);\n      const key = cmdKey(t);\n      const differs = !!hlOk[key] && (!(key in omap) || omap[key] !== t);\n      return differs ? '<span class=\"dline\">' + esc(l) + '<\/span>' : esc(l);\n    }).join('\\n');\n  } else {\n    body = esc(cmdText);\n  }\n  const legend = other && other.cmd ? 'en \\u00e1mbar lo que difiere de <b>' + esc(other.name) + '<\/b>'\n                                     : 'comando';\n  cmdTip.innerHTML = '<div class=\"tiphead\"><span class=\"tt\">' + legend + '<\/span>'\n    + '<button data-act=\"copy\">Copiar<\/button><button data-act=\"close\">\\u00d7<\/button><\/div>'\n    + '<div class=\"cmdtext\">' + body + '<\/div>';\n  cmdTip.style.display = 'block';\n  const r = b.getBoundingClientRect();\n  cmdTip.style.left = Math.min(window.innerWidth - cmdTip.offsetWidth - 8, Math.max(8, r.left)) + 'px';\n  const below = r.bottom + 6;\n  cmdTip.style.top = (below + cmdTip.offsetHeight > window.innerHeight - 8\n    ? Math.max(8, r.top - cmdTip.offsetHeight - 6) : below) + 'px';\n}\nfunction hideTip(){\n  cmdPinned = false; cmdFor = null; clearTimeout(cmdTimer);\n  cmdTip.style.display = 'none';\n}\ndocument.addEventListener('mouseover', e => {\n  const b = e.target.closest('button.vbtn');\n  if (cmdPinned) return;\n  if (!b || !b.dataset.cmd){ clearTimeout(cmdTimer); cmdFor = null; cmdTip.style.display = 'none'; return; }\n  if (cmdFor === b) return;\n  clearTimeout(cmdTimer); cmdFor = b; cmdTip.style.display = 'none';\n  cmdTimer = setTimeout(() => { showTip(b); cmdPinned = true; }, 2000);\n});\ndocument.addEventListener('click', e => {\n  const act = e.target.closest('#cmdTip [data-act]');\n  if (act && act.dataset.act === 'copy'){\n    const done = ok => { const b = act; b.textContent = ok ? 'Copiado \\u2713' : 'Fall\\u00f3 la copia';\n      setTimeout(() => { b.textContent = 'Copiar'; }, 1200); };\n    if (navigator.clipboard && window.isSecureContext){\n      navigator.clipboard.writeText(cmdText).then(() => done(true), () => done(false));\n    } else {\n      const ta = document.createElement('textarea');\n      ta.value = cmdText; document.body.appendChild(ta); ta.select();\n      try { document.execCommand('copy'); done(true); } catch (err) { done(false); }\n      ta.remove();\n    }\n    return;\n  }\n  if (act && act.dataset.act === 'close'){ hideTip(); return; }\n  if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();\n});\ndocument.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });\nfunction refreshFrameButtons(){\n  makeButtons('frames', FRAMES.map(f=>({id:f, label: FRAME_LABELS[f] || (f+'s')})), frame, f => { frame = f; loadImg(); });\n}\nfunction variantButtonItems(){\n  return VARIANTS.map((v, vi) => {\n    if (blindMode) return {id: v.id, main: String(vi+1), sub: '', cmd: null};\n    const cmd = v.cmd || null;\n    if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \\u00B7 /, ''), cmd: null};\n    const m = v.id.match(/^crf(\\d+)_p(\\d)(?:_fg(\\d+))?$/);\n    if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};\n    const parts = (v.note || '').split(' \\u00B7 ');\n    const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');\n    const s2 = (parts[2] || '');\n    const main = `CRF ${m[1]}` + (m[3] ? ` \\u00B7 FG ${m[3]}` : '');\n    return {id: v.id, main: main, sub: `P${m[2]} \\u00B7 ${mbps}${s2 ? ' \\u00B7 ' + s2 : ''}`, cmd: cmd};\n  });\n}\nfunction fillSelect(selId, items, activeId, onPick){\n  const s = $(selId);\n  s.innerHTML = '';\n  items.forEach(it => {\n    const o = document.createElement('option');\n    o.value = it.id;\n    o.textContent = it.id === 'src' ? it.main + ' \\u2014 ' + it.sub : `${it.main} \\u2014 ${it.sub}`;\n    s.appendChild(o);\n  });\n  s.value = activeId;\n  s.onchange = () => onPick(s.value);\n}\nfunction refreshVariantButtons(){\n  const items = variantButtonItems();\n  makeButtons('varA', items, varA, v => { varA = v; loadImg(); });\n  makeButtons('varB', items, varB, v => { varB = v; loadImg(); });\n  fillSelect('selA', items, varA, v => { varA = v; loadImg(); });\n  fillSelect('selB', items, varB, v => { varB = v; loadImg(); });\n}\nfunction swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }\nfunction nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }\n\n$('oneBtn').addEventListener('click', oneToOne);\n$('resetBtn').addEventListener('click', fitView);\n$('swapBtn').addEventListener('click', swapAB);\n\nwindow.addEventListener('keydown', e => {\n  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){\n    const i = FRAMES.indexOf(frame);\n    const ni = e.key === 'ArrowRight' ? i+1 : i-1;\n    if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }\n  } else if (e.key === ' ' && !e.repeat){\n    e.preventDefault();   // no hacer scroll de página\n    const ids = VARIANTS.map(v => v.id);\n    varB = ids[(ids.indexOf(varB)+1) % ids.length];\n    loadImg();\n  } else if (!e.repeat && (e.key === 'n' || e.key === 'N')){ setSmooth(!smoothScale);\n  } else if (/^[1-9]$/.test(e.key)){\n    const idx = +e.key-1;\n    if (idx >= VARIANTS.length) return;\n    if (e.shiftKey) varA = VARIANTS[idx].id; else varB = VARIANTS[idx].id;\n    loadImg();\n  } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }\n  else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }\n  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ setBlind(!blindMode); }\n  else if (!e.repeat && (e.key === 'l' || e.key === 'L')){ setSolar(!solarMode); }\n  else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }\n  else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }\n  else if (!e.repeat && (e.key === 'o' || e.key === 'O')){ oneToOne(); }\n  else if (!e.repeat && (e.key === 'f' || e.key === 'F')){ fitView(); }\n  else if (!e.repeat && (e.key === 'h' || e.key === 'H')){ setHeat(!heat); }\n  else if (e.key === '+' || e.key === '='){ setGain(gainIdx+1); }\n  else if (e.key === '-' || e.key === '_'){ setGain(gainIdx-1); }\n  else if (e.key === ','){ nudgeDivider(e.shiftKey ? -0.05 : -0.01); }\n  else if (e.key === '.'){ nudgeDivider(e.shiftKey ? 0.05 : 0.01); }\n  else if (e.key === 'Escape'){ if (cropMode || cropUV){ setCropMode(false); closeCrop(); } }\n});\n\n/* ---------- init ---------- */\nfunction applyManifest(m){\n  FRAMES = m.frames;\n  VARIANTS = m.variants;\n  FRAME_LABELS = m.frame_labels || {};\n  FRAME_META = m.frame_meta || {};\n  CLIP = m.clip || {};\n  if (m.title){ document.title = m.title; pageTitle.textContent = m.title; }\n  const h = readState();\n  if (h.get('z') != null) mobileZoomPending = false;\n  computeFit();\n  loadImg();\n  applyTransform();\n  if (!h.get('z') && matchMedia('(max-width:820px), (pointer:coarse)').matches) oneToOne();\n  if (h.get('diff') === '1') setDiff(true);\n  if (h.get('blink') === '1') setBlink(true);\n  if (h.get('blind') === '1') setBlind(true);\n  if (h.get('solar') === '1') setSolar(true);\n  if (h.get('crops') === '1') setCropMode(true);\n  if (h.get('crop')){\n    const [cu, cv] = h.get('crop').split(',').map(Number);\n    if (isFinite(cu) && isFinite(cv)){\n      const {nw, nh} = naturalDims();\n      cropUV = {u: Math.round(cu*nw), v: Math.round(cv*nh)};\n      openCropPanel();\n    }\n  }\n}\n(async () => {\n  computeFit();\n  applyTransform();\n  try {\n    const m = await SOURCE.init();\n    applyManifest(m);\n  } catch (err) {\n    console.error('comparison data unavailable', err);\n    metaLine.textContent = 'no se encontraron datos de comparaci\\u00f3n (sin paquete embebido, sin manifest.json)';\n  }\n})();\n";
+const ENGINE_SRC = "/* gatos.pics compare engine.\n   Two data sources, picked at boot:\n   - Embedded: window.GATOS_PACKAGE = {format, manifest, images:{\"<id>_<frame>\": dataURL}}\n     Set by a self-contained export or by the builder preview. Works from file://\n     with zero network: images become object URLs (canvas-safe, so diff and\n     1:1 crops keep working).\n   - Http: manifest.json + img/<id>_<frame>.<ext> next to this page (classic\n     static hosting). version -> ?v= cache busting for immutable image caches. */\n'use strict';\n\nconst $ = id => document.getElementById(id);\nconst comp = $('comp'), imgA = $('imgA'), imgB = $('imgB'), diffCanvas = $('diffCanvas');\nconst paneA = $('paneA'), paneB = $('paneB');\nconst labelA = $('labelA'), labelB = $('labelB');\nconst labelAName = $('labelAName'), labelBName = $('labelBName');\nconst statsA = $('statsA'), statsB = $('statsB');\nconst divider = $('divider'), zoomBadge = $('zoomBadge'), diffNote = $('diffNote');\nconst modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropPanel');\nconst cropRows = $('cropRows'), cropTitle = $('cropTitle');\nconst diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');\nconst pixBtn = $('pixBtn');\nconst blindBtn = $('blindBtn');\nconst solarBtn = $('solarBtn');\nconst metaLine = $('metaLine'), pageTitle = $('pageTitle');\nconst diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});\n\nlet FRAMES = [], VARIANTS = [];\nlet FRAME_LABELS = {}, FRAME_META = {};\nlet VERSION = '', CLIP = {};\nconst AMPLIFY_DEFAULT_IDX = 1;\nconst GAINS = [5, 10, 20, 40];\nconst HEAT_T = 4;\n\n/* ---------- data sources ---------- */\nfunction makeHttpSource(){\n  return {\n    async init(){\n      const r = await fetch('manifest.json?t='+Date.now(), {cache:'no-store'});\n      const m = await r.json();\n      VERSION = String(m.version || '');\n      return m;\n    },\n    srcFor(id, f){\n      const ext = variant(id).ext || 'webp';\n      return `img/${id}_${f}.${ext}${VERSION ? '?v='+VERSION : ''}`;\n    }\n  };\n}\nfunction makeEmbeddedSource(pkg){\n  const urls = new Map();   // \"<id>_<frame>\" -> object URL (canvas-safe)\n  function toObjectURL(dataurl){\n    const parts = dataurl.split(',');\n    const mime = (parts[0].match(/^data:([^;]+)/) || [,'image/png'])[1];\n    const bin = atob(parts[1] || '');\n    const buf = new Uint8Array(bin.length);\n    for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);\n    return URL.createObjectURL(new Blob([buf], {type:mime}));\n  }\n  return {\n    async init(){ return pkg.manifest; },\n    srcFor(id, f){\n      const key = id+'_'+f;\n      if (!urls.has(key)){\n        const d = pkg.images && pkg.images[key];\n        urls.set(key, d ? toObjectURL(d) : '');\n      }\n      return urls.get(key);\n    }\n  };\n}\nconst SOURCE = (typeof window !== 'undefined' && window.GATOS_PACKAGE)\n  ? makeEmbeddedSource(window.GATOS_PACKAGE)\n  : makeHttpSource();\n\nlet frame = null, varA = null, varB = null;\nlet mobileZoomPending = matchMedia('(pointer:coarse)').matches || innerWidth <= 820;\nlet diffMode = false, blinkMode = false, heat = false, gainIdx = AMPLIFY_DEFAULT_IDX;\nlet cropMode = false, cropUV = null;\nlet dividerPos = 0.5;\nlet zoom = 1;                       // 1 = fit\nlet pan = {x:0, y:0};               // viewport-space px offset of the content rect\nlet fitScale = 1, rw = 0, rh = 0, ox = 0, oy = 0;\nlet drag = null, pinch = null;\nconst pointers = new Map();\nconst realB = new Image();          // offscreen holder for B's true pixels (diff)\nlet diffData = null;                // cached abs-diff planes for current pair\nconst cropImgs = new Map();         // variant id -> Image for current frame\n\nconst clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));\nfunction variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }\nfunction variantName(id){\n  const v = variant(id);\n  if (blindMode) return String(VARIANTS.findIndex(x => x.id === id)+1);\n  return v.name;\n}\nfunction srcFor(id, f){ return SOURCE.srcFor(id, f); }\nfunction naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }\nfunction dpr(){ return window.devicePixelRatio || 1; }\n\n/* ---------- fit geometry: the content rect is sized/positioned explicitly,\n   so zoom/pan/1:1 math is exact regardless of window aspect ---------- */\nfunction computeFit(){\n  const w = comp.clientWidth, h = comp.clientHeight;\n  const {nw, nh} = naturalDims();\n  fitScale = Math.min(w/nw, h/nh);\n  rw = nw*fitScale; rh = nh*fitScale;\n  ox = (w-rw)/2; oy = (h-rh)/2;\n  for (const el of [imgA, imgB, diffCanvas]){\n    el.style.width = rw+'px'; el.style.height = rh+'px';\n    el.style.left = ox+'px'; el.style.top = oy+'px';\n  }\n}\nfunction zmax(){ return 8/(fitScale*dpr()); }   // 800% of native device pixels\nfunction clampPan(){\n  const w = comp.clientWidth, h = comp.clientHeight;\n  pan.x = clamp(pan.x, Math.min(0, w-ox-rw*zoom), Math.max(0, -ox));\n  pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));\n}\nfunction updateBadge(){\n  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\\u2026'; return; }\n  zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';\n}\nfunction applyTransform(){\n  const t = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;\n  imgA.style.transform = t;\n  imgB.style.transform = t;\n  diffCanvas.style.transform = t;\n  paneB.style.clipPath = blinkMode ? 'inset(0 0 0 0)' : `inset(0 0 0 ${dividerPos*100}%)`;\n  divider.style.display = blinkMode ? 'none' : '';\n  divider.style.left = `${dividerPos*100}%`;\n  updateBadge();\n}\nfunction setZoomAt(cx, cy, Z2){\n  const r = comp.getBoundingClientRect();\n  const x = cx-r.left, y = cy-r.top;\n  const u = (x-ox-pan.x)/zoom, v = (y-oy-pan.y)/zoom;\n  zoom = clamp(Z2, 1, zmax());\n  if (zoom === 1){ pan = {x:0, y:0}; }\n  else { pan.x = x-ox-u*zoom; pan.y = y-oy-v*zoom; clampPan(); }\n  applyTransform(); writeHash();\n}\nfunction oneToOne(){\n  const r = comp.getBoundingClientRect();\n  setZoomAt(r.left+comp.clientWidth/2, r.top+comp.clientHeight/2, 1/(fitScale*dpr()));\n}\nfunction fitView(){ zoom = 1; pan = {x:0, y:0}; applyTransform(); writeHash(); }\n\ncomp.addEventListener('wheel', e => {\n  e.preventDefault();\n  setZoomAt(e.clientX, e.clientY, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15));\n}, {passive:false});\n\n/* ---------- pointer input: mouse + touch unified, pinch zoom ---------- */\nconst pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);\ncomp.addEventListener('pointerdown', e => {\n  comp.setPointerCapture(e.pointerId);\n  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});\n  if (pointers.size === 2){\n    const [p1, p2] = [...pointers.values()];\n    pinch = {d0: pdist(p1,p2) || 1, z0: zoom, mx0:(p1.x+p2.x)/2, my0:(p1.y+p2.y)/2, tx0:pan.x, ty0:pan.y};\n    drag = null;\n  } else if (pointers.size === 1){\n    const r = comp.getBoundingClientRect();\n    const x = e.clientX-r.left, w = comp.clientWidth;\n    if (Math.abs(x - dividerPos*w) < (matchMedia('(pointer:coarse)').matches ? 34 : 18) && !blinkMode){ drag = {mode:'divider', sx:e.clientX, start:dividerPos}; }\n    else if (cropMode){ pickCrop(e.clientX, e.clientY); }\n    else if (zoom > 1){ drag = {mode:'pan', sx:e.clientX, sy:e.clientY, px:pan.x, py:pan.y}; }\n  }\n  e.preventDefault();\n});\ncomp.addEventListener('pointermove', e => {\n  if (!pointers.has(e.pointerId)) return;\n  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});\n  if (pointers.size === 2 && pinch){\n    const [p1, p2] = [...pointers.values()];\n    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;\n    setZoomAt(mx, my, pinch.z0 * pdist(p1,p2)/pinch.d0);\n    pan.x = pinch.tx0 + (mx-pinch.mx0);\n    pan.y = pinch.ty0 + (my-pinch.my0);\n    clampPan(); applyTransform();\n  } else if (drag){\n    const w = comp.clientWidth, h = comp.clientHeight;\n    if (drag.mode === 'divider'){\n      dividerPos = clamp(drag.start + (e.clientX-drag.sx)/w, 0, 1);\n      applyTransform(); writeHash();\n    } else {\n      pan.x = drag.px - (e.clientX-drag.sx);\n      pan.y = drag.py - (e.clientY-drag.sy);\n      clampPan(); applyTransform();\n    }\n  }\n});\nfunction pointerEnd(e){\n  pointers.delete(e.pointerId);\n  if (pointers.size < 2) pinch = null;\n  if (pointers.size === 0) drag = null;\n}\ncomp.addEventListener('pointerup', pointerEnd);\ncomp.addEventListener('pointercancel', pointerEnd);\ncomp.addEventListener('dblclick', fitView);\nwindow.addEventListener('resize', () => { computeFit(); clampPan(); applyTransform(); syncVariantOverflow(); });\n\n/* ---------- pane strips: bounded, horizontally scrollable ---------- */\nfunction syncVariantOverflow(){\n  ['varA','varB'].forEach(id => {\n    const s = $(id); if (!s) return;\n    const g = s.closest('.group');\n    const over = s.scrollWidth - s.clientWidth > 2;\n    if (g) g.classList.toggle('overflowing', over);\n    // keep the selected pane visible when the list is longer than its strip\n    const act = s.querySelector('button.active') || s.querySelector('.on') || s.querySelector('button[aria-pressed=\"true\"]');\n    if (over && act) act.scrollIntoView({inline:'nearest', block:'nearest'});\n  });\n}\ndocument.querySelectorAll('.vscroll').forEach(b => {\n  b.addEventListener('click', () => {\n    const s = $(b.dataset.scroll); if (!s) return;\n    s.scrollBy({left: Number(b.dataset.dir) * 220, behavior:'smooth'});\n  });\n});\n['varA','varB'].forEach(id => {\n  const s = $(id); if (!s) return;\n  s.addEventListener('wheel', e => {\n    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { s.scrollLeft += e.deltaY; e.preventDefault(); }\n  }, {passive:false});\n});\n\n/* ---------- diff mode: cached abs-diff planes, canvas overlay ---------- */\nfunction ensureDiffBase(){\n  if (!imgA.complete || !imgA.naturalWidth || !realB.complete || !realB.naturalWidth) return null;\n  const w = imgA.naturalWidth, h = imgA.naturalHeight;\n  if (realB.naturalWidth !== w || realB.naturalHeight !== h) return null;\n  const keyA = imgA.currentSrc || imgA.src, keyB = realB.currentSrc || realB.src;\n  if (diffData && diffData.keyA === keyA && diffData.keyB === keyB) return diffData;\n  const ca = document.createElement('canvas');\n  ca.width = w; ca.height = h;\n  const ctx = ca.getContext('2d', {willReadFrequently:true});\n  ctx.drawImage(imgA, 0, 0);\n  const a = ctx.getImageData(0,0,w,h).data;\n  ctx.drawImage(realB, 0, 0);\n  const b = ctx.getImageData(0,0,w,h).data;\n  const n = w*h;\n  const dr = new Uint8Array(n), dg = new Uint8Array(n), db = new Uint8Array(n);\n  let sum = 0;\n  for (let i=0, j=0; j<n; i+=4, j++){\n    dr[j] = Math.abs(a[i]-b[i]); dg[j] = Math.abs(a[i+1]-b[i+1]); db[j] = Math.abs(a[i+2]-b[i+2]);\n    sum += dr[j]+dg[j]+db[j];\n  }\n  diffData = {keyA, keyB, w, h, dr, dg, db, mean: sum/(n*3)};\n  return diffData;\n}\nfunction renderDiff(){\n  if (!diffMode) return;\n  const d = ensureDiffBase();\n  if (!d){ diffNote.textContent = 'Diff \\u00D7'+GAINS[gainIdx]+' \\u00B7 cargando\\u2026'; return; }\n  const A = GAINS[gainIdx];\n  const out = diffCtx.createImageData(d.w, d.h);\n  const o = out.data;\n  for (let j=0, i=0; j<d.dr.length; j++, i+=4){\n    if (heat && (d.dr[j] >= HEAT_T || d.dg[j] >= HEAT_T || d.db[j] >= HEAT_T)){\n      o[i] = 255;\n    } else {\n      o[i] = Math.min(255, d.dr[j]*A);\n      o[i+1] = Math.min(255, d.dg[j]*A);\n      o[i+2] = Math.min(255, d.db[j]*A);\n    }\n    o[i+3] = 255;\n  }\n  diffCtx.putImageData(out, 0, 0);\n  diffNote.textContent = `Diff \\u00D7${A}${heat ? ` \\u00B7 calor (\\u0394\\u2265${HEAT_T} en rojo)` : ''} \\u00B7 color = canal que difiere \\u00B7 \\u0394 media ${d.mean.toFixed(2)}/255`;\n}\nfunction setDiff(on){\n  diffMode = on;\n  if (on) setBlink(false, true);\n  diffBtn.classList.toggle('diff-on', on);\n  diffCanvas.style.display = on ? 'block' : 'none';\n  imgB.style.display = on ? 'none' : '';\n  diffNote.style.display = on ? 'block' : 'none';\n  if (on){\n    diffNote.textContent = 'Diff \\u00D7'+GAINS[gainIdx]+' \\u00B7 calculando\\u2026';\n    realB.src = srcFor(varB, frame);\n    imgB.src = realB.src;\n    renderDiff();\n  } else {\n    diffData = null;\n    imgB.src = srcFor(varB, frame);\n  }\n  updateMeta(); writeHash();\n}\nfunction setGain(i){\n  gainIdx = clamp(i, 0, GAINS.length-1);\n  if (diffMode) renderDiff();\n  writeHash();\n}\nfunction setHeat(on){\n  heat = on;\n  if (diffMode) renderDiff();\n  writeHash();\n}\nimgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });\nimgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\\u00f3'; });\n\n/* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */\nlet smoothScale = true;\ntry { smoothScale = localStorage.getItem('gatosSmooth') !== '0'; } catch(e){}\nfunction setSmooth(on){\n  smoothScale = on;\n  for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';\n  pixBtn.classList.toggle('active', !on);\n  try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}\n}\npixBtn.addEventListener('click', () => setSmooth(!smoothScale));\nsetSmooth(smoothScale);\nimgB.addEventListener('load', updateBadge);\nrealB.addEventListener('load', renderDiff);\ndiffBtn.addEventListener('click', () => setDiff(!diffMode));\n\n/* ---------- blink mode ---------- */\nlet blinkTimer = null;\nfunction setBlink(on, quiet){\n  blinkMode = on;\n  if (on) setDiff(false);\n  blinkBtn.classList.toggle('blink-on', on);\n  modeBadge.style.display = on ? 'block' : 'none';\n  if (on){\n    imgB.style.opacity = '1';\n    blinkTimer = setInterval(() => { imgB.style.opacity = imgB.style.opacity === '1' ? '0' : '1'; }, 500);\n  } else {\n    clearInterval(blinkTimer);\n    imgB.style.opacity = '';\n  }\n  if (!quiet){ applyTransform(); updateMeta(); writeHash(); }\n}\nblinkBtn.addEventListener('click', () => setBlink(!blinkMode));\n\n/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ---------- */\nlet blindMode = false;\nfunction setBlind(on){\n  blindMode = on;\n  blindBtn.classList.toggle('blind-on', on);\n  if (on) hideTip();\n  refreshVariantButtons();\n  loadImg();\n  updateMeta();\n  writeHash();\n}\nblindBtn.addEventListener('click', () => setBlind(!blindMode));\n\n/* ---------- curva solar: revela banding ---------- */\nlet solarMode = false;\nfunction setSolar(on){\n  solarMode = on;\n  solarBtn.classList.toggle('solar-on', on);\n  const f = on ? 'url(#solarCurve)' : '';\n  imgA.style.filter = f;\n  imgB.style.filter = f;\n  updateMeta();\n  writeHash();\n}\nsolarBtn.addEventListener('click', () => setSolar(!solarMode));\n\n/* ---------- crops N-up: 1:1 crops of every variant at a picked point ---------- */\nfunction pickCrop(cx, cy){\n  const r = comp.getBoundingClientRect();\n  const {nw, nh} = naturalDims();\n  const u = clamp(((cx-r.left)-ox-pan.x)/zoom/fitScale, 0, nw);\n  const v = clamp(((cy-r.top)-oy-pan.y)/zoom/fitScale, 0, nh);\n  cropUV = {u: Math.round(u), v: Math.round(v)};\n  openCropPanel();\n  writeHash();\n}\nfunction cropImg(id){\n  const url = srcFor(id, frame);\n  let im = cropImgs.get(id);\n  if (!im || (im.currentSrc||im.src) !== url){\n    im = new Image();\n    im.decoding = 'async';\n    im.src = url;\n    cropImgs.set(id, im);\n  }\n  return im;\n}\nfunction drawCropRow(id, canvas){\n  const ctx = canvas.getContext('2d');\n  ctx.imageSmoothingEnabled = false;\n  const im = cropImg(id);\n  if (!im.complete || !im.naturalWidth){\n    ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);\n    ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\\u2026', 10, 20);\n    im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});\n    return;\n  }\n  const sw = Math.round(canvas.width), sh = Math.round(canvas.height);\n  const sx = clamp(Math.round(cropUV.u - sw/2), 0, im.naturalWidth - sw);\n  const sy = clamp(Math.round(cropUV.v - sh/2), 0, im.naturalHeight - sh);\n  ctx.drawImage(im, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);\n}\nfunction openCropPanel(){\n  cropPanel.style.display = 'block';\n  cropHint.style.display = 'none';\n  const d = dpr();\n  const CW = Math.min(480, comp.clientWidth - 220), CH = Math.round(CW*9/16);\n  cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;\n  cropRows.innerHTML = '';\n  VARIANTS.forEach(v => {\n    const row = document.createElement('div');\n    row.className = 'cropRow';\n    const name = document.createElement('span');\n    name.className = 'cname';\n    name.textContent = variantName(v.id);\n    name.style.color = v.color;\n    const canvas = document.createElement('canvas');\n    canvas.width = Math.round(CW*d); canvas.height = Math.round(CH*d);\n    canvas.style.width = CW+'px'; canvas.style.height = CH+'px';\n    row.appendChild(name); row.appendChild(canvas);\n    cropRows.appendChild(row);\n    drawCropRow(v.id, canvas);\n  });\n}\nfunction closeCrop(){\n  cropPanel.style.display = 'none';\n  cropUV = null;\n  if (cropMode) cropHint.style.display = 'block';\n  writeHash();\n}\nfunction setCropMode(on){\n  cropMode = on;\n  cropBtn.classList.toggle('crop-on', on);\n  cropHint.style.display = on ? 'block' : 'none';\n  if (on){ VARIANTS.forEach(v => cropImg(v.id)); }   // warm the cache for current frame\n  else if (cropUV) closeCrop();\n  writeHash();\n}\ncropBtn.addEventListener('click', () => setCropMode(!cropMode));\n$('cropClose').addEventListener('click', () => { setCropMode(false); closeCrop(); });\n\n/* ---------- state: URL hash (shareable) > localStorage > defaults ---------- */\nlet hashTimer = null;\nfunction writeHash(){\n  clearTimeout(hashTimer);\n  hashTimer = setTimeout(() => {\n    const p = new URLSearchParams();\n    if (frame != null) p.set('f', frame);\n    if (varA) p.set('a', varA);\n    if (varB) p.set('b', varB);\n    if (dividerPos !== 0.5) p.set('d', dividerPos.toFixed(3));\n    if (zoom !== 1){ p.set('z', zoom.toFixed(3)); p.set('x', Math.round(pan.x)); p.set('y', Math.round(pan.y)); }\n    if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }\n    if (blinkMode) p.set('blink', 1);\n    if (blindMode) p.set('blind', 1);\n    if (solarMode) p.set('solar', 1);\n    if (cropMode) p.set('crops', 1);\n    if (cropUV){\n      const {nw, nh} = naturalDims();\n      p.set('crop', (cropUV.u/nw).toFixed(4)+','+(cropUV.v/nh).toFixed(4));\n    }\n    history.replaceState(null, '', '#'+p.toString());\n    try {\n      localStorage.setItem('gatosState', JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));\n    } catch(e){}\n  }, 150);\n}\nfunction readState(){\n  let saved = {};\n  try { saved = JSON.parse(localStorage.getItem('gatosState')) || {}; } catch(e){}\n  const h = new URLSearchParams(location.hash.slice(1));\n  const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };\n  const hf = num(h.get('f'));\n  frame = FRAMES.includes(hf) ? hf : (FRAMES.includes(saved.f) ? saved.f : FRAMES[Math.floor(FRAMES.length/2)]);\n  const hv = (k, fb) => VARIANTS.some(v=>v.id===h.get(k)) ? h.get(k) : (VARIANTS.some(v=>v.id===fb) ? fb : null);\n  varA = hv('a', saved.a) || (VARIANTS[0] && VARIANTS[0].id);\n  varB = hv('b', saved.b) || (VARIANTS[Math.min(1, VARIANTS.length-1)] || VARIANTS[0] || {}).id;\n  const hd = num(h.get('d'));\n  dividerPos = clamp(hd != null ? hd : (isFinite(saved.d) ? saved.d : 0.5), 0, 1);\n  const hg = parseInt(h.get('g'));\n  gainIdx = clamp(GAINS.includes(hg) ? hg-0 : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);\n  heat = h.get('heat') === '1' || saved.h === true;\n  const hz = num(h.get('z'));\n  if (hz != null && hz >= 1){\n    zoom = hz;\n    pan.x = num(h.get('x')) || 0;\n    pan.y = num(h.get('y')) || 0;\n  }\n  return h;\n}\n\n/* ---------- UI ---------- */\nfunction variantStats(id){\n  if (blindMode) return '';\n  const m = variant(id).metrics;\n  if (!m) return '';\n  const lines = [];\n  const pf = m.per_frame && m.per_frame[String(frame)];\n  if (pf){\n    const l = [];\n    if (pf.ssimulacra2 != null) l.push('S2 '+pf.ssimulacra2.toFixed(1));\n    if (pf.psnr_avg != null) l.push('PSNR '+pf.psnr_avg.toFixed(2)+' dB');\n    if (pf.ssim_all != null) l.push('SSIM '+pf.ssim_all.toFixed(4));\n    if (l.length) lines.push(l.join(' \\u00B7 ')+' @'+frame+'s');\n  }\n  const l2 = [];\n  if (m.ssimulacra2 != null) l2.push('S2 media '+m.ssimulacra2.toFixed(1));\n  if (m.psnr_avg != null) l2.push('clip PSNR '+m.psnr_avg.toFixed(2));\n  if (m.ssim_all != null) l2.push('SSIM '+m.ssim_all.toFixed(4));\n  if (m.size_bytes) l2.push((m.size_bytes/1048576).toFixed(1)+' MB');\n  if (m.kbps) l2.push(Math.round(m.kbps)+' kbps');\n  if (l2.length) lines.push(l2.join(' \\u00B7 '));\n  return lines.join('\\n');\n}\nfunction updateMeta(){\n  const lbl = FRAME_LABELS[frame] || (frame + 's');\n  const m = FRAME_META[frame] || {};\n  const where = m.clip_s != null ? ` \\u00B7 clip +${m.clip_s.toFixed(1)}s` : '';\n  const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \\u00B7 ` : '';\n  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');\n  metaLine.textContent =\n    `${origin}frame ${lbl} (#${frame}${where}) \\u2014 izq. ${blindMode ? '?' : varA} \\u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \\u00B7 '+modes : ''}`;\n}\nfunction preload(){\n  const i = FRAMES.indexOf(frame);\n  [i-1, i+1].forEach(j => {\n    if (j >= 0 && j < FRAMES.length){\n      new Image().src = srcFor(varA, FRAMES[j]);\n      new Image().src = srcFor(varB, FRAMES[j]);\n    }\n  });\n}\nfunction loadImg(){\n  imgA.src = srcFor(varA, frame);\n  if (diffMode){\n    realB.src = srcFor(varB, frame);\n    imgB.src = realB.src;\n  } else {\n    imgB.src = srcFor(varB, frame);\n  }\n  labelAName.textContent = variantName(varA);\n  labelBName.textContent = variantName(varB);\n  statsA.textContent = variantStats(varA);\n  statsB.textContent = variantStats(varB);\n  labelA.style.color = variant(varA).color;\n  labelB.style.color = variant(varB).color;\n  refreshFrameButtons(); refreshVariantButtons(); syncVariantOverflow();\n  updateMeta();\n  updateBadge();\n  preload();\n  if (cropMode) VARIANTS.forEach(v => cropImg(v.id));\n  if (cropUV && cropPanel.style.display !== 'none') openCropPanel();\n  writeHash();\n}\nfunction makeButtons(containerId, items, activeId, onPick){\n  const c = $(containerId);\n  c.innerHTML = '';\n  items.forEach(item => {\n    const b = document.createElement('button');\n    if (item.sub != null){\n      b.className = 'vbtn' + (item.id === activeId ? ' active' : '');\n      if (item.cmd) b.dataset.cmd = item.cmd;\n      const main = document.createElement('span'); main.className = 'main'; main.textContent = item.main;\n      const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = item.sub;\n      b.append(main, sub);\n    } else {\n      b.textContent = item.label;\n      b.className = item.id === activeId ? 'active' : '';\n    }\n    b.addEventListener('click', () => onPick(item.id));\n    c.appendChild(b);\n  });\n}\nconst cmdTip = document.createElement('div');\ncmdTip.id = 'cmdTip'; document.body.appendChild(cmdTip);\nlet cmdPinned = false, cmdFor = null, cmdTimer = null, cmdText = '';\nfunction cmdKey(t){\n  // a line starting with '|' is the second stage of a piped command\n  return t.startsWith('|') ? '|piped' : t.split(/\\s+/)[0];\n}\nfunction showTip(b){\n  if (blindMode) return;\n  cmdText = b.dataset.cmd;\n  const pane = b.closest('.variants') ? b.closest('.variants').id : null;\n  const otherId = pane === 'varA' ? varB : (pane === 'varB' ? varA : null);\n  const other = otherId ? variant(otherId) : null;\n  const hlOk = {'--crf':1, '--preset':1, '--film-grain':1, '--film-grain-denoise':1};\n  const omap = {};\n  if (other && other.cmd){\n    other.cmd.split('\\n').forEach(l => {\n      const t = l.trim().replace(/\\\\$/,'').trim();\n      if (t) omap[cmdKey(t)] = t;\n    });\n  }\n  const esc = x => x.replace(/&/g,'&amp;').replace(/<\/g,'&lt;');\n  let body;\n  if (other && other.cmd){\n    body = cmdText.split('\\n').map(l => {\n      const t = l.trim().replace(/\\\\$/,'').trim();\n      if (!t) return esc(l);\n      const key = cmdKey(t);\n      const differs = !!hlOk[key] && (!(key in omap) || omap[key] !== t);\n      return differs ? '<span class=\"dline\">' + esc(l) + '<\/span>' : esc(l);\n    }).join('\\n');\n  } else {\n    body = esc(cmdText);\n  }\n  const legend = other && other.cmd ? 'en \\u00e1mbar lo que difiere de <b>' + esc(other.name) + '<\/b>'\n                                     : 'comando';\n  cmdTip.innerHTML = '<div class=\"tiphead\"><span class=\"tt\">' + legend + '<\/span>'\n    + '<button data-act=\"copy\">Copiar<\/button><button data-act=\"close\">\\u00d7<\/button><\/div>'\n    + '<div class=\"cmdtext\">' + body + '<\/div>';\n  cmdTip.style.display = 'block';\n  const r = b.getBoundingClientRect();\n  cmdTip.style.left = Math.min(window.innerWidth - cmdTip.offsetWidth - 8, Math.max(8, r.left)) + 'px';\n  const below = r.bottom + 6;\n  cmdTip.style.top = (below + cmdTip.offsetHeight > window.innerHeight - 8\n    ? Math.max(8, r.top - cmdTip.offsetHeight - 6) : below) + 'px';\n}\nfunction hideTip(){\n  cmdPinned = false; cmdFor = null; clearTimeout(cmdTimer);\n  cmdTip.style.display = 'none';\n}\ndocument.addEventListener('mouseover', e => {\n  const b = e.target.closest('button.vbtn');\n  if (cmdPinned) return;\n  if (!b || !b.dataset.cmd){ clearTimeout(cmdTimer); cmdFor = null; cmdTip.style.display = 'none'; return; }\n  if (cmdFor === b) return;\n  clearTimeout(cmdTimer); cmdFor = b; cmdTip.style.display = 'none';\n  cmdTimer = setTimeout(() => { showTip(b); cmdPinned = true; }, 2000);\n});\ndocument.addEventListener('click', e => {\n  const act = e.target.closest('#cmdTip [data-act]');\n  if (act && act.dataset.act === 'copy'){\n    const done = ok => { const b = act; b.textContent = ok ? 'Copiado \\u2713' : 'Fall\\u00f3 la copia';\n      setTimeout(() => { b.textContent = 'Copiar'; }, 1200); };\n    if (navigator.clipboard && window.isSecureContext){\n      navigator.clipboard.writeText(cmdText).then(() => done(true), () => done(false));\n    } else {\n      const ta = document.createElement('textarea');\n      ta.value = cmdText; document.body.appendChild(ta); ta.select();\n      try { document.execCommand('copy'); done(true); } catch (err) { done(false); }\n      ta.remove();\n    }\n    return;\n  }\n  if (act && act.dataset.act === 'close'){ hideTip(); return; }\n  if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();\n});\ndocument.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });\nfunction refreshFrameButtons(){\n  makeButtons('frames', FRAMES.map(f=>({id:f, label: FRAME_LABELS[f] || (f+'s')})), frame, f => { frame = f; loadImg(); });\n}\nfunction variantButtonItems(){\n  return VARIANTS.map((v, vi) => {\n    if (blindMode) return {id: v.id, main: String(vi+1), sub: '', cmd: null};\n    const cmd = v.cmd || null;\n    if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \\u00B7 /, ''), cmd: null};\n    const m = v.id.match(/^crf(\\d+)_p(\\d)(?:_fg(\\d+))?$/);\n    if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};\n    const parts = (v.note || '').split(' \\u00B7 ');\n    const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');\n    const s2 = (parts[2] || '');\n    const main = `CRF ${m[1]}` + (m[3] ? ` \\u00B7 FG ${m[3]}` : '');\n    return {id: v.id, main: main, sub: `P${m[2]} \\u00B7 ${mbps}${s2 ? ' \\u00B7 ' + s2 : ''}`, cmd: cmd};\n  });\n}\nfunction fillSelect(selId, items, activeId, onPick){\n  const s = $(selId);\n  s.innerHTML = '';\n  items.forEach(it => {\n    const o = document.createElement('option');\n    o.value = it.id;\n    o.textContent = it.id === 'src' ? it.main + ' \\u2014 ' + it.sub : `${it.main} \\u2014 ${it.sub}`;\n    s.appendChild(o);\n  });\n  s.value = activeId;\n  s.onchange = () => onPick(s.value);\n}\nfunction refreshVariantButtons(){\n  const items = variantButtonItems();\n  makeButtons('varA', items, varA, v => { varA = v; loadImg(); });\n  makeButtons('varB', items, varB, v => { varB = v; loadImg(); });\n  fillSelect('selA', items, varA, v => { varA = v; loadImg(); });\n  fillSelect('selB', items, varB, v => { varB = v; loadImg(); });\n}\nfunction swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }\nfunction nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }\n\n$('oneBtn').addEventListener('click', oneToOne);\n$('resetBtn').addEventListener('click', fitView);\n$('swapBtn').addEventListener('click', swapAB);\n\nwindow.addEventListener('keydown', e => {\n  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){\n    const i = FRAMES.indexOf(frame);\n    const ni = e.key === 'ArrowRight' ? i+1 : i-1;\n    if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }\n  } else if (e.key === ' ' && !e.repeat){\n    e.preventDefault();   // no hacer scroll de página\n    const ids = VARIANTS.map(v => v.id);\n    varB = ids[(ids.indexOf(varB)+1) % ids.length];\n    loadImg();\n  } else if (!e.repeat && (e.key === 'n' || e.key === 'N')){ setSmooth(!smoothScale);\n  } else if (/^[1-9]$/.test(e.key)){\n    const idx = +e.key-1;\n    if (idx >= VARIANTS.length) return;\n    if (e.shiftKey) varA = VARIANTS[idx].id; else varB = VARIANTS[idx].id;\n    loadImg();\n  } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }\n  else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }\n  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ setBlind(!blindMode); }\n  else if (!e.repeat && (e.key === 'l' || e.key === 'L')){ setSolar(!solarMode); }\n  else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }\n  else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }\n  else if (!e.repeat && (e.key === 'o' || e.key === 'O')){ oneToOne(); }\n  else if (!e.repeat && (e.key === 'f' || e.key === 'F')){ fitView(); }\n  else if (!e.repeat && (e.key === 'h' || e.key === 'H')){ setHeat(!heat); }\n  else if (e.key === '+' || e.key === '='){ setGain(gainIdx+1); }\n  else if (e.key === '-' || e.key === '_'){ setGain(gainIdx-1); }\n  else if (e.key === ','){ nudgeDivider(e.shiftKey ? -0.05 : -0.01); }\n  else if (e.key === '.'){ nudgeDivider(e.shiftKey ? 0.05 : 0.01); }\n  else if (e.key === 'Escape'){ if (cropMode || cropUV){ setCropMode(false); closeCrop(); } }\n});\n\n/* ---------- init ---------- */\nfunction applyManifest(m){\n  FRAMES = m.frames;\n  VARIANTS = m.variants;\n  FRAME_LABELS = m.frame_labels || {};\n  FRAME_META = m.frame_meta || {};\n  CLIP = m.clip || {};\n  if (m.title){ document.title = m.title; pageTitle.textContent = m.title; }\n  const h = readState();\n  if (h.get('z') != null) mobileZoomPending = false;\n  computeFit();\n  loadImg();\n  applyTransform();\n  if (!h.get('z') && matchMedia('(max-width:820px), (pointer:coarse)').matches) oneToOne();\n  if (h.get('diff') === '1') setDiff(true);\n  if (h.get('blink') === '1') setBlink(true);\n  if (h.get('blind') === '1') setBlind(true);\n  if (h.get('solar') === '1') setSolar(true);\n  if (h.get('crops') === '1') setCropMode(true);\n  if (h.get('crop')){\n    const [cu, cv] = h.get('crop').split(',').map(Number);\n    if (isFinite(cu) && isFinite(cv)){\n      const {nw, nh} = naturalDims();\n      cropUV = {u: Math.round(cu*nw), v: Math.round(cv*nh)};\n      openCropPanel();\n    }\n  }\n}\n(async () => {\n  computeFit();\n  applyTransform();\n  try {\n    const m = await SOURCE.init();\n    applyManifest(m);\n  } catch (err) {\n    console.error('comparison data unavailable', err);\n    metaLine.textContent = 'no se encontraron datos de comparaci\\u00f3n (sin paquete embebido, sin manifest.json)';\n  }\n})();\n";
+</script>
+<script>
+'use strict';
+/* ============================================================
+   SSIMULACRA2 en JS puro — puerto fiel del paquete ssimulacra2
+   de PyPI (puerto numpy del C++ original). Misma escala:
+   100 = idéntico, menor = peor.
+
+   Entrada: dos ImageData (RGBA 8 bit, como salen de canvas);
+   se usan los canales RGB (las capturas del creador no traen
+   alfa con significado). El pipeline local de referencia también
+   parte de PNG RGB 8 bit, así que los números son comparables
+   entre herramientas 8-bit.
+   ============================================================ */
+const S2 = (() => {
+  const kC2 = 0.0009;
+  const NUM_SCALES = 6;
+
+  // matriz de absorbancia opsin (jxl) + bias — idénticos al C++
+  const M00 = 0.30, M01 = 1 - 0.078 - 0.30, M02 = 0.078;
+  const M10 = 0.23, M11 = 1 - 0.078 - 0.23, M12 = 0.078;
+  const M20 = 0.24342268924547819, M21 = 0.20476744424496821, M22 = 1 - M20 - M21;
+  const kB = 0.0037930732552754493;
+  const cbrtB = Math.cbrt(kB);
+
+  const WEIGHTS = [
+    0.0, 0.0007376606707406586, 0.0,
+    0.0, 0.0007793481682867309, 0.0,
+    0.0, 0.0004371155730107379, 0.0,
+    1.1041726426657346, 0.00066284834129271, 0.00015231632783718752,
+    0.0, 0.0016406437456599754, 0.0,
+    1.8422455520539298, 11.441172603757666, 0.0,
+    0.0007989109436015163, 0.000176816438078653, 0.0,
+    1.8787594979546387, 10.94906990605142, 0.0,
+    0.0007289346991508072, 0.9677937080626833, 0.0,
+    0.00014003424285435884, 0.9981766977854967, 0.00031949755934435053,
+    0.0004550992113792063, 0.0, 0.0,
+    0.0013648766163243398, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    7.466890328078848, 0.0, 17.445833984131262,
+    0.0006235601634041466, 0.0, 0.0,
+    6.683678146179332, 0.00037724407979611296, 1.027889937768264,
+    225.20515300849274, 0.0, 0.0,
+    19.213238186143016, 0.0011401524586618361, 0.001237755635509985,
+    176.39317598450694, 0.0, 0.0,
+    24.43300999870476, 0.28520802612117757, 0.0004485436923833408,
+    0.0, 0.0, 0.0,
+    34.77906344483772, 44.835625328877896, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0008680556573291698, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0005313191874358747, 0.0,
+    0.00016533814161379112, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0004179171803251336, 0.0017290828234722833, 0.0,
+    0.0020827005846636437, 0.0, 0.0,
+    8.826982764996862, 23.19243343998926, 0.0,
+    95.1080498811086, 0.9863978034400682, 0.9834382792465353,
+    0.0012286405048278493, 171.2667255897307, 0.9807858872435379,
+    0.0, 0.0, 0.0,
+    0.0005130064588990679, 0.0, 0.00010854057858411537
+  ];
+
+  /* kernel gaussiano separable: sigma 1.5, radio 5 (truncate 3.33) */
+  const SIGMA = 1.5, RAD = 5;
+  const KERN = (() => {
+    const k = new Float64Array(2*RAD+1);
+    let s = 0;
+    for (let i = -RAD; i <= RAD; i++){ const v = Math.exp(-(i*i)/(2*SIGMA*SIGMA)); k[i+RAD] = v; s += v; }
+    for (let i = 0; i < k.length; i++) k[i] /= s;
+    return k;
+  })();
+
+  /* blur separable con los bordes EXACTOS del paquete PyPI: sus arreglos XYB
+     van transpuestos (W,H,C), asi que su cero-pad "vertical" cae en los bordes
+     izquierdo/derecho y su reflect en superior/inferior.
+     -> horizontal: cero-padding · vertical: reflexión con borde incluido */
+  function blurPlane(src, w, h){
+    const tmp = new Float64Array(w*h);
+    for (let y = 0; y < h; y++){
+      const row = y*w;
+      for (let x = 0; x < w; x++){
+        let acc = 0;
+        for (let t = -RAD; t <= RAD; t++){
+          const xx = x + t;
+          if (xx >= 0 && xx < w) acc += KERN[t+RAD] * src[row+xx];
+        }
+        tmp[row+x] = acc;
+      }
+    }
+    const out = new Float64Array(w*h);
+    for (let y = 0; y < h; y++){
+      for (let x = 0; x < w; x++){
+        let acc = 0;
+        for (let t = -RAD; t <= RAD; t++){
+          let yy = y + t;
+          if (yy < 0) yy = -yy - 1; else if (yy >= h) yy = 2*h - 1 - yy;
+          acc += KERN[t+RAD] * tmp[yy*w+x];
+        }
+        out[y*w+x] = acc;
+      }
+    }
+    return out;
+  }
+
+  /* ImageData RGBA -> 3 planos lineales */
+  function toLinearPlanes(data, w, h){
+    const p = [new Float64Array(w*h), new Float64Array(w*h), new Float64Array(w*h)];
+    for (let i = 0, j = 0; j < w*h; i += 4, j++){
+      for (let c = 0; c < 3; c++){
+        let v = data[i+c] / 255;
+        v = v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
+        p[c][j] = v;
+      }
+    }
+    return p;
+  }
+
+  /* RGB lineal -> XYB "positivo" (3 planos) */
+  function toXYB(lin, w, h){
+    const n = w*h;
+    const out = [new Float64Array(n), new Float64Array(n), new Float64Array(n)];
+    for (let j = 0; j < n; j++){
+      const r = lin[0][j], g = lin[1][j], b = lin[2][j];
+      let m0 = M00*r + M01*g + M02*b + kB;
+      let m1 = M10*r + M11*g + M12*b + kB;
+      let m2 = M20*r + M21*g + M22*b + kB;
+      if (m0 < 0) m0 = 0;
+      if (m1 < 0) m1 = 0;
+      if (m2 < 0) m2 = 0;
+      m0 = Math.cbrt(m0) - cbrtB;
+      m1 = Math.cbrt(m1) - cbrtB;
+      m2 = Math.cbrt(m2) - cbrtB;
+      let x = 0.5*(m0 - m1);
+      const y = 0.5*(m0 + m1);
+      const by = m2;
+      out[0][j] = x*14.0 + 0.42;
+      out[1][j] = y + 0.01;
+      out[2][j] = (by - y) + 0.55;
+    }
+    return out;
+  }
+
+  /* caja 2x2 con bordes parciales — igual que el numpy */
+  function downsamplePlanes(p, w, h){
+    const ow = Math.ceil(w/2), oh = Math.ceil(h/2);
+    const out = [new Float64Array(ow*oh), new Float64Array(ow*oh), new Float64Array(ow*oh)];
+    const cw = (w >> 1) << 1, ch = (h >> 1) << 1;   // parte divisible
+    for (let oy = 0; oy < oh; oy++){
+      const y0 = oy*2, y1 = Math.min(y0+2, h);
+      const ny = y1 - y0;
+      for (let ox = 0; ox < ow; ox++){
+        const x0 = ox*2, x1 = Math.min(x0+2, w);
+        const nx = x1 - x0;
+        const inv = 1/(nx*ny);
+        const j = oy*ow + ox;
+        for (let c = 0; c < 3; c++){
+          let s = 0;
+          for (let y = y0; y < y1; y++)
+            for (let x = x0; x < x1; x++) s += p[c][y*w+x];
+          out[c][j] = s * inv;
+        }
+      }
+    }
+    return {planes: out, w: ow, h: oh, cw, ch};
+  }
+
+  /* un paso de escala: avg_ssim[6] + avg_edgediff[12] */
+  function scaleMetrics(img1, img2, w, h){
+    const n = w*h;
+    const mus = [], sig = [[],[],[]], mus2 = [];
+    for (let c = 0; c < 3; c++){
+      const sq1 = new Float64Array(n), sq2 = new Float64Array(n), cross = new Float64Array(n);
+      for (let j = 0; j < n; j++){
+        const a = img1[c][j], b = img2[c][j];
+        sq1[j] = a*a; sq2[j] = b*b; cross[j] = a*b;
+      }
+      mus.push(blurPlane(img1[c], w, h));
+      mus2.push(blurPlane(img2[c], w, h));
+      sig[0].push(blurPlane(sq1, w, h));
+      sig[1].push(blurPlane(sq2, w, h));
+      sig[2].push(blurPlane(cross, w, h));
+    }
+    const avgSsim = new Float64Array(6);
+    const avgEdge = new Float64Array(12);
+    for (let c = 0; c < 3; c++){
+      const mu1 = mus[c], mu2 = mus2[c];
+      const s11 = sig[0][c], s22 = sig[1][c], s12 = sig[2][c];
+      let sumD = 0, sumD4 = 0;
+      let sumArt = 0, sumArt4 = 0, sumLost = 0, sumLost4 = 0;
+      for (let j = 0; j < n; j++){
+        const m1 = mu1[j], m2 = mu2[j];
+        const num_m = 1 - (m1-m2)*(m1-m2);
+        const num_s = 2*(s12[j] - m1*m2) + kC2;
+        const den = (s11[j] - m1*m1) + (s22[j] - m2*m2) + kC2;
+        let d = 1 - num_m*num_s/den;
+        if (d < 0) d = 0;
+        sumD += d;
+        const d2 = d*d, d4 = d2*d2;
+        sumD4 += d4;
+        // edge diff contra la imagen SIN blur
+        const e1 = 1 + Math.abs(img1[c][j] - m1);
+        const e2 = 1 + Math.abs(img2[c][j] - m2);
+        const r = e2/e1 - 1;
+        const art = r > 0 ? r : 0;
+        const lost = r < 0 ? -r : 0;
+        sumArt += art; const a2 = art*art, a4 = a2*a2; sumArt4 += a4;
+        sumLost += lost; const l2 = lost*lost, l4 = l2*l2; sumLost4 += l4;
+      }
+      const inv = 1/n;
+      avgSsim[c*2]   = sumD * inv;
+      avgSsim[c*2+1] = Math.pow(sumD4 * inv, 0.25);
+      avgEdge[c*4]   = sumArt * inv;
+      avgEdge[c*4+1] = Math.pow(sumArt4 * inv, 0.25);
+      avgEdge[c*4+2] = sumLost * inv;
+      avgEdge[c*4+3] = Math.pow(sumLost4 * inv, 0.25);
+    }
+    return {avgSsim, avgEdge};
+  }
+
+  function finalScore(scales){
+    let ssim = 0, i = 0;
+    for (let c = 0; c < 3; c++){
+      for (let s = 0; s < scales.length; s++){
+        for (let n2 = 0; n2 < 2; n2++){
+          ssim += WEIGHTS[i] * Math.abs(scales[s].avgSsim[c*2 + n2]); i++;
+          ssim += WEIGHTS[i] * Math.abs(scales[s].avgEdge[c*4 + n2]); i++;
+          ssim += WEIGHTS[i] * Math.abs(scales[s].avgEdge[c*4 + n2 + 2]); i++;
+        }
+      }
+    }
+    ssim *= 0.9562382616834844;
+    ssim = 2.326765642916932*ssim
+         - 0.020884521182843837*ssim*ssim
+         + 6.248496625763138e-05*ssim*ssim*ssim;
+    return ssim > 0 ? 100 - 10*Math.pow(ssim, 0.6276336467831387) : 100;
+  }
+
+  /* API: dos ImageData -> puntaje (100 = idéntico) */
+  function computeScales(imgData1, imgData2){
+    const w = imgData1.width, h = imgData1.height;
+    if (imgData2.width !== w || imgData2.height !== h) throw new Error('S2: dimensiones distintas');
+    let lin1 = toLinearPlanes(imgData1.data, w, h);
+    let lin2 = toLinearPlanes(imgData2.data, w, h);
+    let cw = w, ch = h;
+    const scales = [];
+    for (let s = 0; s < NUM_SCALES; s++){
+      if (ch < 8 || cw < 8) break;
+      const xyb1 = toXYB(lin1, cw, ch);
+      const xyb2 = toXYB(lin2, cw, ch);
+      scales.push(scaleMetrics(xyb1, xyb2, cw, ch));
+      if (s < NUM_SCALES - 1){
+        const d1 = downsamplePlanes(lin1, cw, ch);
+        const d2 = downsamplePlanes(lin2, cw, ch);
+        lin1 = d1.planes; lin2 = d2.planes; cw = d1.w; ch = d1.h;
+      }
+    }
+    return scales;
+  }
+  function score(imgData1, imgData2){
+    return finalScore(computeScales(imgData1, imgData2));
+  }
+
+  /* File/Blob -> ImageData (vía canvas, sRGB 8 bit como el pipeline de referencia) */
+  async function imageDataFrom(blob){
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    const x = c.getContext('2d', {willReadFrequently: true});
+    x.drawImage(bmp, 0, 0);
+    return x.getImageData(0, 0, bmp.width, bmp.height);
+  }
+
+  function debug(imgData1, imgData2){
+    const checks = [];
+    {
+      let l1 = toLinearPlanes(imgData1.data, imgData1.width, imgData1.height);
+      let cw = imgData1.width, ch = imgData1.height;
+      for (let s = 0; s < NUM_SCALES && ch >= 8 && cw >= 8; s++){
+        const xy = toXYB(l1, cw, ch);
+        let sum = [0,0,0];
+        for (let c = 0; c < 3; c++) for (let j = 0; j < cw*ch; j++) sum[c] += xy[c][j];
+        checks.push(sum.map(v => Math.round(v/(cw*ch)*1e9)/1e9));
+        if (s < NUM_SCALES-1){ const dd = downsamplePlanes(l1, cw, ch); l1 = dd.planes; cw = dd.w; ch = dd.h; }
+      }
+    }
+    const scales = computeScales(imgData1, imgData2);
+    let ssim = 0, i = 0;
+    for (let c = 0; c < 3; c++)
+      for (let s2i = 0; s2i < scales.length; s2i++)
+        for (let n2 = 0; n2 < 2; n2++){
+          ssim += WEIGHTS[i]*Math.abs(scales[s2i].avgSsim[c*2+n2]); i++;
+          ssim += WEIGHTS[i]*Math.abs(scales[s2i].avgEdge[c*4+n2]); i++;
+          ssim += WEIGHTS[i]*Math.abs(scales[s2i].avgEdge[c*4+n2+2]); i++;
+        }
+    return {
+      nScales: scales.length,
+      xybMeansA: checks,
+      raw: ssim,
+      scales: scales.map(s => ({
+        avgSsim: Array.from(s.avgSsim).map(v => Math.round(v*1e6)/1e6),
+        avgEdge: Array.from(s.avgEdge).map(v => Math.round(v*1e6)/1e6)
+      }))
+    };
+  }
+
+  return {score, imageDataFrom, debug, _internals: {blurPlane, toXYB, toLinearPlanes, downsamplePlanes}};
+})();
 </script>
 <script>
 'use strict';
@@ -367,13 +735,18 @@ $('obStart').addEventListener('click', () => {
   $('onboard').hidden = true;
 });
 $('obDemo').addEventListener('click', () => {
-  const pkg = makeDemoPackage();
-  $('pvBox').srcdoc = buildStandaloneHTML(pkg);
-  $('pvFrame').classList.add('show');
+  const btn = $('obDemo');
+  btn.disabled = true; btn.textContent = 'Generando ejemplo…';
+  setTimeout(async () => {
+    const pkg = await makeDemoPackage();
+    $('pvBox').srcdoc = buildStandaloneHTML(pkg);
+    $('pvFrame').classList.add('show');
+    btn.disabled = false; btn.textContent = 'Ver un ejemplo';
+  }, 30);
 });
 $('obLoad').addEventListener('click', async () => {
   // cargar el ejemplo como proyecto básico para poder tocarlo
-  const pkg = makeDemoPackage();
+  const pkg = await makeDemoPackage();
   setMode('basic');
   state.pairs = [];
   for (const f of pkg.manifest.frames){
@@ -434,15 +807,25 @@ function makeDemoPackage(){
         d[i+2] = Math.max(0, Math.min(255, d[i+2]+n));
       }
       x2.putImageData(id, 0, 0);
-      return c2.toDataURL('image/jpeg', 0.72);
+      return c2;
     }
-    return c.toDataURL('image/jpeg', 0.92);
+    return c;
   }
   const images = {};
-  [1, 2, 3].forEach((f, i) => {
-    images['src_'+f] = draw(100+i*7, false);
-    images['enc_'+f] = draw(100+i*7, true);
-  });
+  const per = {};
+  let sum = 0;
+  for (let i = 0; i < 3; i++){
+    const f = i+1;
+    const srcC = draw(100+i*7, false);
+    const encC = draw(100+i*7, true);
+    images['src_'+f] = srcC.toDataURL('image/jpeg', 0.92);
+    images['enc_'+f] = encC.toDataURL('image/jpeg', 0.72);
+    // S2 real del par sintético (determinista: los mismos números en toda máquina)
+    const sc = S2.score(srcC.getContext('2d').getImageData(0, 0, W, H),
+                        encC.getContext('2d').getImageData(0, 0, W, H));
+    per[f] = Math.round(sc*100)/100;
+    sum += sc;
+  }
   return {
     format: FORMAT,
     manifest: {
@@ -453,7 +836,8 @@ function makeDemoPackage(){
       variants: [
         {id: 'src', name: 'Fuente', color: '#7bd389', note: 'referencia'},
         {id: 'enc', name: 'Encode', color: '#7bb3ff', note: 'desenfoque + ruido simulados',
-         cmd: 'encoder --entrada in.png --salida out.png --crf 26 --preset 4'},
+         cmd: 'encoder --entrada in.png --crf 26 --preset 4 --salida out.png',
+         metrics: {ssimulacra2: Math.round((sum/3)*100)/100, per_frame: per}},
       ],
     },
     images,
@@ -491,11 +875,14 @@ function readAsText(f){
 function setMode(m){
   state.mode = m;
   $('tabBasic').classList.toggle('primary', m==='basic');
+  $('tabVideo').classList.toggle('primary', m==='video');
   $('tabAdv').classList.toggle('primary', m==='advanced');
   $('basicView').style.display = m==='basic' ? '' : 'none';
+  $('videoView').style.display = m==='video' ? '' : 'none';
   $('advView').style.display = m==='advanced' ? '' : 'none';
 }
 $('tabBasic').addEventListener('click', () => setMode('basic'));
+$('tabVideo').addEventListener('click', () => setMode('video'));
 $('tabAdv').addEventListener('click', () => setMode('advanced'));
 
 /* ============================================================
@@ -557,8 +944,19 @@ function renderPairs(){
   let h = '';
   if (half) h += `<div class="warn">A un par le falta una imagen — se verá un lado vacío. Suelta una imagen más para completarlo.</div>`;
   if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) — el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
-  if (state.pairs.length && !half) h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} — dale Vista previa.</div>`;
+  if (state.pairs.length && !half){
+    h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} — y exporta cuando quieras:</div>`;
+    h += `<div class="exports" style="margin-top:8px;">
+      <button id="bExpHtml">Descargar .html</button>
+      <button id="bExpZip">Descargar .zip</button>
+      <button id="bExpCmp">Descargar .cmp</button>
+    </div>`;
+  }
   foot.innerHTML = h;
+  const wire = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  wire('bExpHtml', () => $('btnExpHtml').click());
+  wire('bExpZip', () => $('btnExpZip').click());
+  wire('bExpCmp', () => $('btnExpCmp').click());
 }
 function pickOne(cb){
   const inp = document.createElement('input');
@@ -587,6 +985,185 @@ async function basicPackage(){
   }
   return {format: FORMAT, manifest, images};
 }
+
+/* ============================================================
+   MODO VIDEO — del video a la comparación
+   ============================================================ */
+const vidDrop = $('vidDrop'), vidFile = $('vidFile'), vidPlayer = $('vidPlayer');
+const vidState = { files: [], marks: [], cur: 0 };
+vidDrop.addEventListener('click', () => vidFile.click());
+vidFile.addEventListener('change', () => { addVideos([...vidFile.files]); vidFile.value=''; });
+['dragover','dragenter'].forEach(ev => vidDrop.addEventListener(ev, e => { e.preventDefault(); vidDrop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => vidDrop.addEventListener(ev, e => { e.preventDefault(); vidDrop.classList.remove('over'); }));
+vidDrop.addEventListener('drop', e => addVideos([...e.dataTransfer.files]));
+
+const vidURLs = new Map();
+function vidURL(f){ if (!vidURLs.has(f)) vidURLs.set(f, URL.createObjectURL(f)); return vidURLs.get(f); }
+const fmtT = t => {
+  const m = Math.floor(t/60), s = t - m*60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2);
+};
+
+function addVideos(files){
+  const vids = files.filter(f => f.type.startsWith('video/') || /\.(mp4|webm|mov|mkv|m4v)$/i.test(f.name));
+  vidState.files.push(...vids);
+  renderVidList();
+  syncVideoToAdvanced();
+  if (vidState.files.length === vids.length && vids.length) showVid(0);
+}
+function renderVidList(){
+  const host = $('vidList');
+  host.innerHTML = '';
+  vidState.files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'pair';
+    const url = vidURL(f);
+    row.innerHTML = `<span class="no">${i === 0 ? 'máster' : 'var '+(i)}</span>
+      <span class="mono" style="min-width:0; overflow:hidden; text-overflow:ellipsis; max-width:420px;">${esc(f.name)}</span>
+      <span class="hint">${(f.size/1048576).toFixed(1)} MB</span>
+      <div class="tools">
+        <button data-a="up" title="subir">↑</button>
+        <button data-a="dn" title="bajar">↓</button>
+        <button data-a="rm" title="quitar">×</button>
+      </div>`;
+    row.querySelector('[data-a=up]').onclick = () => { if (i>0){ [vidState.files[i-1], vidState.files[i]] = [vidState.files[i], vidState.files[i-1]]; renderVidList(); syncVideoToAdvanced(); } };
+    row.querySelector('[data-a=dn]').onclick = () => { if (i<vidState.files.length-1){ [vidState.files[i+1], vidState.files[i]] = [vidState.files[i], vidState.files[i+1]]; renderVidList(); syncVideoToAdvanced(); } };
+    row.querySelector('[data-a=rm]').onclick = () => { vidState.files.splice(i,1); renderVidList(); syncVideoToAdvanced(); };
+    host.appendChild(row);
+  });
+  $('vidStage').style.display = vidState.files.length ? '' : 'none';
+}
+function showVid(i){
+  vidState.cur = clampV(i);
+  const f = vidState.files[vidState.cur];
+  if (!f) return;
+  vidPlayer.src = vidURL(f);
+  $('vidWho').textContent = (vidState.cur === 0 ? 'máster · ' : 'variante '+vidState.cur+' · ') + f.name;
+  vidPlayer.onloadedmetadata = () => {
+    $('vidDur').textContent = `${vidPlayer.videoWidth}×${vidPlayer.videoHeight} · ${fmtT(vidPlayer.duration)}`;
+  };
+  vidPlayer.onerror = () => {
+    $('vidDur').textContent = 'este navegador no puede abrir este archivo (¿códec o contenedor?) — pruébalo en otro navegador o usa capturas';
+  };
+}
+const clampV = i => Math.max(0, Math.min(vidState.files.length-1, i));
+$('vidPrev').addEventListener('click', () => showVid(vidState.cur-1));
+$('vidNext').addEventListener('click', () => showVid(vidState.cur+1));
+
+$('vidMark').addEventListener('click', () => {
+  const t = vidPlayer.currentTime;
+  if (!isFinite(t) || t < 0) return;
+  vidState.marks.push(t);
+  vidState.marks.sort((a,b) => a-b);
+  renderVidMarks();
+});
+function renderVidMarks(){
+  const host = $('vidMarks');
+  if (!vidState.marks.length){ host.innerHTML = '<span class="hint">sin marcas — reproduce, pausa donde quieras comparar, y marca</span>'; return; }
+  host.innerHTML = vidState.marks.map((t, i) =>
+    `<span class="markchip" data-i="${i}" title="clic para saltar ahí">${fmtT(t)} <b data-rm="${i}" title="quitar">×</b></span>`
+  ).join(' ');
+  host.querySelectorAll('.markchip').forEach(chip => {
+    chip.addEventListener('click', e => {
+      if (e.target.dataset.rm !== undefined){
+        vidState.marks.splice(+e.target.dataset.rm, 1);
+        renderVidMarks();
+        return;
+      }
+      vidPlayer.currentTime = vidState.marks[+chip.dataset.i];
+    });
+  });
+}
+
+/* el modo video siembra el estado avanzado: variantes = archivos, frames = marcas */
+function syncVideoToAdvanced(){
+  if (!vidState.files.length) return;
+  state.variants = vidState.files.map((f, i) => {
+    const id = 'v'+(i+1);
+    const old = state.variants.find(v => v.id === id);
+    return Object.assign({id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[i % PALETTE.length]}, old ? {codec: old.codec, crf: old.crf, bitrate: old.bitrate, cmd: old.cmd} : {});
+  });
+  nextVar = state.variants.length+1;
+  renderVariants();
+}
+
+/* captura un frame exacto: seek + (requestVideoFrameCallback si existe) + drawImage */
+function captureFrame(video, t){
+  return new Promise((res, rej) => {
+    const done = () => {
+      const c = document.createElement('canvas');
+      c.width = video.videoWidth; c.height = video.videoHeight;
+      c.getContext('2d').drawImage(video, 0, 0);
+      res(c);
+    };
+    const to = setTimeout(() => rej(new Error('timeout al buscar el frame')), 15000);
+    video.currentTime = t;
+    video.onseeked = () => {
+      if ('requestVideoFrameCallback' in video){
+        video.requestVideoFrameCallback(() => { clearTimeout(to); done(); });
+        // si rVFC no llega (frame ya presentado), cae por el timeout corto
+        setTimeout(() => { clearTimeout(to); done(); }, 700);
+      } else {
+        setTimeout(() => { clearTimeout(to); done(); }, 120);
+      }
+    };
+    video.onerror = () => { clearTimeout(to); rej(new Error('error de decodificación')); };
+  });
+}
+function canvasToBlob(c, fmt){
+  return new Promise(res => {
+    if (fmt === 'jpeg') c.toBlob(b => res(b), 'image/jpeg', 0.92);
+    else c.toBlob(b => res(b), 'image/png');
+  });
+}
+
+$('vidGo').addEventListener('click', async () => {
+  if (!vidState.files.length){ $('vidProg').textContent = 'primero suelta los videos'; return; }
+  if (!vidState.marks.length){ $('vidProg').textContent = 'primero marca al menos un momento'; return; }
+  const fmt = $('vidFmt').value;
+  syncVideoToAdvanced();
+  // frames desde las marcas: clave = centésimas de segundo
+  for (const t of vidState.marks){
+    const key = String(Math.round(t*100));
+    if (!state.frames.some(f => f.key === key))
+      state.frames.push({key, label: fmtT(t)});
+  }
+  state.frames.sort((a,b) => parseInt(a.key,10) - parseInt(b.key,10));
+  const btn = $('vidGo');
+  btn.disabled = true;
+  let n = 0, fails = [];
+  const total = vidState.files.length * vidState.marks.length;
+  for (const f of vidState.files){
+    const v = document.createElement('video');
+    v.muted = true; v.preload = 'auto';
+    v.src = vidURL(f);
+    await new Promise(r => { v.onloadeddata = r; v.onerror = r; });
+    const vid = state.variants.find(x => vidState.files.indexOf(f)+1 === +x.id.slice(1));
+    if (!vid){ continue; }
+    for (const t of vidState.marks){
+      try {
+        const c = await captureFrame(v, t);
+        const b = await canvasToBlob(c, fmt);
+        const ext = fmt === 'jpeg' ? 'jpg' : 'png';
+        state.cells.set(vid.id+'|'+String(Math.round(t*100)), new File([b], `${vid.id}_${Math.round(t*100)}.${ext}`, {type: b.type}));
+        probeDims(state.cells.get(vid.id+'|'+String(Math.round(t*100))));
+      } catch (err) {
+        fails.push(f.name+' @'+fmtT(t));
+      }
+      n++;
+      $('vidProg').textContent = `capturando… ${n}/${total}`;
+    }
+    v.removeAttribute('src'); v.load();
+  }
+  btn.disabled = false;
+  renderFrames(); renderMatrix(); renderVariants();
+  $('vidProg').textContent = fails.length
+    ? `listo con ${fails.length} falla${fails.length>1?'s':''}: ${fails.slice(0,3).join(' · ')}${fails.length>3?'…':''}`
+    : `✓ ${total} capturas listas`;
+  $('vidDone').innerHTML = `<button class="primary" id="vidToMatrix">Seguir en Avanzado → revisar imágenes</button>`;
+  $('vidToMatrix').onclick = () => { setMode('advanced'); window.BUILDER.renderSteps(); [...document.querySelectorAll('#stepNav button')][3].click(); };
+});
+
 
 /* ============================================================
    MODO AVANZADO — pasos
@@ -889,6 +1466,45 @@ function renderMatrix(){
 }
 
 /* ---------- avanzado -> paquete ---------- */
+/* ---------- S2 (SSIMULACRA2) opcional ---------- */
+const idCache = new Map();   // File -> ImageData
+async function imageDataOf(f){
+  if (!idCache.has(f)) idCache.set(f, await S2.imageDataFrom(f));
+  return idCache.get(f);
+}
+const s2Cache = new Map();   // "fa|fb" (identidad de File) -> score
+async function s2Of(fa, fb){
+  const key = fa.name + '\u0000' + fb.name + '\u0000' + fa.size + '\u0000' + fb.size + '\u0000' + fa.lastModified + '\u0000' + fb.lastModified;
+  if (!s2Cache.has(key)){
+    s2Cache.set(key, S2.score(await imageDataOf(fa), await imageDataOf(fb)));
+  }
+  return s2Cache.get(key);
+}
+async function computeS2Metrics(manifest){
+  const ref = manifest.variants[0];
+  if (!ref) return;
+  const refId = ref.id;
+  let total = 0, done = 0;
+  for (const v of manifest.variants.slice(1)) total += manifest.frames.length;
+  for (const v of manifest.variants.slice(1)){
+    const per = {};
+    let sum = 0, n = 0;
+    for (const fk of manifest.frames){
+      const fa = state.cells.get(refId+'|'+fk), fb = state.cells.get(v.id+'|'+fk);
+      if (fa && fb){
+        try { per[fk] = await s2Of(fa, fb); sum += per[fk]; n++; }
+        catch (e) { /* dimensiones distintas u otro problema: se omite */ }
+      }
+      done++;
+      $('s2Prog').textContent = 'S2: ' + done + '/' + total;
+    }
+    if (n){
+      v.metrics = Object.assign(v.metrics || {}, {ssimulacra2: Math.round((sum/n)*100)/100, per_frame: per});
+    }
+  }
+  $('s2Prog').textContent = '';
+}
+
 async function advancedPackage(){
   const manifest = {
     title: state.title.trim() || 'Comparación',
@@ -908,6 +1524,7 @@ async function advancedPackage(){
     const [vid, fk] = k.split('|');
     images[vid+'_'+fk] = await readAsDataURL(f);
   }
+  if ($('s2Toggle') && $('s2Toggle').checked) await computeS2Metrics(manifest);
   return {format: FORMAT, manifest, images};
 }
 
@@ -941,7 +1558,7 @@ function renderFinish(){
    vista previa + exportaciones
    ============================================================ */
 async function currentPackage(){
-  return state.mode === 'basic' ? basicPackage() : advancedPackage();
+  return state.mode === 'basic' ? basicPackage() : advancedPackage();   // video también alimenta el estado avanzado
 }
 function buildStandaloneHTML(pkg){
   const json = JSON.stringify(pkg).replace(/</g, '\\u003c');
@@ -1141,6 +1758,7 @@ renderFrames();
 renderMatrix();
 renderPairs();
 renderSteps();
+renderVidMarks();
 setMode('basic');
 showOnboard(false);
 window.addEventListener('beforeunload', e => {

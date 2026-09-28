@@ -83,6 +83,13 @@
   .slot.empty:hover{border-color:var(--accent); color:var(--accent);}
   .pair .tools{display:flex; gap:4px; margin-left:auto;}
   .pair .tools button{padding:2px 8px; font-size:11px;}
+  .markchip{
+    display:inline-block; background:var(--panel2); border:1px solid #333; border-radius:14px;
+    padding:3px 10px; font-size:12px; cursor:pointer; margin:2px 4px 2px 0;
+  }
+  .markchip:hover{border-color:var(--accent);}
+  .markchip b{margin-left:5px; color:var(--dim); font-weight:600;}
+  .markchip b:hover{color:var(--err);}
 
   /* pasos (avanzado) */
   .advwrap{display:flex; gap:18px; min-height:100%;}
@@ -187,6 +194,7 @@
   <h1>gatos.pics <span class="dim">creador</span></h1>
   <nav class="tabs">
     <button id="tabBasic">Básico</button>
+    <button id="tabVideo">Video</button>
     <button id="tabAdv">Avanzado</button>
   </nav>
   <span class="spacer"></span>
@@ -212,6 +220,49 @@
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
     <div id="pairList"></div>
     <div id="basicFoot"></div>
+  </section>
+
+  <!-- ======================= VIDEO ======================= -->
+  <section id="videoView" style="display:none;">
+    <h2 style="font-size:16px;">De videos a comparación</h2>
+    <p class="hint" style="margin:4px 0 14px;">
+      Suelta el máster y los encodes. Marcas momentos en la línea de tiempo y la
+      herramienta captura el frame exacto de cada variante — sin ffmpeg, sin subir nada.
+    </p>
+    <div class="drop" id="vidDrop">
+      <div class="big">Suelta los videos aquí</div>
+      <div class="hint">MP4 / WebM / MOV que tu navegador sepa abrir — el máster y cada encode</div>
+    </div>
+    <input type="file" id="vidFile" accept="video/*" multiple style="display:none">
+    <div id="vidList" style="margin-top:10px;"></div>
+    <div id="vidStage" class="card" style="display:none;">
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
+        <b id="vidWho">—</b>
+        <span class="hint" id="vidDur"></span>
+        <span class="spacer"></span>
+        <button id="vidPrev">← anterior</button>
+        <button id="vidNext">siguiente →</button>
+      </div>
+      <video id="vidPlayer" controls style="width:100%; max-height:44vh; background:#000; border-radius:8px;"></video>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+        <button id="vidMark" class="primary">Marcar aquí</button>
+        <label class="hint">formato de captura
+          <select id="vidFmt" style="background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 6px; margin-left:6px;">
+            <option value="png">PNG (sin pérdida — grano)</option>
+            <option value="jpeg">JPEG 92 (más ligero)</option>
+          </select>
+        </label>
+        <span class="spacer"></span>
+        <button id="vidGo" class="primary">Capturar todo</button>
+      </div>
+      <div id="vidMarks" style="margin-top:10px;"></div>
+      <div id="vidProg" class="okline" style="margin-top:8px; min-height:16px;"></div>
+      <div class="hint" style="margin-top:8px;">
+        HDR: el navegador aplica su propia conversión a SDR — consistente entre variantes,
+        pero no controlada. Para páginas de encode exigentes usa capturas de tu propio pipeline.
+      </div>
+    </div>
+    <div id="vidDone" style="margin-top:10px;"></div>
   </section>
 
   <!-- ======================= AVANZADO ======================= -->
@@ -272,6 +323,14 @@
           <h2>Final</h2>
           <p class="sub">Revisa la lista y dale una vuelta a la página.</p>
           <ul class="vlist" id="checkList"></ul>
+          <div class="card">
+            <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer;">
+              <input type="checkbox" id="s2Toggle" style="margin-top:2px;">
+              <span><b>Calcular S2 (SSIMULACRA2)</b>
+              <span class="hint" style="display:block;">puntúa cada frame de cada variante contra la primera (la referencia). Sale en la página bajo el nombre de cada variante. Tarda unos segundos por imagen — se calcula localmente, como todo lo demás.</span></span>
+            </label>
+            <div id="s2Prog" class="okline" style="margin-top:6px; min-height:16px;"></div>
+          </div>
           <div class="exports">
             <div class="exp">
               <b>Vista previa</b>
@@ -318,6 +377,7 @@
 
 <!-- generado por tools/build_app.py: SHELL_HTML + ENGINE_SRC como cadenas -->
 <script src="assets.js"></script>
+<script src="s2.js"></script>
 <script src="builder.js"></script>
 </body>
 </html>

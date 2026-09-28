@@ -40,11 +40,14 @@ def build():
     DIST.mkdir(exist_ok=True)
     idx = (APP / "index.html").read_text(encoding="utf-8")
     builder_js = (APP / "builder.js").read_text(encoding="utf-8")
-    tags = '<script src="assets.js"></script>\n<script src="builder.js"></script>'
+    s2_js = (APP / "s2.js").read_text(encoding="utf-8")
+    tags = ('<script src="assets.js"></script>\n'
+            '<script src="s2.js"></script>\n'
+            '<script src="builder.js"></script>')
     assert tags in idx, "no se encontraron las etiquetas <script> esperadas en app/index.html"
     single = idx.replace(
         tags,
-        "<script>\n" + assets + "</script>\n<script>\n" + builder_js + "</script>",
+        "<script>\n" + assets + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + builder_js + "</script>",
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 

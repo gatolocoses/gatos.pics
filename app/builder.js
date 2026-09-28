@@ -40,13 +40,18 @@ $('obStart').addEventListener('click', () => {
   $('onboard').hidden = true;
 });
 $('obDemo').addEventListener('click', () => {
-  const pkg = makeDemoPackage();
-  $('pvBox').srcdoc = buildStandaloneHTML(pkg);
-  $('pvFrame').classList.add('show');
+  const btn = $('obDemo');
+  btn.disabled = true; btn.textContent = 'Generando ejemplo…';
+  setTimeout(async () => {
+    const pkg = await makeDemoPackage();
+    $('pvBox').srcdoc = buildStandaloneHTML(pkg);
+    $('pvFrame').classList.add('show');
+    btn.disabled = false; btn.textContent = 'Ver un ejemplo';
+  }, 30);
 });
 $('obLoad').addEventListener('click', async () => {
   // cargar el ejemplo como proyecto básico para poder tocarlo
-  const pkg = makeDemoPackage();
+  const pkg = await makeDemoPackage();
   setMode('basic');
   state.pairs = [];
   for (const f of pkg.manifest.frames){
@@ -107,15 +112,25 @@ function makeDemoPackage(){
         d[i+2] = Math.max(0, Math.min(255, d[i+2]+n));
       }
       x2.putImageData(id, 0, 0);
-      return c2.toDataURL('image/jpeg', 0.72);
+      return c2;
     }
-    return c.toDataURL('image/jpeg', 0.92);
+    return c;
   }
   const images = {};
-  [1, 2, 3].forEach((f, i) => {
-    images['src_'+f] = draw(100+i*7, false);
-    images['enc_'+f] = draw(100+i*7, true);
-  });
+  const per = {};
+  let sum = 0;
+  for (let i = 0; i < 3; i++){
+    const f = i+1;
+    const srcC = draw(100+i*7, false);
+    const encC = draw(100+i*7, true);
+    images['src_'+f] = srcC.toDataURL('image/jpeg', 0.92);
+    images['enc_'+f] = encC.toDataURL('image/jpeg', 0.72);
+    // S2 real del par sintético (determinista: los mismos números en toda máquina)
+    const sc = S2.score(srcC.getContext('2d').getImageData(0, 0, W, H),
+                        encC.getContext('2d').getImageData(0, 0, W, H));
+    per[f] = Math.round(sc*100)/100;
+    sum += sc;
+  }
   return {
     format: FORMAT,
     manifest: {
@@ -126,7 +141,8 @@ function makeDemoPackage(){
       variants: [
         {id: 'src', name: 'Fuente', color: '#7bd389', note: 'referencia'},
         {id: 'enc', name: 'Encode', color: '#7bb3ff', note: 'desenfoque + ruido simulados',
-         cmd: 'encoder --entrada in.png --salida out.png --crf 26 --preset 4'},
+         cmd: 'encoder --entrada in.png --crf 26 --preset 4 --salida out.png',
+         metrics: {ssimulacra2: Math.round((sum/3)*100)/100, per_frame: per}},
       ],
     },
     images,
@@ -164,11 +180,14 @@ function readAsText(f){
 function setMode(m){
   state.mode = m;
   $('tabBasic').classList.toggle('primary', m==='basic');
+  $('tabVideo').classList.toggle('primary', m==='video');
   $('tabAdv').classList.toggle('primary', m==='advanced');
   $('basicView').style.display = m==='basic' ? '' : 'none';
+  $('videoView').style.display = m==='video' ? '' : 'none';
   $('advView').style.display = m==='advanced' ? '' : 'none';
 }
 $('tabBasic').addEventListener('click', () => setMode('basic'));
+$('tabVideo').addEventListener('click', () => setMode('video'));
 $('tabAdv').addEventListener('click', () => setMode('advanced'));
 
 /* ============================================================
@@ -230,8 +249,19 @@ function renderPairs(){
   let h = '';
   if (half) h += `<div class="warn">A un par le falta una imagen — se verá un lado vacío. Suelta una imagen más para completarlo.</div>`;
   if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) — el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
-  if (state.pairs.length && !half) h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} — dale Vista previa.</div>`;
+  if (state.pairs.length && !half){
+    h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} — y exporta cuando quieras:</div>`;
+    h += `<div class="exports" style="margin-top:8px;">
+      <button id="bExpHtml">Descargar .html</button>
+      <button id="bExpZip">Descargar .zip</button>
+      <button id="bExpCmp">Descargar .cmp</button>
+    </div>`;
+  }
   foot.innerHTML = h;
+  const wire = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  wire('bExpHtml', () => $('btnExpHtml').click());
+  wire('bExpZip', () => $('btnExpZip').click());
+  wire('bExpCmp', () => $('btnExpCmp').click());
 }
 function pickOne(cb){
   const inp = document.createElement('input');
@@ -260,6 +290,185 @@ async function basicPackage(){
   }
   return {format: FORMAT, manifest, images};
 }
+
+/* ============================================================
+   MODO VIDEO — del video a la comparación
+   ============================================================ */
+const vidDrop = $('vidDrop'), vidFile = $('vidFile'), vidPlayer = $('vidPlayer');
+const vidState = { files: [], marks: [], cur: 0 };
+vidDrop.addEventListener('click', () => vidFile.click());
+vidFile.addEventListener('change', () => { addVideos([...vidFile.files]); vidFile.value=''; });
+['dragover','dragenter'].forEach(ev => vidDrop.addEventListener(ev, e => { e.preventDefault(); vidDrop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => vidDrop.addEventListener(ev, e => { e.preventDefault(); vidDrop.classList.remove('over'); }));
+vidDrop.addEventListener('drop', e => addVideos([...e.dataTransfer.files]));
+
+const vidURLs = new Map();
+function vidURL(f){ if (!vidURLs.has(f)) vidURLs.set(f, URL.createObjectURL(f)); return vidURLs.get(f); }
+const fmtT = t => {
+  const m = Math.floor(t/60), s = t - m*60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2);
+};
+
+function addVideos(files){
+  const vids = files.filter(f => f.type.startsWith('video/') || /\.(mp4|webm|mov|mkv|m4v)$/i.test(f.name));
+  vidState.files.push(...vids);
+  renderVidList();
+  syncVideoToAdvanced();
+  if (vidState.files.length === vids.length && vids.length) showVid(0);
+}
+function renderVidList(){
+  const host = $('vidList');
+  host.innerHTML = '';
+  vidState.files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'pair';
+    const url = vidURL(f);
+    row.innerHTML = `<span class="no">${i === 0 ? 'máster' : 'var '+(i)}</span>
+      <span class="mono" style="min-width:0; overflow:hidden; text-overflow:ellipsis; max-width:420px;">${esc(f.name)}</span>
+      <span class="hint">${(f.size/1048576).toFixed(1)} MB</span>
+      <div class="tools">
+        <button data-a="up" title="subir">↑</button>
+        <button data-a="dn" title="bajar">↓</button>
+        <button data-a="rm" title="quitar">×</button>
+      </div>`;
+    row.querySelector('[data-a=up]').onclick = () => { if (i>0){ [vidState.files[i-1], vidState.files[i]] = [vidState.files[i], vidState.files[i-1]]; renderVidList(); syncVideoToAdvanced(); } };
+    row.querySelector('[data-a=dn]').onclick = () => { if (i<vidState.files.length-1){ [vidState.files[i+1], vidState.files[i]] = [vidState.files[i], vidState.files[i+1]]; renderVidList(); syncVideoToAdvanced(); } };
+    row.querySelector('[data-a=rm]').onclick = () => { vidState.files.splice(i,1); renderVidList(); syncVideoToAdvanced(); };
+    host.appendChild(row);
+  });
+  $('vidStage').style.display = vidState.files.length ? '' : 'none';
+}
+function showVid(i){
+  vidState.cur = clampV(i);
+  const f = vidState.files[vidState.cur];
+  if (!f) return;
+  vidPlayer.src = vidURL(f);
+  $('vidWho').textContent = (vidState.cur === 0 ? 'máster · ' : 'variante '+vidState.cur+' · ') + f.name;
+  vidPlayer.onloadedmetadata = () => {
+    $('vidDur').textContent = `${vidPlayer.videoWidth}×${vidPlayer.videoHeight} · ${fmtT(vidPlayer.duration)}`;
+  };
+  vidPlayer.onerror = () => {
+    $('vidDur').textContent = 'este navegador no puede abrir este archivo (¿códec o contenedor?) — pruébalo en otro navegador o usa capturas';
+  };
+}
+const clampV = i => Math.max(0, Math.min(vidState.files.length-1, i));
+$('vidPrev').addEventListener('click', () => showVid(vidState.cur-1));
+$('vidNext').addEventListener('click', () => showVid(vidState.cur+1));
+
+$('vidMark').addEventListener('click', () => {
+  const t = vidPlayer.currentTime;
+  if (!isFinite(t) || t < 0) return;
+  vidState.marks.push(t);
+  vidState.marks.sort((a,b) => a-b);
+  renderVidMarks();
+});
+function renderVidMarks(){
+  const host = $('vidMarks');
+  if (!vidState.marks.length){ host.innerHTML = '<span class="hint">sin marcas — reproduce, pausa donde quieras comparar, y marca</span>'; return; }
+  host.innerHTML = vidState.marks.map((t, i) =>
+    `<span class="markchip" data-i="${i}" title="clic para saltar ahí">${fmtT(t)} <b data-rm="${i}" title="quitar">×</b></span>`
+  ).join(' ');
+  host.querySelectorAll('.markchip').forEach(chip => {
+    chip.addEventListener('click', e => {
+      if (e.target.dataset.rm !== undefined){
+        vidState.marks.splice(+e.target.dataset.rm, 1);
+        renderVidMarks();
+        return;
+      }
+      vidPlayer.currentTime = vidState.marks[+chip.dataset.i];
+    });
+  });
+}
+
+/* el modo video siembra el estado avanzado: variantes = archivos, frames = marcas */
+function syncVideoToAdvanced(){
+  if (!vidState.files.length) return;
+  state.variants = vidState.files.map((f, i) => {
+    const id = 'v'+(i+1);
+    const old = state.variants.find(v => v.id === id);
+    return Object.assign({id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[i % PALETTE.length]}, old ? {codec: old.codec, crf: old.crf, bitrate: old.bitrate, cmd: old.cmd} : {});
+  });
+  nextVar = state.variants.length+1;
+  renderVariants();
+}
+
+/* captura un frame exacto: seek + (requestVideoFrameCallback si existe) + drawImage */
+function captureFrame(video, t){
+  return new Promise((res, rej) => {
+    const done = () => {
+      const c = document.createElement('canvas');
+      c.width = video.videoWidth; c.height = video.videoHeight;
+      c.getContext('2d').drawImage(video, 0, 0);
+      res(c);
+    };
+    const to = setTimeout(() => rej(new Error('timeout al buscar el frame')), 15000);
+    video.currentTime = t;
+    video.onseeked = () => {
+      if ('requestVideoFrameCallback' in video){
+        video.requestVideoFrameCallback(() => { clearTimeout(to); done(); });
+        // si rVFC no llega (frame ya presentado), cae por el timeout corto
+        setTimeout(() => { clearTimeout(to); done(); }, 700);
+      } else {
+        setTimeout(() => { clearTimeout(to); done(); }, 120);
+      }
+    };
+    video.onerror = () => { clearTimeout(to); rej(new Error('error de decodificación')); };
+  });
+}
+function canvasToBlob(c, fmt){
+  return new Promise(res => {
+    if (fmt === 'jpeg') c.toBlob(b => res(b), 'image/jpeg', 0.92);
+    else c.toBlob(b => res(b), 'image/png');
+  });
+}
+
+$('vidGo').addEventListener('click', async () => {
+  if (!vidState.files.length){ $('vidProg').textContent = 'primero suelta los videos'; return; }
+  if (!vidState.marks.length){ $('vidProg').textContent = 'primero marca al menos un momento'; return; }
+  const fmt = $('vidFmt').value;
+  syncVideoToAdvanced();
+  // frames desde las marcas: clave = centésimas de segundo
+  for (const t of vidState.marks){
+    const key = String(Math.round(t*100));
+    if (!state.frames.some(f => f.key === key))
+      state.frames.push({key, label: fmtT(t)});
+  }
+  state.frames.sort((a,b) => parseInt(a.key,10) - parseInt(b.key,10));
+  const btn = $('vidGo');
+  btn.disabled = true;
+  let n = 0, fails = [];
+  const total = vidState.files.length * vidState.marks.length;
+  for (const f of vidState.files){
+    const v = document.createElement('video');
+    v.muted = true; v.preload = 'auto';
+    v.src = vidURL(f);
+    await new Promise(r => { v.onloadeddata = r; v.onerror = r; });
+    const vid = state.variants.find(x => vidState.files.indexOf(f)+1 === +x.id.slice(1));
+    if (!vid){ continue; }
+    for (const t of vidState.marks){
+      try {
+        const c = await captureFrame(v, t);
+        const b = await canvasToBlob(c, fmt);
+        const ext = fmt === 'jpeg' ? 'jpg' : 'png';
+        state.cells.set(vid.id+'|'+String(Math.round(t*100)), new File([b], `${vid.id}_${Math.round(t*100)}.${ext}`, {type: b.type}));
+        probeDims(state.cells.get(vid.id+'|'+String(Math.round(t*100))));
+      } catch (err) {
+        fails.push(f.name+' @'+fmtT(t));
+      }
+      n++;
+      $('vidProg').textContent = `capturando… ${n}/${total}`;
+    }
+    v.removeAttribute('src'); v.load();
+  }
+  btn.disabled = false;
+  renderFrames(); renderMatrix(); renderVariants();
+  $('vidProg').textContent = fails.length
+    ? `listo con ${fails.length} falla${fails.length>1?'s':''}: ${fails.slice(0,3).join(' · ')}${fails.length>3?'…':''}`
+    : `✓ ${total} capturas listas`;
+  $('vidDone').innerHTML = `<button class="primary" id="vidToMatrix">Seguir en Avanzado → revisar imágenes</button>`;
+  $('vidToMatrix').onclick = () => { setMode('advanced'); window.BUILDER.renderSteps(); [...document.querySelectorAll('#stepNav button')][3].click(); };
+});
+
 
 /* ============================================================
    MODO AVANZADO — pasos
@@ -562,6 +771,45 @@ function renderMatrix(){
 }
 
 /* ---------- avanzado -> paquete ---------- */
+/* ---------- S2 (SSIMULACRA2) opcional ---------- */
+const idCache = new Map();   // File -> ImageData
+async function imageDataOf(f){
+  if (!idCache.has(f)) idCache.set(f, await S2.imageDataFrom(f));
+  return idCache.get(f);
+}
+const s2Cache = new Map();   // "fa|fb" (identidad de File) -> score
+async function s2Of(fa, fb){
+  const key = fa.name + '\u0000' + fb.name + '\u0000' + fa.size + '\u0000' + fb.size + '\u0000' + fa.lastModified + '\u0000' + fb.lastModified;
+  if (!s2Cache.has(key)){
+    s2Cache.set(key, S2.score(await imageDataOf(fa), await imageDataOf(fb)));
+  }
+  return s2Cache.get(key);
+}
+async function computeS2Metrics(manifest){
+  const ref = manifest.variants[0];
+  if (!ref) return;
+  const refId = ref.id;
+  let total = 0, done = 0;
+  for (const v of manifest.variants.slice(1)) total += manifest.frames.length;
+  for (const v of manifest.variants.slice(1)){
+    const per = {};
+    let sum = 0, n = 0;
+    for (const fk of manifest.frames){
+      const fa = state.cells.get(refId+'|'+fk), fb = state.cells.get(v.id+'|'+fk);
+      if (fa && fb){
+        try { per[fk] = await s2Of(fa, fb); sum += per[fk]; n++; }
+        catch (e) { /* dimensiones distintas u otro problema: se omite */ }
+      }
+      done++;
+      $('s2Prog').textContent = 'S2: ' + done + '/' + total;
+    }
+    if (n){
+      v.metrics = Object.assign(v.metrics || {}, {ssimulacra2: Math.round((sum/n)*100)/100, per_frame: per});
+    }
+  }
+  $('s2Prog').textContent = '';
+}
+
 async function advancedPackage(){
   const manifest = {
     title: state.title.trim() || 'Comparación',
@@ -581,6 +829,7 @@ async function advancedPackage(){
     const [vid, fk] = k.split('|');
     images[vid+'_'+fk] = await readAsDataURL(f);
   }
+  if ($('s2Toggle') && $('s2Toggle').checked) await computeS2Metrics(manifest);
   return {format: FORMAT, manifest, images};
 }
 
@@ -614,7 +863,7 @@ function renderFinish(){
    vista previa + exportaciones
    ============================================================ */
 async function currentPackage(){
-  return state.mode === 'basic' ? basicPackage() : advancedPackage();
+  return state.mode === 'basic' ? basicPackage() : advancedPackage();   // video también alimenta el estado avanzado
 }
 function buildStandaloneHTML(pkg){
   const json = JSON.stringify(pkg).replace(/</g, '\\u003c');
@@ -814,6 +1063,7 @@ renderFrames();
 renderMatrix();
 renderPairs();
 renderSteps();
+renderVidMarks();
 setMode('basic');
 showOnboard(false);
 window.addEventListener('beforeunload', e => {

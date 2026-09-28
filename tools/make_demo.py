@@ -58,6 +58,34 @@ for i, f in enumerate(FRAMES):
     images[f"src_{f}"] = to_dataurl(src)
     images[f"enc1_{f}"] = to_dataurl(encode_like(src))
 
+# S2 real de los pares (mismo paquete que usa el pipeline local de referencia)
+import subprocess, tempfile, json as _json, os as _os
+VENV = _os.environ.get("GATOS_S2_PYTHON", "")
+s2 = {}
+if VENV and _os.path.exists(VENV):
+    with tempfile.TemporaryDirectory() as td:
+        paths = {}
+        for i, f in enumerate(FRAMES):
+            src = base_image(100 + i); enc = encode_like(src)
+            pa, pb = f"{td}/{f}_a.png", f"{td}/{f}_b.png"
+            src.save(pa); enc.save(pb)
+            paths[f] = (pa, pb)
+        code = (
+            "import sys, json\n"
+            "from ssimulacra2.ssimulacra2 import compute_ssimulacra2\n"
+            "pairs = json.load(open(sys.argv[1]))\n"
+            "print(json.dumps({k: round(compute_ssimulacra2(v[0], v[1]), 2) for k, v in pairs.items()}))\n"
+        )
+        mapping = {str(f): paths[f] for f in FRAMES}
+        r = subprocess.run([VENV, "-c", code, "/dev/stdin"], input=_json.dumps(mapping),
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            s2 = _json.loads(r.stdout.strip().splitlines()[-1])
+
+metrics = {"per_frame": s2}
+if s2:
+    metrics["ssimulacra2"] = round(sum(s2.values()) / len(s2), 2)
+
 pkg = {
   "format": "gatos.pics/cmp@1",
   "manifest": {
@@ -70,7 +98,8 @@ pkg = {
        "note": "referencia"},
       {"id": "enc1", "name": "Encode", "color": "#7bb3ff",
        "note": "desenfoque + ruido simulados",
-       "cmd": "encoder --entrada in.png --crf 42 --preset demo --salida out.png"},
+       "cmd": "encoder --entrada in.png --crf 42 --preset demo --salida out.png",
+       **({"metrics": metrics} if s2 else {})},
     ],
   },
   "images": images,
