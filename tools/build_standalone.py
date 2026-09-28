@@ -17,7 +17,7 @@ def build(pkg_path, out_path):
     tag = '<script src="compare.js"></script>'
     assert tag in html, "engine script tag not found in viewer/index.html"
     injection = ("<script>window.GATOS_PACKAGE = "
-                 + json.dumps(pkg, separators=(",", ":"))
+                 + json.dumps(pkg, separators=(",", ":")).replace("<", "\\u003c")
                  + ";</script>\n<script>\n" + engine + "\n</script>")
     html = html.replace(tag, injection)
     pathlib.Path(out_path).write_text(html)

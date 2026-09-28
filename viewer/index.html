@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-419">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,9 +8,10 @@
 <style>
   :root{
     --bg:#101014; --panel:#1a1a22; --panel2:#23232e; --text:#e8e8f0; --dim:#9a9aa8;
-    --accent:#ffb454;
+    --accent:#ffb454; --ok:#7bd389; --border:#363642;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
+  [hidden]{display:none !important;}
   html,body{height:100%;}
   body{
     background:var(--bg); color:var(--text);
@@ -22,12 +23,23 @@
     background:var(--panel); border-bottom:1px solid #000;
     position:relative;
   }
-  /* marca: en la fila de Diff/Blink, centrada en el espacio libre */
-  #brand{display:flex; align-items:stretch; gap:5px; pointer-events:none; flex:0 0 auto; margin:0 10px;}
-  #brand .bb{font-size:11px; font-weight:700; color:#fff; padding:3px 8px; line-height:1.25; letter-spacing:.5px; text-shadow:0 1px 2px rgba(0,0,0,.7);}
-  #brand .g{background:#7bd389; border-radius:6px 0 0 6px; text-align:right; min-width:46px;}
-  #brand .y{background:#ffb454; border-radius:0 6px 6px 0; text-align:left; min-width:36px;}
-  #brand .bdot{color:#fff; font-size:15px; font-weight:900; line-height:1; align-self:center; text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  /* 92 × 22 px. The middle column owns the gap and its single centered dot. */
+  .brand{display:inline-grid; grid-template-columns:42px 8px 42px; width:92px; height:22px;
+    flex:0 0 92px; align-items:stretch; pointer-events:none; user-select:none;
+    font:700 12px/22px system-ui,sans-serif; color:#fff;
+    text-shadow:0 1px 2px #000c,0 0 1px #000;}
+  .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:6px;}
+  .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:6px;}
+  .brand-dot{width:3px; height:3px; place-self:center; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
+  .hrow-main{column-gap:12px; row-gap:8px;}
+  .frame-tools{display:flex; align-items:center; flex:1 1 300px; gap:12px; min-width:0;}
+  .frame-tools h1{max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .frame-tools .group{flex:1; flex-wrap:nowrap;}
+  .view-tools{display:flex; align-items:center; justify-content:flex-end; flex:1 1 580px; flex-wrap:wrap; gap:6px;}
+  #diffTools{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim);}
+  #diffGain{background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px;}
+  #frames{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin;}
+  #frames button{flex:none; white-space:nowrap;}
   /* Two deliberate rows instead of one wrapping row: with a single flex row the
      Right-hand selector wrapped onto a second line at the LEFT edge, so "Left" and
      "Right" ended up in each other's corner. Row 1 is global (title, frames, view
@@ -57,17 +69,15 @@
     background:var(--panel2); color:var(--text); border:1px solid #333;
     padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;
   }
+  :is(button,select,input,textarea,a):focus-visible{outline:2px solid var(--accent); outline-offset:3px;}
+  button[aria-pressed="true"]{background:var(--accent); color:#1a1206; border-color:var(--accent);}
   button:hover{background:#2d2d3a;}
   button.vbtn{display:inline-flex;flex-direction:column;align-items:center;padding:2px 7px;line-height:1.2;}
   button.vbtn .main{font-size:12px;}
   button.vbtn .sub{font-size:9px;color:var(--dim);white-space:nowrap;}
   button.vbtn.active .sub{color:#1a1206;opacity:.8;}
   button.active{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
-  button.diff-on{background:#ff5d5d; color:#fff; border-color:#ff5d5d;}
-  button.blink-on{background:#7bb3ff; color:#10131a; border-color:#7bb3ff; font-weight:600;}
-  button.blind-on{background:#9a9aa8; color:#10131a; border-color:#9a9aa8; font-weight:600;}
-  button.solar-on{background:#f0b429; color:#1a1206; border-color:#f0b429; font-weight:600;}
-  button.crop-on{background:#7bd389; color:#10131a; border-color:#7bd389; font-weight:600;}
+  button:is(.diff-on,.blink-on,.blind-on,.solar-on,.crop-on){background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
   .spacer{flex:1;}
   #comp{flex:1; position:relative; overflow:hidden; cursor:crosshair; touch-action:none;}
   .pane{position:absolute; inset:0; overflow:hidden;}
@@ -79,8 +89,9 @@
   .label{
     position:absolute; top:10px; z-index:5; padding:4px 10px; border-radius:6px;
     background:rgba(0,0,0,.75); font-size:12px; font-weight:600; pointer-events:none;
-    border:1px solid rgba(255,255,255,.15);
+    border:1px solid rgba(255,255,255,.15); max-width:calc(50% - 18px);
   }
+  .label > span{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   #labelA{left:12px;}
   #labelB{right:12px; text-align:right;}
   .lstats{display:block; font-size:10px; font-weight:400; color:#c8c8d4; margin-top:1px; white-space:pre-line;}
@@ -157,6 +168,15 @@
   @media (max-width:820px){
     header{gap:8px; padding:6px 8px;}
     header h1{font-size:13px;}
+    .hrow-main{display:grid; grid-template-columns:minmax(0,1fr) 92px; gap:8px;}
+    .frame-tools{flex-wrap:wrap; gap:4px;}
+    .frame-tools h1{max-width:100%; width:100%;}
+    .view-tools{grid-column:1 / -1; justify-content:flex-start;}
+    .view-tools button{padding:7px 9px;}
+    .hrow-panes{gap:6px;}
+    .hrow-panes > .group{flex-wrap:wrap; gap:3px;}
+    .hrow-panes .variants,.hrow-panes .vscroll{display:none !important;}
+    .hrow-panes .vsel{width:100%; min-width:0; flex-basis:100%;}
     .glabel{width:auto; margin-right:4px;}
     .variants{display:none;}
     .vsel{display:block; flex:1; min-width:46%; background:var(--panel2); color:var(--text);
@@ -165,6 +185,7 @@
     #metaLine{font-size:11px;}
     footer{gap:8px; padding:4px 8px; font-size:11px;}
     #cropPanel{max-width:94vw;}
+    .cropRow{flex-direction:column; align-items:flex-start;}
     .cropRow .cname{width:auto; text-align:left;}
     #labelA{left:6px; top:6px;} #labelB{right:6px; top:6px;}
     #diffNote{max-width:92vw;}
@@ -173,21 +194,24 @@
 </head>
 <body>
 <header>
-  <div class="hrow">
+  <div class="hrow hrow-main">
+    <div class="frame-tools">
     <h1 id="pageTitle">gatos.pics</h1>
     <div class="group"><span class="glabel">Frame</span><div class="frames" id="frames"></div></div>
-    <span class="spacer"></span>
-    <div id="brand" title="gatos.pics"><span class="bb g">gato</span><span class="bdot">&middot;</span><span class="bb y">pics</span></div>
-    <span class="spacer"></span>
+    </div>
+    <span id="brand" class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gato</span><span class="brand-dot" aria-hidden="true"></span><span class="brand-pics" aria-hidden="true">pics</span></span>
+    <div class="view-tools" role="group" aria-label="Herramientas de comparación">
   <button id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
-  <button id="blinkBtn" title="Parpadeo izquierda/derecha a 2 Hz (B)">Blink</button>
+  <span id="diffTools" hidden><label for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
+  <button id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
   <button id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
   <button id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
-  <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Crops</button>
+  <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
   <button id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
+    </div>
   </div>
   <div class="hrow hrow-panes">
     <div class="group"><span class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA"></select></div>
@@ -249,15 +273,20 @@
   <span id="metaLine"></span>
 </footer>
 
-<div id="sharePanel" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
+<div id="sharePanel" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
   <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:560px; width:100%; max-height:86%; overflow:auto;">
     <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">Compartir
       <span id="shareHint" style="font-size:11px; color:var(--ok); font-weight:400;"></span>
       <button id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>
     </h2>
-    <div class="hint" style="font-size:11px; margin-bottom:8px;">la imagen es exactamente lo que estás viendo: frame, variantes, divisor y zoom, en PNG sin pérdida.</div>
+    <p style="font-size:12px; color:var(--dim); margin-bottom:8px;">Guarda la comparación visible como PNG sin pérdida. El enlace conserva el frame, las variantes y los ajustes.</p>
     <div id="shareRows"></div>
     <img id="sharePreview" alt="vista a compartir" style="width:100%; border:1px solid #333; border-radius:8px; background:#000; margin-top:8px; display:none;">
+    <div id="shareOwner" hidden style="margin-top:12px;">
+      <label for="shareKey" style="display:block; font-size:12px;">Llave de borrado del autor</label>
+      <input id="shareKey" type="password" autocomplete="off" placeholder="La recibiste al publicar" style="width:100%; margin-top:4px; padding:8px; background:var(--panel2); color:var(--text); border:1px solid #363642; border-radius:6px;">
+      <p style="font-size:12px; color:var(--dim); margin-top:6px;">Solo el autor puede reemplazar la imagen compartida. La nueva imagen aparecerá también en los enlaces que ya publicaste.</p>
+    </div>
     <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
       <button id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>
       <button id="shareUp" style="display:none;" title="sube esta imagen exacta a gatos.pics y arma el BBCode para foros">Subir y obtener BBCode</button>

@@ -48,8 +48,9 @@ Los tres corren con Python 3 puro, sin dependencias.
 - **`per_frame` con objetos** — los valores de `metrics.per_frame` son objetos
   (`{"ssimulacra2": 67.0}`), no números sueltos; el visor y el kit histórico
   lo esperan así.
-- **Nada de red, nunca** — el producto promete cero llamadas. Ni CDN, ni
-  fuentes remotas, ni telemetría. Si un cambio necesita internet, está mal.
+- **Local hasta publicar**: crear, editar, previsualizar y exportar funcionan
+  sin llamadas de red. Ni CDN, fuentes remotas ni telemetría. Publicar y actualizar
+  una imagen compartida requieren una acción explícita y son las únicas subidas.
 - **`file://` primero** — todo lo que entre al creador debe funcionar abierto
   con doble clic, sin servidor.
 - **UI en español latino** — el producto habla es-LA; nada de tuteo cruzado ni
@@ -80,6 +81,19 @@ el manifiesto de la carpeta necesita `ext` por variante (si no, el visor
 hospedado busca `.webp` y da 404).
 
 ## Contribuir
+
+### Verificación de las correcciones de revisión
+
+`tools/review_browser.cjs` usa Playwright solo como herramienta de desarrollo;
+no agrega dependencias al producto. Requiere el repo hermano `gatos-service`
+y Chromium de Playwright. `GATOS_PLAYWRIGHT_MODULE` puede indicar una instalación
+existente del módulo; `GATOS_REVIEW_OUT` el directorio de capturas y exports.
+La prueba abre `dist/gatos.html` desde `file://` y usa un servicio temporal en
+`127.0.0.1:8987`. Nunca publica en gatos.pics.
+
+Comprueba importación, exportaciones, permisos de la imagen compartida, estado
+de URL, diff, captura PNG con zoom, marca sin solapamientos y tamaños de pantalla
+de 320 a 1920 px. La suite del servicio se ejecuta con `node test/e2e.mjs`.
 
 Cualquier cosa que entre debe: no usar red, no añadir dependencias, seguir en
 es-LA, y venir con la prueba de que sigue funcionando desde `file://`.

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es-419"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marca gatos.pics</title><style>
+*{box-sizing:border-box}body{background:#101014;color:#e8e8f0;font:14px/1.5 system-ui,sans-serif;padding:32px}
+h1{font-size:20px}section{display:flex;align-items:center;gap:24px;margin:24px 0;padding:24px;background:#1a1a22;border-radius:8px}
+  .brand{display:inline-grid; grid-template-columns:42px 8px 42px; width:92px; height:22px;
+    flex:0 0 92px; align-items:stretch; pointer-events:none; user-select:none;
+    font:700 12px/22px system-ui,sans-serif; color:#fff;
+    text-shadow:0 1px 2px #000c,0 0 1px #000;}
+  .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:6px;}
+  .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:6px;}
+  .brand-dot{width:3px; height:3px; place-self:center; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
+
+</style><h1>Marca gatos.pics</h1><p>Una variante. 92 × 22 px. HTML y   .brand{display:inline-grid; grid-template-columns:42px 8px 42px; width:92px; height:22px;
+    flex:0 0 92px; align-items:stretch; pointer-events:none; user-select:none;
+    font:700 12px/22px system-ui,sans-serif; color:#fff;
+    text-shadow:0 1px 2px #000c,0 0 1px #000;}
+  .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:6px;}
+  .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:6px;}
+  .brand-dot{width:3px; height:3px; place-self:center; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
+ con su equivalente en canvas.</p>
+<section aria-label="Marca en HTML"><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gato</span><span class="brand-dot" aria-hidden="true"></span><span class="brand-pics" aria-hidden="true">pics</span></span></section>
+<section aria-label="Marca en canvas"><canvas id="watermark" width="184" height="44" style="width:92px;height:22px"></canvas></section>
+<script>
+function drawBrand(ctx, x, y){
+  ctx.save();
+  ctx.fillStyle = '#7bd389';
+  ctx.beginPath(); ctx.roundRect(x, y, 42, 22, [4,0,0,4]); ctx.fill();
+  ctx.fillStyle = '#ffb454';
+  ctx.beginPath(); ctx.roundRect(x+50, y, 42, 22, [0,4,4,0]); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
+  ctx.beginPath(); ctx.arc(x+46, y+11, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right'; ctx.fillText('gato', x+36, y+11);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+56, y+11);
+  ctx.restore();
+}
+
+const ctx=document.getElementById('watermark').getContext('2d');ctx.scale(2,2);drawBrand(ctx,0,0);
+</script></html>

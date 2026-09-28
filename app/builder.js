@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   gatos.pics creador — JS puro, sin dependencias.
+   gatos.pics creador · JS puro, sin dependencias.
    Construye el mismo paquete que consume el motor del visor:
    {format, manifest:{title, version, frames, frame_labels, variants},
     images:{"<id>_<frame>": dataURL}}
@@ -15,6 +15,8 @@ const state = {
   mode: 'basic',
   title: '',
   version: 1,
+  manifestExtras: {},
+  importedCells: null,
   /* avanzado */
   variants: [],          // {id, name, codec, crf, bitrate, note, cmd, color}
   frames: [],            // {key, label}
@@ -46,6 +48,7 @@ $('obDemo').addEventListener('click', () => {
     const pkg = await makeDemoPackage();
     $('pvBox').srcdoc = buildStandaloneHTML(pkg);
     $('pvFrame').classList.add('show');
+    $('onboard').hidden = true;
     btn.disabled = false; btn.textContent = 'Ver un ejemplo';
   }, 30);
 });
@@ -61,11 +64,12 @@ $('obLoad').addEventListener('click', async () => {
       const bin = atob(parts[1]);
       const buf = new Uint8Array(bin.length);
       for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
-      return new File([buf], 'ejemplo_'+f+'.jpg', {type:'image/jpeg'});
+      return new File([buf], 'ejemplo_'+f+'.png', {type:'image/png'});
     };
     state.pairs.push([await toFile(fa), await toFile(fb)]);
   }
   renderPairs();
+  $('onboard').hidden = true;
 });
 $('btnHelp').addEventListener('click', () => showOnboard(true));
 
@@ -96,7 +100,7 @@ function makeDemoPackage(){
     }
     x.font = '600 26px system-ui, sans-serif';
     x.fillStyle = '#fff';
-    x.fillText('ejemplo sintético — nada real', 26, 42);
+    x.fillText('ejemplo sintético · nada real', 26, 42);
     if (blurred){
       const c2 = document.createElement('canvas');
       c2.width = W; c2.height = H;
@@ -123,8 +127,8 @@ function makeDemoPackage(){
     const f = i+1;
     const srcC = draw(100+i*7, false);
     const encC = draw(100+i*7, true);
-    images['src_'+f] = srcC.toDataURL('image/jpeg', 0.92);
-    images['enc_'+f] = encC.toDataURL('image/jpeg', 0.72);
+    images['src_'+f] = srcC.toDataURL('image/png');
+    images['enc_'+f] = encC.toDataURL('image/png');
     // S2 real del par sintético (determinista: los mismos números en toda máquina)
     const sc = S2.score(srcC.getContext('2d').getImageData(0, 0, W, H),
                         encC.getContext('2d').getImageData(0, 0, W, H));
@@ -134,7 +138,7 @@ function makeDemoPackage(){
   return {
     format: FORMAT,
     manifest: {
-      title: 'gatos.pics — ejemplo',
+      title: 'gatos.pics · ejemplo',
       version: 1,
       frames: [1, 2, 3],
       frame_labels: {1: 'ejemplo 1', 2: 'ejemplo 2', 3: 'ejemplo 3'},
@@ -156,7 +160,11 @@ const fileDims = new Map();   // File -> "WxH"
 function probeDims(f){
   if (!f || fileDims.has(f)) return;
   const im = new Image();
-  im.onload = () => fileDims.set(f, im.naturalWidth+'x'+im.naturalHeight);
+  im.onload = () => {
+    fileDims.set(f, im.naturalWidth+'x'+im.naturalHeight);
+    if (state.mode === 'basic') renderPairs();
+    else if (curStep === 4) renderFinish();
+  };
   im.src = thumb(f);
 }
 function readAsDataURL(f){
@@ -179,9 +187,9 @@ function readAsText(f){
 /* ---------- pestañas de modo ---------- */
 function setMode(m){
   state.mode = m;
-  $('tabBasic').classList.toggle('primary', m==='basic');
-  $('tabVideo').classList.toggle('primary', m==='video');
-  $('tabAdv').classList.toggle('primary', m==='advanced');
+  for (const [id, mode] of [['tabBasic','basic'],['tabVideo','video'],['tabAdv','advanced']]){
+    $(id).setAttribute('aria-pressed', String(m === mode));
+  }
   $('basicView').style.display = m==='basic' ? '' : 'none';
   $('videoView').style.display = m==='video' ? '' : 'none';
   $('advView').style.display = m==='advanced' ? '' : 'none';
@@ -191,7 +199,7 @@ $('tabVideo').addEventListener('click', () => setMode('video'));
 $('tabAdv').addEventListener('click', () => setMode('advanced'));
 
 /* ============================================================
-   MODO BÁSICO — pares, nada más
+   MODO BÁSICO · pares, nada más
    ============================================================ */
 const basicDrop = $('basicDrop'), basicFile = $('basicFile');
 basicDrop.addEventListener('click', () => basicFile.click());
@@ -201,7 +209,8 @@ basicFile.addEventListener('change', () => { addBasicFiles([...basicFile.files])
 basicDrop.addEventListener('drop', e => addBasicFiles([...e.dataTransfer.files]));
 
 function addBasicFiles(files){
-  const imgs = files.filter(f => f.type.startsWith('image/'));
+  $('builderStatus').textContent = '';
+  const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
   imgs.forEach(probeDims);
   const loose = [...imgs];
   // completa primero el par cojo del final
@@ -223,8 +232,11 @@ function renderPairs(){
     const mk = (f, side) => {
       const s = document.createElement('div');
       s.className = 'slot ' + (f ? 'filled' : 'empty');
-      s.innerHTML = f ? `<img src="${thumb(f)}" alt="">` : 'vacío';
-      s.title = f ? f.name + (fileDims.get(f) ? ' — '+fileDims.get(f) : '') : 'clic para elegir una imagen';
+      s.setAttribute('role', 'button'); s.tabIndex = 0;
+      s.setAttribute('aria-label', `${side ? 'Derecha' : 'Izquierda'}, par ${i+1}: ${f ? f.name : 'elegir imagen'}`);
+      s.innerHTML = f ? `<img src="${thumb(f)}" alt="${esc(f.name)}">` : (side ? 'Derecha: elegir imagen' : 'Izquierda: elegir imagen');
+      s.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); s.click(); } });
+      s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : 'clic para elegir una imagen';
       s.addEventListener('click', () => pickOne(file => { state.pairs[i][side] = file; probeDims(file); renderPairs(); }));
       return s;
     };
@@ -239,7 +251,9 @@ function renderPairs(){
     dn.onclick = () => { if (i<state.pairs.length-1){ [state.pairs[i+1], state.pairs[i]] = [state.pairs[i], state.pairs[i+1]]; renderPairs(); } };
     const rm = document.createElement('button'); rm.textContent='×'; rm.title='quitar par';
     rm.onclick = () => { state.pairs.splice(i,1); renderPairs(); };
-    tools.append(up, dn, rm);
+    const swap = document.createElement('button'); swap.textContent='↔'; swap.title='Intercambiar izquierda y derecha';
+    swap.onclick = () => { [p[0],p[1]] = [p[1],p[0]]; renderPairs(); };
+    tools.append(swap, up, dn, rm);
     row.appendChild(tools);
     host.appendChild(row);
   });
@@ -247,10 +261,10 @@ function renderPairs(){
   const half = state.pairs.some(p => !p[0] || !p[1]);
   const dims = new Set([...state.pairs.flat()].filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
   let h = '';
-  if (half) h += `<div class="warn">A un par le falta una imagen — se verá un lado vacío. Suelta una imagen más para completarlo.</div>`;
-  if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) — el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
+  if (half) h += `<div class="warn">Completa el par vacío antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
+  if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
   if (state.pairs.length && !half){
-    h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} — y exporta cuando quieras:</div>`;
+    h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} · y exporta cuando quieras:</div>`;
     h += `<div class="exports" style="margin-top:8px;">
       <button id="bExpHtml">Descargar .html</button>
       <button id="bExpZip">Descargar .zip</button>
@@ -272,7 +286,7 @@ function pickOne(cb){
 
 /* básico -> paquete */
 async function basicPackage(){
-  const pairs = state.pairs.filter(p => p[0] && p[1]);
+  const pairs = state.pairs;
   const manifest = {
     title: 'Comparación',
     version: state.version,
@@ -285,14 +299,14 @@ async function basicPackage(){
   };
   const images = {};
   for (let i = 0; i < pairs.length; i++){
-    images['a_'+(i+1)] = await readAsDataURL(pairs[i][0]);
-    images['b_'+(i+1)] = await readAsDataURL(pairs[i][1]);
+    if (pairs[i][0]) images['a_'+(i+1)] = await readAsDataURL(pairs[i][0]);
+    if (pairs[i][1]) images['b_'+(i+1)] = await readAsDataURL(pairs[i][1]);
   }
   return {format: FORMAT, manifest, images};
 }
 
 /* ============================================================
-   MODO VIDEO — del video a la comparación
+   MODO VIDEO · del video a la comparación
    ============================================================ */
 const vidDrop = $('vidDrop'), vidFile = $('vidFile'), vidPlayer = $('vidPlayer');
 const vidState = { files: [], marks: [], cur: 0 };
@@ -348,7 +362,7 @@ function showVid(i){
     $('vidDur').textContent = `${vidPlayer.videoWidth}×${vidPlayer.videoHeight} · ${fmtT(vidPlayer.duration)}`;
   };
   vidPlayer.onerror = () => {
-    $('vidDur').textContent = 'este navegador no puede abrir este archivo (¿códec o contenedor?) — pruébalo en otro navegador o usa capturas';
+    $('vidDur').textContent = 'este navegador no puede abrir este archivo (¿códec o contenedor?) · pruébalo en otro navegador o usa capturas';
   };
 }
 const clampV = i => Math.max(0, Math.min(vidState.files.length-1, i));
@@ -364,7 +378,7 @@ $('vidMark').addEventListener('click', () => {
 });
 function renderVidMarks(){
   const host = $('vidMarks');
-  if (!vidState.marks.length){ host.innerHTML = '<span class="hint">sin marcas — reproduce, pausa donde quieras comparar, y marca</span>'; return; }
+  if (!vidState.marks.length){ host.innerHTML = '<span class="hint">sin marcas · reproduce, pausa donde quieras comparar, y marca</span>'; return; }
   host.innerHTML = vidState.marks.map((t, i) =>
     `<span class="markchip" data-i="${i}" title="clic para saltar ahí">${fmtT(t)} <b data-rm="${i}" title="quitar">×</b></span>`
   ).join(' ');
@@ -392,27 +406,45 @@ function syncVideoToAdvanced(){
   renderVariants();
 }
 
-/* captura un frame exacto: seek + (requestVideoFrameCallback si existe) + drawImage */
+/* Seek to a timestamp. This does not establish frame alignment across videos. */
 function captureFrame(video, t){
   return new Promise((res, rej) => {
-    const done = () => {
-      const c = document.createElement('canvas');
-      c.width = video.videoWidth; c.height = video.videoHeight;
-      c.getContext('2d').drawImage(video, 0, 0);
-      res(c);
+    let finished = false, callback = null, fallback = null;
+    const cleanup = () => {
+      clearTimeout(timeout); clearTimeout(fallback);
+      video.removeEventListener('seeked', seeked); video.removeEventListener('error', failed);
+      if (callback != null) video.cancelVideoFrameCallback(callback);
     };
-    const to = setTimeout(() => rej(new Error('timeout al buscar el frame')), 15000);
-    video.currentTime = t;
-    video.onseeked = () => {
-      if ('requestVideoFrameCallback' in video){
-        video.requestVideoFrameCallback(() => { clearTimeout(to); done(); });
-        // si rVFC no llega (frame ya presentado), cae por el timeout corto
-        setTimeout(() => { clearTimeout(to); done(); }, 700);
-      } else {
-        setTimeout(() => { clearTimeout(to); done(); }, 120);
-      }
+    const finish = error => {
+      if (finished) return;
+      finished = true; cleanup();
+      if (error){ rej(error); return; }
+      try {
+        if (!video.videoWidth || video.readyState < 2) throw new Error('El video no tiene una imagen decodificada.');
+        const c = document.createElement('canvas');
+        c.width = video.videoWidth; c.height = video.videoHeight;
+        c.getContext('2d').drawImage(video, 0, 0);
+        res(c);
+      } catch(e){ rej(e); }
     };
-    video.onerror = () => { clearTimeout(to); rej(new Error('error de decodificación')); };
+    const failed = () => finish(new Error('Error al decodificar el video.'));
+    const seeked = () => {
+      // Paused, detached videos may not submit another frame to the compositor.
+      fallback = setTimeout(() => finish(), 120);
+    };
+    const timeout = setTimeout(() => finish(new Error('Se agotó el tiempo para buscar la captura.')), 15000);
+    if (!Number.isFinite(t) || t < 0 || (Number.isFinite(video.duration) && t >= video.duration)){
+      finish(new Error('El tiempo marcado queda fuera de este video.')); return;
+    }
+    video.addEventListener('error', failed);
+    if (!video.seeking && Math.abs(video.currentTime-t) < 0.000001 && video.readyState >= 2){ finish(); return; }
+    video.addEventListener('seeked', seeked, {once:true});
+    if ('requestVideoFrameCallback' in video){
+      callback = video.requestVideoFrameCallback(() => {
+        if (!video.seeking && Math.abs(video.currentTime-t) < 0.001) finish();
+      });
+    }
+    try { video.currentTime = t; } catch(e){ finish(e); }
   });
 }
 function canvasToBlob(c, fmt){
@@ -442,7 +474,11 @@ $('vidGo').addEventListener('click', async () => {
     const v = document.createElement('video');
     v.muted = true; v.preload = 'auto';
     v.src = vidURL(f);
-    await new Promise(r => { v.onloadeddata = r; v.onerror = r; });
+    await new Promise(r => {
+      const timer = setTimeout(r, 15000);
+      v.onloadeddata = v.onerror = () => { clearTimeout(timer); r(); };
+      if (v.readyState >= 2) { clearTimeout(timer); r(); }
+    });
     const vid = state.variants.find(x => vidState.files.indexOf(f)+1 === +x.id.slice(1));
     if (!vid){ continue; }
     for (const t of vidState.marks){
@@ -471,9 +507,9 @@ $('vidGo').addEventListener('click', async () => {
 
 
 /* ============================================================
-   MODO AVANZADO — pasos
+   MODO AVANZADO · pasos
    ============================================================ */
-const STEPS = ['Proyecto','Variantes','Frames','Imágenes','Final'];
+const STEPS = ['Proyecto','Variantes','Frames','Imágenes','Revisar'];
 let curStep = 0;
 function renderSteps(){
   const nav = $('stepNav');
@@ -489,7 +525,14 @@ function renderSteps(){
   });
   document.querySelectorAll('.step').forEach(el => el.style.display = (+el.dataset.step === curStep) ? '' : 'none');
   if (curStep === 4) renderFinish();
+  $('stepBack').disabled = curStep === 0;
+  $('stepNext').hidden = curStep === STEPS.length-1;
 }
+$('stepBack').onclick = () => { curStep = Math.max(0, curStep-1); renderSteps(); };
+$('stepNext').onclick = () => { curStep = Math.min(STEPS.length-1, curStep+1); renderSteps(); };
+for (const id of ['basicDrop','vidDrop','bulkDrop']) $(id).addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); $(id).click(); }
+});
 
 /* ---------- paso: proyecto ---------- */
 $('pjTitle').addEventListener('input', () => { state.title = $('pjTitle').value; $('pjTitleWarn').style.display = state.title.trim() ? 'none' : ''; });
@@ -498,6 +541,7 @@ $('pjBump').addEventListener('click', () => { state.version++; $('pjVersion').va
 
 /* ---------- paso: variantes ---------- */
 function defVariant(){
+  while (state.variants.some(v => v.id === 'v'+nextVar)) nextVar++;
   return {id:'v'+(nextVar++), name:'', codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
 }
 function ensureSeed(){
@@ -525,7 +569,7 @@ function renderVariants(){
       <div class="vrow">
         <div class="dot" style="background:${v.color}" title="clic para cambiar el color"></div>
         <input type="text" data-k="name" placeholder="nombre (p. ej. Fuente, CRF 26)" value="${esc(v.name)}">
-        <input type="text" class="opt" data-k="codec" placeholder="codec" value="${esc(v.codec)}" title="codec — p. ej. AV1, x264, HEVC">
+        <input type="text" class="opt" data-k="codec" placeholder="codec" value="${esc(v.codec)}" title="codec · p. ej. AV1, x264, HEVC">
         <input type="text" class="opt" data-k="crf" placeholder="CRF" value="${esc(v.crf)}" title="número de calidad">
         <input type="text" class="opt" data-k="bitrate" placeholder="Mb/s" value="${esc(v.bitrate)}" title="bitrate">
         <button class="iconbtn" data-a="up" title="subir">↑</button>
@@ -534,15 +578,16 @@ function renderVariants(){
       </div>
       <div class="vrow2">
         <span class="hint">${esc(v.id)}${badge}</span>
-        <input type="text" data-k="note" placeholder="nota extra — sale bajo el botón" value="${esc(v.note)}">
+        <input type="text" data-k="note" placeholder="nota extra · sale bajo el botón" value="${esc(v.note)}">
         <input type="text" class="mono" data-k="cmd" placeholder="comando del encoder (tooltip)" value="${esc(v.cmd)}">
-        <input type="text" data-k="metric" placeholder="métrica propia (p. ej. VMAF 96.2) — opcional" value="${esc(v.metric)}" title="se muestra bajo el nombre de la variante; S2 del toggle se suma a esto" style="grid-column: 2 / 4;">
+        <input type="text" data-k="metric" placeholder="Métrica opcional: VMAF 96.2" value="${esc(v.metric)}" title="Se muestra bajo el nombre de la variante">
       </div>`;
     card.querySelector('.dot').onclick = () => {
       v.color = PALETTE[(PALETTE.indexOf(v.color)+1) % PALETTE.length];
       renderVariants();
     };
     card.querySelectorAll('input[data-k]').forEach(inp => {
+      inp.setAttribute('aria-label', ({name:'Nombre',codec:'Codec',crf:'CRF',bitrate:'Bitrate en Mb/s',note:'Nota',cmd:'Comando del encoder',metric:'Métrica opcional'})[inp.dataset.k]+' de la variante '+(i+1));
       inp.addEventListener('input', () => { v[inp.dataset.k] = inp.value; renderVarWarns(); });
     });
     card.querySelectorAll('button[data-a]').forEach(b => {
@@ -565,11 +610,6 @@ function renderVarWarns(){
   const w = $('varWarns');
   const lines = [];
   if (state.variants.length < 2) lines.push(`<div class="err">Hacen falta al menos dos variantes para comparar.</div>`);
-  const bare = state.variants.filter(v => !variantNote(v));
-  if (bare.length && state.variants.length >= 2)
-    lines.push(`<div class="warn">${bare.length} variante${bare.length>1?'s':''} sin codec/CRF/bitrate — la página funciona, pero se ve mejor con ellos.</div>`);
-  if (state.variants.length >= 2 && state.variants.every(v => !v.cmd.trim()))
-    lines.push(`<div class="warn">Sin comandos del encoder — opcional, pero los tooltips se ven mejor con ellos.</div>`);
   w.innerHTML = lines.join('');
 }
 $('varAdd').addEventListener('click', () => { state.variants.push(defVariant()); renderVariants(); renderMatrix(); });
@@ -583,14 +623,17 @@ function renderFrames(){
     const row = document.createElement('div');
     row.className = 'frow';
     row.innerHTML = `
-      <input type="text" class="mono" data-k="key" placeholder="1" value="${esc(fr.key)}" title="número del frame — se usa en los nombres de archivo">
-      <input type="text" data-k="label" placeholder="etiqueta (opcional — p. ej. escena oscura, primer plano de grano)" value="${esc(fr.label)}">
+      <input type="text" class="mono" data-k="key" placeholder="1" value="${esc(fr.key)}" title="número del frame · se usa en los nombres de archivo">
+      <input type="text" data-k="label" placeholder="etiqueta (opcional · p. ej. escena oscura, primer plano de grano)" value="${esc(fr.label)}">
       <button class="iconbtn" data-a="up" title="subir">↑</button>
       <button class="iconbtn" data-a="dn" title="bajar">↓</button>
       <button class="iconbtn" data-a="rm" title="quitar">×</button>`;
     row.querySelectorAll('input[data-k]').forEach(inp => {
-      inp.addEventListener('input', () => {
+      inp.addEventListener(inp.dataset.k === 'key' ? 'change' : 'input', () => {
         const old = fr.key;
+        if (inp.dataset.k === 'key' && (!/^[A-Za-z0-9_-]{1,32}$/.test(inp.value) || state.frames.some(f => f !== fr && f.key === inp.value))){
+          inp.value = old; $('builderStatus').textContent = 'Usa un identificador único de frame, con letras, números o guiones.'; return;
+        }
         fr[inp.dataset.k] = inp.value;
         if (inp.dataset.k === 'key' && old !== fr.key){
           for (const k of [...state.cells.keys()]){
@@ -614,9 +657,7 @@ function renderFrames(){
     host.appendChild(row);
   });
   const w = $('frameWarns');
-  const noLabel = state.frames.filter(f => !f.label.trim()).length;
   w.innerHTML = state.frames.length < 1 ? `<div class="err">Hace falta al menos un frame.</div>`
-    : noLabel ? `<div class="warn">${noLabel} frame${noLabel>1?'s':''} sin etiqueta — el botón muestra el número. Se ve mejor con una.</div>`
     : '';
 }
 $('frameAdd').addEventListener('click', () => {
@@ -693,8 +734,8 @@ function bulkAdd(files){
       if (v && fr){ state.cells.set(v.id+'|'+fr.key, f); probeDims(f); continue; }
     }
     const why = cut > 0
-      ? 'no se pudo interpretar el nombre — se espera <variante>_<frame>'
-      : 'nombre sin guion bajo — se espera <variante>_<frame>';
+      ? 'no se pudo interpretar el nombre · se espera <variante>_<frame>'
+      : 'nombre sin guion bajo · se espera <variante>_<frame>';
     misses.push({file:f, why});
   }
   // frames numericos en orden natural tras el volcado
@@ -750,7 +791,7 @@ function renderMatrix(){
           <option value="">variante…</option>${state.variants.map(v=>`<option value="${v.id}">${esc(v.name||v.id)}</option>`).join('')}
         </select>
         <select data-i="${i}" data-w="f" class="asSel">
-          <option value="">frame…</option>${state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' — '+esc(f.label):''}</option>`).join('')}
+          <option value="">frame…</option>${state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' · '+esc(f.label):''}</option>`).join('')}
         </select>
         <button class="iconbtn" data-rm="${i}" title="descartar este archivo">×</button>
       </li>`;
@@ -778,13 +819,12 @@ async function imageDataOf(f){
   if (!idCache.has(f)) idCache.set(f, await S2.imageDataFrom(f));
   return idCache.get(f);
 }
-const s2Cache = new Map();   // "fa|fb" (identidad de File) -> score
+const s2Cache = new WeakMap();
 async function s2Of(fa, fb){
-  const key = fa.name + '\u0000' + fb.name + '\u0000' + fa.size + '\u0000' + fb.size + '\u0000' + fa.lastModified + '\u0000' + fb.lastModified;
-  if (!s2Cache.has(key)){
-    s2Cache.set(key, S2.score(await imageDataOf(fa), await imageDataOf(fb)));
-  }
-  return s2Cache.get(key);
+  if (!s2Cache.has(fa)) s2Cache.set(fa, new WeakMap());
+  const scores = s2Cache.get(fa);
+  if (!scores.has(fb)) scores.set(fb, S2.score(await imageDataOf(fa), await imageDataOf(fb)));
+  return scores.get(fb);
 }
 async function computeS2Metrics(manifest){
   const ref = manifest.variants[0];
@@ -813,12 +853,23 @@ async function computeS2Metrics(manifest){
 
 async function advancedPackage(){
   const manifest = {
+    ...state.manifestExtras,
     title: state.title.trim() || 'Comparación',
     version: state.version,
     frames: state.frames.map(f => f.key),
     frame_labels: Object.fromEntries(state.frames.filter(f => f.label.trim()).map(f => [f.key, f.label.trim()])),
     variants: state.variants.map(v => {
-      const o = {id: v.id, name: v.name.trim() || v.id, color: v.color};
+      const o = {...v.source, id: v.id, name: v.name.trim() || v.id, color: v.color};
+      if (o.metrics) o.metrics = {...o.metrics};
+      if (o.metrics && state.importedCells){
+        const ref = state.variants[0]?.id;
+        const sameFrames = JSON.stringify(state.frames.map(f=>String(f.key))) === JSON.stringify((state.manifestExtras.frames || []).map(String));
+        const sameInputs = sameFrames && ref === state.manifestExtras.variants?.[0]?.id && state.frames.every(f =>
+          [v.id,ref].every(id=>state.cells.get(id+'|'+f.key) === state.importedCells.get(id+'|'+f.key)));
+        if (!sameInputs) delete o.metrics;
+      }
+      if (o.metrics) delete o.metrics.custom_note;
+      delete o.note; delete o.cmd;
       const n = variantNote(v);
       if (n) o.note = n;
       if (v.cmd.trim()) o.cmd = v.cmd.trim();
@@ -841,18 +892,18 @@ function validateAdvanced(){
   const missing = [];
   for (const fr of state.frames) for (const v of state.variants)
     if (!state.cells.get(v.id+'|'+fr.key)) missing.push(`${v.name||v.id} \u00B7 frame ${fr.key}`);
-  if (missing.length) out.push(['bad', `${missing.length} casilla${missing.length>1?'s':''} vacía${missing.length>1?'s':''} — ahí la página mostrará un cuadro roto.`]);
+  if (missing.length) out.push(['bad', `${missing.length} casilla${missing.length>1?'s':''} vacía${missing.length>1?'s':''} · ahí la página mostrará un cuadro roto.`]);
   else if (state.variants.length && state.frames.length) out.push(['good', `Las ${state.variants.length * state.frames.length} casillas llenas.`]);
   if (state.variants.length < 2) out.push(['bad','Hacen falta al menos dos variantes.']);
   if (!state.frames.length) out.push(['bad','Hace falta al menos un frame.']);
-  if (!state.title.trim()) out.push(['warnl','Sin título — la página se ve mejor con uno.']);
-  const bare = state.variants.filter(v => !variantNote(v)).length;
-  if (bare) out.push(['warnl',`${bare} variante${bare>1?'s':''} sin codec/CRF/bitrate — se ve mejor con ellos.`]);
+  const keys = state.frames.map(f => f.key);
+  if (new Set(keys).size !== keys.length) out.push(['bad','Hay identificadores de frame repetidos. Usa uno distinto para cada momento.']);
+  if (keys.some(k => !/^[A-Za-z0-9_-]{1,32}$/.test(k))) out.push(['bad','Los identificadores de frame admiten letras, números, guion y guion bajo (máximo 32).']);
   const dims = new Set([...state.cells.values()].map(f => fileDims.get(f)).filter(Boolean));
-  if (dims.size > 1) out.push(['bad',`Tamaños de imagen mezclados (${[...dims].join(', ')}) — el diff y los recortes 1:1 necesitan dimensiones idénticas.`]);
+  if (dims.size > 1) out.push(['bad',`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`]);
   let total = 0; for (const f of state.cells.values()) total += f.size;
   out.push([total > 60*1048576 ? 'warnl' : 'good', `Tamaño del paquete ≈ ${(total*1.34/1048576).toFixed(1)} MB en base64.`]);
-  if (total > 60*1048576) out.push(['warnl','Pesado — considera menos frames o imágenes más chicas.']);
+  if (total > 60*1048576) out.push(['warnl','Pesado · considera menos frames o imágenes más chicas.']);
   if (state.unassigned.length) out.push(['warnl',`${state.unassigned.length} archivo${state.unassigned.length>1?'s':''} sin asignar NO ${state.unassigned.length>1?'van':'va'} a entrar a la página.`]);
   return out;
 }
@@ -864,24 +915,37 @@ function renderFinish(){
 /* ============================================================
    vista previa + exportaciones
    ============================================================ */
-async function currentPackage(){
+async function currentPackage({complete = false} = {}){
+  if (complete){
+    const problems = state.mode === 'basic'
+      ? (!state.pairs.length || state.pairs.some(p => !p[0] || !p[1]) ? ['Agrega dos imágenes a cada par antes de compartir.'] : [])
+      : validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
+    if (problems.length) throw new Error(problems.join(' '));
+  }
   return state.mode === 'basic' ? basicPackage() : advancedPackage();   // video también alimenta el estado avanzado
+}
+async function runAction(action){
+  $('builderStatus').textContent = '';
+  try { await action(); } catch(e){
+    $('builderStatus').textContent = e.message;
+    $('builderStatus').scrollIntoView({block:'nearest'});
+  }
 }
 function buildStandaloneHTML(pkg){
   const json = JSON.stringify(pkg).replace(/</g, '\\u003c');
   const injection = '<script>window.GATOS_PACKAGE = ' + json + ';<\/script>\n';
   const engineTag = '<script>\n' + ENGINE_SRC + '\n<\/script>';
-  return SHELL_HTML.replace('<script src="compare.js"><\/script>', injection + engineTag);
+  return SHELL_HTML.replace('<script src="compare.js"><\/script>', () => injection + engineTag);
 }
 async function openPreviewOverlay(){
+  const pkg = await currentPackage({complete:true});
   $('pvFrame').classList.add('show');
   $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>Generando vista previa…</body></html>';
-  const pkg = await currentPackage();
   $('pvBox').srcdoc = buildStandaloneHTML(pkg);
 }
 $('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; });
-$('btnPreviewTop').addEventListener('click', openPreviewOverlay);
-$('btnPreview').addEventListener('click', openPreviewOverlay);
+$('btnPreviewTop').addEventListener('click', () => runAction(openPreviewOverlay));
+$('btnPreview').addEventListener('click', () => runAction(openPreviewOverlay));
 
 function download(name, blob){
   const a = document.createElement('a');
@@ -922,7 +986,7 @@ function crc32(buf){
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
 function makeZip(entries){
-  // entradas: [{name, data:Uint8Array}] — método STORE
+  // entradas: [{name, data:Uint8Array}] · método STORE
   const chunks = [], central = [];
   let offset = 0;
   const enc = new TextEncoder();
@@ -966,22 +1030,25 @@ function makeZip(entries){
 }
 
 /* ---------- export: HTML / .cmp / .zip ---------- */
-$('btnExpHtml').addEventListener('click', async () => {
-  const pkg = await currentPackage();
+$('btnExpHtml').addEventListener('click', () => runAction(async () => {
+  const pkg = await currentPackage({complete:true});
   download(fileBase()+'.html', new Blob([buildStandaloneHTML(pkg)], {type:'text/html'}));
-});
+}));
 $('btnExpCmp').addEventListener('click', async () => {
   const pkg = await currentPackage();
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
 });
 
 /* ---------- publicar en gatos.pics ---------- */
-const PUBLISH_URL = 'https://gatos.pics/api/upload';
+const serviceHere = location.hostname === 'gatos.pics' ||
+  (['localhost','127.0.0.1'].includes(location.hostname) && location.pathname.startsWith('/crear'));
+const PUBLISH_URL = serviceHere ? '/api/upload' : 'https://gatos.pics/api/upload';
+let publicationReceipt = null;
 async function publishPage(btn, label){
   const orig = label || btn.textContent;
   btn.disabled = true; btn.textContent = 'Publicando…';
   try {
-    const pkg = await currentPackage();
+    const pkg = await currentPackage({complete:true});
     const r = await fetch(PUBLISH_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -991,19 +1058,21 @@ async function publishPage(btn, label){
     try { j = await r.json(); } catch(e){}
     if (!r.ok){
       const msg = (j && j.error) ? j.error : ('HTTP ' + r.status);
-      throw new Error(r.status === 429 ? 'demasiadas publicaciones desde tu IP — espera un rato' : msg);
+      throw new Error(r.status === 429 ? 'demasiadas publicaciones desde tu IP · espera un rato' : msg);
     }
     $('pubUrl').value = j.url;
     $('pubKey').value = j.delete_key;
+    publicationReceipt = {url:j.url, delete_url:j.delete_url, delete_key:j.delete_key};
+    try { localStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
     $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
     // formatos para compartir: vista previa clicable con la primera variante/frame
     const v0 = pkg.manifest.variants[0], f0 = pkg.manifest.frames[0];
-    const ext = (v0.ext || 'png');
+    const ext = dataURLtoBytes(pkg.images[v0.id+'_'+f0]).mime.split('/')[1].replace('jpeg','jpg');
     const img = j.url + 'img/' + v0.id + '_' + f0 + '.' + ext;
     const title = pkg.manifest.title || 'Comparación';
     $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
     $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
-    $('pubHTML').value = '<a href="' + j.url + '"><img src="' + img + '" alt="' + title + '" loading="lazy"></a>';
+    $('pubHTML').value = '<a href="' + esc(j.url) + '"><img src="' + esc(img) + '" alt="' + esc(title) + '" loading="lazy"></a>';
     $('pubFrame').style.display = 'flex';
   } catch (e) {
     alert('No se pudo publicar: ' + e.message);
@@ -1015,6 +1084,9 @@ $('btnPublish').addEventListener('click', e => publishPage(e.target));
 $('btnPublish2').addEventListener('click', e => publishPage(e.target));
 $('pubClose').addEventListener('click', () => { $('pubFrame').style.display = 'none'; });
 $('pubOpen').addEventListener('click', () => { window.open($('pubUrl').value, '_blank'); });
+$('pubReceipt').addEventListener('click', () => {
+  if (publicationReceipt) download('gatos-publicacion.json', new Blob([JSON.stringify(publicationReceipt,null,2)], {type:'application/json'}));
+});
 $('pubCopy').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText($('pubUrl').value);
@@ -1037,15 +1109,19 @@ $('openFile').addEventListener('change', () => {
 window.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); saveProject(); }
 });
-$('btnExpZip').addEventListener('click', async () => {
-  const pkg = await currentPackage();
+$('btnExpZip').addEventListener('click', () => runAction(async () => {
+  const pkg = await currentPackage({complete:true});
   // el visor hospedado resuelve img/<id>_<frame>.<ext>: la extensión va en el
   // manifest por variante, derivada de los archivos reales
   const exts = {};
   for (const v of pkg.manifest.variants){
-    const anyKey = Object.keys(pkg.images).find(k => k.startsWith(v.id+'_'));
-    const du = anyKey ? pkg.images[anyKey] : null;
-    exts[v.id] = du ? (dataURLtoBytes(du).mime.split('/')[1] || 'png').replace('jpeg','jpg') : 'png';
+    v.image_exts = {};
+    for (const f of pkg.manifest.frames){
+      const key = v.id+'_'+f;
+      const ext = dataURLtoBytes(pkg.images[key]).mime.split('/')[1].replace('jpeg','jpg');
+      exts[key] = ext; v.image_exts[f] = ext;
+    }
+    exts[v.id] = v.image_exts[pkg.manifest.frames[0]];
     v.ext = exts[v.id];
   }
   const entries = [
@@ -1055,50 +1131,48 @@ $('btnExpZip').addEventListener('click', async () => {
   ];
   for (const [key, du] of Object.entries(pkg.images)){
     const {buf} = dataURLtoBytes(du);
-    const vid = key.slice(0, key.lastIndexOf('_'));
-    entries.push({name:'img/'+key+'.'+(exts[vid]||'png'), data: buf});
+    entries.push({name:'img/'+key+'.'+exts[key], data: buf});
   }
   download(fileBase()+'.zip', makeZip(entries));
-});
+}));
 
 /* ---------- importar .cmp (en ambos modos) ---------- */
 async function importCmp(file){
   try {
     const pkg = JSON.parse(await readAsText(file));
     if (pkg.format !== FORMAT) { alert('No es un paquete '+FORMAT+'.'); return; }
-    state.title = pkg.manifest.title === 'Comparación' ? '' : (pkg.manifest.title || '');
-    state.version = pkg.manifest.version || 1;
+    if (!pkg.manifest || !Array.isArray(pkg.manifest.frames) || !Array.isArray(pkg.manifest.variants) || !pkg.images)
+      throw new Error('Faltan los datos del proyecto.');
     const b64toFile = async (key, du) => {
       const {mime, buf} = dataURLtoBytes(du);
       return new File([buf], key.replace(/[\\/:*?"<>|]/g,'_')+'.'+mime.split('/')[1], {type:mime});
     };
-    if (state.mode === 'basic'){
-      state.pairs = [];
-      const frames = pkg.manifest.frames;
-      const vs = pkg.manifest.variants;
-      for (const f of frames){
-        const fa = pkg.images[vs[0].id+'_'+f], fb = pkg.images[(vs[1]||vs[0]).id+'_'+f];
-        state.pairs.push([fa ? await b64toFile(vs[0].id+'_'+f, fa) : null, fb ? await b64toFile(vs[1].id+'_'+f, fb) : null]);
-      }
-      renderPairs();
-    } else {
-      state.variants = (pkg.manifest.variants||[]).map(v => ({
-        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', metric: (v.metrics && v.metrics.custom_note) || '', color: v.color||'#7bd389',
+      const variants = pkg.manifest.variants.map(v => ({
+        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', metric: (v.metrics && v.metrics.custom_note) || '', color: /^#[0-9a-f]{6}$/i.test(v.color) ? v.color : '#7bd389', source:{...v},
       }));
-      state.frames = (pkg.manifest.frames||[]).map(f => ({key:String(f), label:(pkg.manifest.frame_labels||{})[String(f)]||''}));
-      state.cells = new Map(); state.unassigned = [];
-      for (const v of state.variants) for (const fr of state.frames){
+      const frames = pkg.manifest.frames.map(f => ({key:String(f), label:(pkg.manifest.frame_labels||{})[String(f)]||''}));
+      const cells = new Map();
+      for (const v of variants) for (const fr of frames){
         const du = pkg.images[v.id+'_'+fr.key];
-        if (du) state.cells.set(v.id+'|'+fr.key, await b64toFile(v.id+'_'+fr.key, du));
+        if (du) cells.set(v.id+'|'+fr.key, await b64toFile(v.id+'_'+fr.key, du));
       }
+      // Commit only after every file decoded successfully. Always retain all variants.
+      state.title = pkg.manifest.title === 'Comparación' ? '' : (pkg.manifest.title || '');
+      state.version = pkg.manifest.version || 1;
+      state.manifestExtras = {...pkg.manifest};
+      state.variants = variants; state.frames = frames; state.cells = cells;
+      state.importedCells = new Map(cells);
+      state.unassigned = []; state.pairs = [];
+      $('builderStatus').textContent = '';
+      setMode('advanced'); $('onboard').hidden = true;
+      state.cells.forEach(probeDims);
       nextVar = state.variants.length+1; nextFrame = state.frames.length+1;
       $('pjTitle').value = state.title; $('pjTitleWarn').style.display = state.title.trim()?'none':'';
       $('pjVersion').value = state.version;
       renderVariants(); renderFrames(); renderMatrix();
-    }
   } catch (e) { alert('No se pudo leer este paquete: ' + e.message); }
 }
-window.addEventListener('dragover', e => { if ([...e.dataTransfer.items].some(i => /\.cmp$/i.test(i.name||''))) e.preventDefault(); });
+window.addEventListener('dragover', e => { if ([...e.dataTransfer.items].some(i => i.kind === 'file')) e.preventDefault(); });
 window.addEventListener('drop', e => {
   const f = [...e.dataTransfer.files].find(f => /\.cmp$/i.test(f.name));
   if (f){ e.preventDefault(); importCmp(f); }
@@ -1116,6 +1190,7 @@ renderSteps();
 renderVidMarks();
 setMode('basic');
 showOnboard(false);
+if (new URLSearchParams(location.search).get('demo') === '1') $('obDemo').click();
 window.addEventListener('beforeunload', e => {
   const hasWork = state.pairs.some(p => p[0] || p[1]) || state.cells.size;
   if (hasWork){ e.preventDefault(); e.returnValue = ''; }

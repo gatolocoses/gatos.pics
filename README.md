@@ -1,17 +1,17 @@
 # gatos.pics
 
-**Páginas de comparación de imágenes — locales, gratis y sin subir nada.**
+**Crea comparaciones en tu navegador. Descarga el resultado o publica un enlace.**
 
 Compara capturas de encodes, remuxes, versiones de streaming o cualquier par de
-imágenes con la seriedad de una sala de cine: divisor arrastrable, diff
+imágenes con divisor arrastrable, diff
 amplificado, recortes 1:1, zoom hasta 800 %, modo ciego y puntaje S2. Todo corre
-en tu computadora; ninguna imagen sale de tu pestaña.
+en tu computadora. Las imágenes solo se suben cuando eliges Publicar.
 
 - **Sin cuentas, sin subidas, sin límites** — ni de archivos, ni por día, ni de tamaño.
 - **Sin dependencias** — un archivo HTML con JS puro. Sin instalar, sin internet.
 - **Linux · Windows · macOS** — cualquier navegador moderno.
-- **Tus comparaciones viven para siempre** — el export es un archivo tuyo que
-  funciona dentro de diez años igual que hoy.
+- **Conserva una copia**: el HTML exportado incluye las imágenes y se abre
+  sin conexión en un navegador compatible.
 
 | Documentación | |
 |---|---|
@@ -35,14 +35,14 @@ sin configuración. Exporta HTML, carpeta .zip o .cmp cuando quieras.
 
 ### Video — de los archivos a la comparación
 Suelta el máster y los encodes, marca momentos en la línea de tiempo y la
-herramienta **captura el frame exacto de cada variante sola** — sin ffmpeg, sin
-capturar a mano. PNG sin pérdida por defecto (para grano), JPEG si prefieres
+herramienta captura cada variante en los tiempos marcados. Revisa la sincronía
+entre versiones antes de compartir. PNG sin pérdida por defecto (para grano), JPEG si prefieres
 ligero.
 
 Límites honestos: abre lo que tu navegador sepa decodificar (MP4 / WebM / MOV;
-HEVC depende de la plataforma, MKV casi solo Firefox). El HDR pasa por la
-conversión del navegador: consistente entre variantes, no controlada — para
-páginas de encode exigentes usa capturas de tu propio pipeline.
+HEVC depende de la plataforma). El HDR pasa por la conversión de color del
+navegador. Para controlar esa conversión y elegir frames exactos, usa capturas
+de tu propio proceso de extracción.
 
 ### Avanzado — para comparaciones serias
 - **Variantes** con codec / CRF / bitrate en el botón y el comando del encoder
@@ -51,8 +51,8 @@ páginas de encode exigentes usa capturas de tu propio pipeline.
 - **Volcado mágico**: suelta `blu-ray_1001.png` y la variante "Blu Ray" y el
   frame 1001 se crean solos.
 - **S2 opcional** (ver abajo).
-- Todo campo es opcional — pero la página se ve mejor con ellos, y el creador
-  te lo avisa.
+- Título, etiquetas y datos del encoder son opcionales. Las imágenes de todas
+  las variantes sí deben estar completas antes de compartir.
 
 ## El visor
 

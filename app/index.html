@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-419">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>gatos.pics — creador</title>
+<title>gatos.pics · creador</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a1a22'/%3E%3Crect x='2' y='3' width='5' height='10' fill='%237bd389'/%3E%3Crect x='9' y='3' width='5' height='10' fill='%23ffb454'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -11,6 +11,7 @@
     --accent:#ffb454; --warn:#f0b429; --err:#ff5d5d; --ok:#7bd389;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
+  [hidden]{display:none !important;}
   html,body{height:100%;}
   body{
     background:var(--bg); color:var(--text);
@@ -21,7 +22,7 @@
     padding:8px 16px; background:var(--panel); border-bottom:1px solid #000;
     display:flex; align-items:center; gap:14px; flex-wrap:wrap;
   }
-  header h1{font-size:15px; font-weight:600;}
+  header h1{display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600;}
   header h1 .dim{color:var(--dim); font-weight:400;}
   .tabs{display:flex; gap:4px;}
   .tabs button{padding:4px 14px;}
@@ -31,6 +32,8 @@
     padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;
   }
   button:hover{background:#2d2d3a;}
+  :is(button,input,select,textarea,a,[tabindex]):focus-visible{outline:2px solid var(--accent); outline-offset:3px;}
+  .tabs button[aria-pressed="true"]{background:var(--panel2); border-color:var(--accent); color:var(--accent);}
   button.primary{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
   button.primary:hover{background:#ffc670;}
   button:disabled{opacity:.4; cursor:default;}
@@ -39,11 +42,16 @@
   .warn{color:var(--warn); font-size:12px;}
   .err{color:var(--err); font-size:12px;}
   .okline{color:var(--ok); font-size:12px;}
+  #builderStatus:not(:empty){padding:10px 12px; margin-bottom:14px; border:1px solid var(--err); border-radius:8px; color:var(--text);}
+  .stepbody{flex:1; min-width:0;}
+  .stepbody h2{font-size:20px; margin-bottom:6px;}
+  .sub{color:var(--dim); margin-bottom:16px; max-width:72ch;}
+  .wizard-actions{display:flex; justify-content:space-between; gap:12px; margin-top:20px;}
 
   /* onboarding */
   #onboard{
     position:fixed; inset:0; z-index:50; background:var(--bg);
-    display:flex; align-items:center; justify-content:center; padding:20px;
+    display:flex; align-items:center; justify-content:center; padding:20px; overflow:auto;
   }
   .obcard{max-width:640px; background:var(--panel); border:1px solid #2a2a36; border-radius:14px; padding:28px 30px;}
   .obcard h1{font-size:26px; letter-spacing:.3px;}
@@ -56,6 +64,7 @@
   .obpriv{display:flex; gap:8px; align-items:center; color:var(--ok); font-size:12.5px; margin-bottom:18px;}
   .obrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
   .obskip{font-size:12px; color:var(--dim); display:flex; align-items:center; gap:5px;}
+  @media (max-height:620px){#onboard{align-items:flex-start;}}
 
   /* drop zones */
   .drop{
@@ -114,7 +123,9 @@
   input:focus{outline:none; border-color:var(--accent);}
   .card{background:var(--panel); border:1px solid #2a2a36; border-radius:10px; padding:12px 14px; margin-bottom:10px;}
   .vrow{display:grid; grid-template-columns:26px 1fr 92px 60px 90px 30px 30px 30px; gap:6px; align-items:center; margin-bottom:6px;}
-  .vrow2{display:grid; grid-template-columns:26px 5fr 8fr 30px; gap:6px; align-items:center; margin-bottom:4px;}
+  .vrow2{display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; margin-top:10px;}
+  .vrow2 > .hint{grid-column:1 / -1;}
+  .vrow2 input[data-k=metric]{grid-column:1 / -1;}
   .dot{width:22px; height:22px; border-radius:50%; border:2px solid #000; cursor:pointer;}
   .frow{display:grid; grid-template-columns:90px 1fr 30px 30px 30px; gap:6px; align-items:center; margin-bottom:6px;}
   .iconbtn{padding:2px 6px; font-size:12px; line-height:1.3;}
@@ -163,10 +174,22 @@
     .advwrap{flex-direction:column;}
     .steps{flex-direction:row; flex-wrap:wrap; flex-basis:auto;}
     .vrow{grid-template-columns:26px 1fr 30px 30px 30px;}
-    .vrow .opt{display:none;}
-    .vrow2{grid-template-columns:26px 1fr 30px;}
+    .vrow .opt{grid-column:2 / -1;}
+    .vrow button{grid-row:1;}
+    .vrow button[data-a=up]{grid-column:3;}
+    .vrow button[data-a=dn]{grid-column:4;}
+    .vrow button[data-a=rm]{grid-column:5;}
+    .vrow2{grid-template-columns:1fr;}
+    .obcard{padding:20px;}
     table.mtx th{max-width:96px; overflow:hidden; text-overflow:ellipsis;}
   }
+  .brand{display:inline-grid; grid-template-columns:42px 8px 42px; width:92px; height:22px;
+    flex:0 0 92px; align-items:stretch; pointer-events:none; user-select:none;
+    font:700 12px/22px system-ui,sans-serif; color:#fff;
+    text-shadow:0 1px 2px #000c,0 0 1px #000;}
+  .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:6px;}
+  .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:6px;}
+  .brand-dot{width:3px; height:3px; place-self:center; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
 </style>
 </head>
 <body>
@@ -174,25 +197,25 @@
 <!-- ===================== ONBOARDING ===================== -->
 <div id="onboard" hidden>
   <div class="obcard">
-    <h1><span class="cat">gatos.pics</span></h1>
-    <p class="tag">Páginas de comparación de imágenes — sin servidor, sin cuentas, sin subir nada.</p>
+    <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gato</span><span class="brand-dot" aria-hidden="true"></span><span class="brand-pics" aria-hidden="true">pics</span></span></h1>
+    <p class="tag">Compara dos capturas y comparte el resultado.</p>
     <div class="obsteps">
-      <div class="obstep"><b>1 · Suelta tus capturas</b><span>Cada dos imágenes forman un par: izquierda contra derecha.</span></div>
-      <div class="obstep"><b>2 · Describe (opcional)</b><span>En modo avanzado: variantes, codec, CRF, bitrate, comandos.</span></div>
-      <div class="obstep"><b>3 · Exporta</b><span>Un HTML que se abre en cualquier lado, una carpeta lista para hospedar, o un .cmp para subir a gatos.pics.</span></div>
+      <div class="obstep"><b>1 · Agrega dos imágenes</b><span>Elige capturas del mismo momento. Una va a la izquierda y otra a la derecha.</span></div>
+      <div class="obstep"><b>2 · Revisa la comparación</b><span>Abre la vista previa. Mueve el divisor o amplía un detalle.</span></div>
+      <div class="obstep"><b>3 · Guarda o publica</b><span>Descarga un archivo para abrirlo sin internet, o publica para obtener un enlace.</span></div>
     </div>
-    <div class="obpriv">&#128274; Todo corre en tu computadora. Ninguna imagen sale de esta pestaña.</div>
+    <div class="obpriv">Tus imágenes se quedan en este navegador hasta que eliges Publicar.</div>
     <div class="obrow">
-      <button id="obStart" class="primary" style="font-size:14px; padding:8px 22px;">Empezar</button>
+      <button id="obStart" class="primary" style="font-size:14px; padding:8px 22px;">Crear comparación</button>
       <button id="obDemo" style="font-size:13px;">Ver un ejemplo</button>
-      <button id="obLoad" style="font-size:13px;" title="abre el ejemplo como proyecto para editarlo">Cargarlo en el creador</button>
+      <button id="obLoad" style="font-size:13px;" title="Abre el ejemplo como proyecto para editarlo">Editar el ejemplo</button>
       <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
     </div>
   </div>
 </div>
 
 <header>
-  <h1><span style="color:#7bd389">gatos</span><span style="color:#ffb454">.pics</span> <span class="dim">creador</span></h1>
+  <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gato</span><span class="brand-dot" aria-hidden="true"></span><span class="brand-pics" aria-hidden="true">pics</span></span> <span class="dim">creador</span></h1>
   <nav class="tabs">
     <button id="tabBasic">Básico</button>
     <button id="tabVideo">Video</button>
@@ -200,24 +223,25 @@
   </nav>
   <span class="spacer"></span>
   <button id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
-  <button id="btnPublish" class="primary" title="Subir la comparación a gatos.pics y obtener un link">Publicar</button>
+  <button id="btnPublish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
   <button id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
-  <button id="btnHelp">?</button>
+  <button id="btnHelp" aria-label="Ayuda">Ayuda</button>
   <button id="btnPreviewTop" class="primary">Vista previa</button>
   <input type="file" id="openFile" accept=".cmp,application/json" style="display:none">
 </header>
 
 <main>
+  <div id="builderStatus" role="alert"></div>
   <!-- ======================= BÁSICO ======================= -->
   <section id="basicView">
-    <h2 style="font-size:16px;">Pares, nada más</h2>
+    <h2 style="font-size:20px;">Compara dos imágenes</h2>
     <p class="hint" style="margin:4px 0 14px;">
-      Suelta tus capturas. Cada dos imágenes forman un par — la primera va a la izquierda,
-      la segunda a la derecha. Sin títulos, sin configuración, solo la comparación.
+      Agrega dos capturas del mismo momento. Se ordenan por nombre: la primera va a la izquierda y la segunda a la derecha.
+      Para comparar más de dos versiones, usa Avanzado.
     </p>
-    <div class="drop" id="basicDrop">
+    <div class="drop" id="basicDrop" role="button" tabindex="0" aria-label="Elegir imágenes">
       <div class="big">Suelta imágenes aquí</div>
-      <div class="hint">o haz clic para explorar — PNG / WebP / JPEG, en cualquier orden (se ordenan por nombre)</div>
+      <div class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
     </div>
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
     <div id="pairList"></div>
@@ -229,17 +253,17 @@
     <h2 style="font-size:16px;">De videos a comparación</h2>
     <p class="hint" style="margin:4px 0 14px;">
       Suelta el máster y los encodes. Marcas momentos en la línea de tiempo y la
-      herramienta captura el frame exacto de cada variante — sin ffmpeg, sin subir nada.
+      herramienta captura cada video en esos tiempos. Revisa que las capturas correspondan al mismo momento.
     </p>
-    <div class="drop" id="vidDrop">
+    <div class="drop" id="vidDrop" role="button" tabindex="0" aria-label="Elegir videos">
       <div class="big">Suelta los videos aquí</div>
-      <div class="hint">MP4 / WebM / MOV que tu navegador sepa abrir — el máster y cada encode</div>
+      <div class="hint">MP4 / WebM / MOV que tu navegador sepa abrir · el máster y cada encode</div>
     </div>
     <input type="file" id="vidFile" accept="video/*" multiple style="display:none">
     <div id="vidList" style="margin-top:10px;"></div>
     <div id="vidStage" class="card" style="display:none;">
       <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
-        <b id="vidWho">—</b>
+        <b id="vidWho">·</b>
         <span class="hint" id="vidDur"></span>
         <span class="spacer"></span>
         <button id="vidPrev">← anterior</button>
@@ -250,7 +274,7 @@
         <button id="vidMark" class="primary">Marcar aquí</button>
         <label class="hint">formato de captura
           <select id="vidFmt" style="background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 6px; margin-left:6px;">
-            <option value="png">PNG (sin pérdida — grano)</option>
+            <option value="png">PNG (sin pérdida · grano)</option>
             <option value="jpeg">JPEG 92 (más ligero)</option>
           </select>
         </label>
@@ -260,8 +284,8 @@
       <div id="vidMarks" style="margin-top:10px;"></div>
       <div id="vidProg" class="okline" style="margin-top:8px; min-height:16px;"></div>
       <div class="hint" style="margin-top:8px;">
-        HDR: el navegador aplica su propia conversión a SDR — consistente entre variantes,
-        pero no controlada. Para páginas de encode exigentes usa capturas de tu propio pipeline.
+        La captura depende del decodificador y de la conversión de color del navegador.
+        Para evaluar HDR o sincronía exacta entre frames, usa capturas de tu propio proceso de extracción.
       </div>
     </div>
     <div id="vidDone" style="margin-top:10px;"></div>
@@ -275,23 +299,25 @@
 
         <div class="step" data-step="0">
           <h2>Proyecto</h2>
-          <p class="sub">Un nombre para la página. Todo aquí es opcional — pero la página se ve mejor con él.</p>
+          <p class="sub">El título ayuda a identificar la comparación. Puedes dejarlo vacío.</p>
           <div class="card">
             <label class="f">Título</label>
             <input type="text" id="pjTitle" placeholder="p. ej. Comparación de encodes">
-            <div class="warn" id="pjTitleWarn" style="margin-top:4px;">Vacío — la página mostrará un título genérico. Se ve mejor con uno.</div>
-            <label class="f">Versión (renueva la caché cuando se hospeda como carpeta)</label>
+            <div class="hint" id="pjTitleWarn" style="margin-top:4px;">Sin título, la página se llamará «Comparación».</div>
+            <details style="margin-top:14px;"><summary class="hint">Opciones para hosting estático</summary>
+            <label class="f">Versión del archivo</label>
             <div style="display:flex; gap:8px; align-items:center;">
               <input type="number" id="pjVersion" value="1" min="1" style="width:90px;">
               <button id="pjBump" class="iconbtn">+1</button>
             </div>
+            </details>
           </div>
         </div>
 
         <div class="step" data-step="1">
           <h2>Variantes</h2>
-          <p class="sub">Las versiones que se comparan (fuente, encodes…). Los campos son opcionales —
-             codec / CRF / bitrate son los que mejor lucen en los botones.</p>
+          <p class="sub">Cada variante es una versión de la imagen, como la fuente o un encode.
+             La primera es la referencia para S2. Codec, CRF, bitrate y comandos son opcionales.</p>
           <div id="varList"></div>
           <button id="varAdd">+ Agregar variante</button>
           <div id="varWarns" style="margin-top:8px;"></div>
@@ -299,8 +325,8 @@
 
         <div class="step" data-step="2">
           <h2>Frames</h2>
-          <p class="sub">Un renglón por momento capturado. El número es el id del frame usado en los nombres de
-             archivo (<span class="mono">variante_numero.png</span>); la etiqueta es el nombre bonito del botón.</p>
+          <p class="sub">Un frame es un momento que quieres comparar. El identificador debe coincidir con el nombre de
+             archivo (<span class="mono">variante_1001.png</span>). La etiqueta opcional describe la escena.</p>
           <div id="frameList"></div>
           <button id="frameAdd">+ Agregar frame</button>
           <div id="frameWarns" style="margin-top:8px;"></div>
@@ -310,8 +336,8 @@
           <h2>Imágenes</h2>
           <p class="sub">Llena la tabla. Suelta archivos llamados
              <span class="mono">&lt;variante&gt;_&lt;frame&gt;.png</span> y caen solos en su casilla.</p>
-          <div class="drop" id="bulkDrop" style="padding:14px;">
-            <div class="big" style="font-size:13px;">Suelta en lote — archivos con nombre automático</div>
+          <div class="drop" id="bulkDrop" role="button" tabindex="0" aria-label="Elegir imágenes para la tabla" style="padding:14px;">
+            <div class="big" style="font-size:13px;">Agrega varias imágenes por nombre</div>
             <div class="hint">se emparejan por id de variante, nombre de variante o número/etiqueta del frame</div>
             <div class="hint" style="margin-top:4px;">lo que no exista (variante o frame) se crea solo del nombre del archivo</div>
           </div>
@@ -322,14 +348,14 @@
         </div>
 
         <div class="step" data-step="4">
-          <h2>Final</h2>
-          <p class="sub">Revisa la lista y dale una vuelta a la página.</p>
+          <h2>Revisar y compartir</h2>
+          <p class="sub">Completa las imágenes que falten y abre la vista previa antes de compartir.</p>
           <ul class="vlist" id="checkList"></ul>
           <div class="card">
             <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer;">
               <input type="checkbox" id="s2Toggle" style="margin-top:2px;">
               <span><b>Calcular S2 (SSIMULACRA2)</b>
-              <span class="hint" style="display:block;">puntúa cada frame de cada variante contra la primera (la referencia). Sale en la página bajo el nombre de cada variante. Tarda unos segundos por imagen — se calcula localmente, como todo lo demás.</span></span>
+              <span class="hint" style="display:block;">puntúa cada frame de cada variante contra la primera (la referencia). Sale en la página bajo el nombre de cada variante. Tarda unos segundos por imagen · se calcula localmente, como todo lo demás.</span></span>
             </label>
             <div id="s2Prog" class="okline" style="margin-top:6px; min-height:16px;"></div>
           </div>
@@ -346,12 +372,12 @@
             </div>
             <div class="exp">
               <b>Carpeta autocontenida (.zip)</b>
-              <span class="hint">index.html + compare.js + manifest.json + img/ — lista para cualquier hosting estático.</span>
+              <span class="hint">index.html + compare.js + manifest.json + img/ · lista para cualquier hosting estático.</span>
               <button id="btnExpZip">Descargar .zip</button>
             </div>
             <div class="exp">
               <b>Paquete .cmp</b>
-              <span class="hint">el formato de gatos.pics — para guardar o subir por tu cuenta.</span>
+              <span class="hint">el formato de gatos.pics · para guardar o subir por tu cuenta.</span>
               <button id="btnExpCmp">Descargar .cmp</button>
             </div>
             <div class="exp">
@@ -362,13 +388,14 @@
           </div>
         </div>
 
+        <div class="wizard-actions"><button id="stepBack">← Anterior</button><button id="stepNext">Siguiente →</button></div>
       </div>
     </div>
   </section>
 </main>
 
 <footer>
-  <span>gatos.pics — local, sin subidas. Todo pasa en esta pestaña.</span>
+  <span>Todo se prepara en tu navegador. Publicar sube las imágenes y los datos a gatos.pics.</span>
   <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo</span>
 </footer>
 
@@ -376,7 +403,7 @@
 <div id="pubFrame" style="position:fixed; inset:0; background:#000a; z-index:45; display:none; align-items:center; justify-content:center; padding:20px;">
   <div class="card" id="pubCard" style="max-width:560px; width:100%;">
     <h2 style="font-size:16px; margin-bottom:6px;">Publicado</h2>
-    <p class="hint" style="margin-bottom:12px;">guarda estos datos — la llave de borrado no se muestra otra vez.</p>
+    <p class="hint" style="margin-bottom:12px;">Guarda la llave: sirve para borrar la página y actualizar su imagen compartida. Cualquiera con el enlace puede ver la comparación.</p>
     <label class="f">Link para compartir</label>
     <div style="display:flex; gap:8px;">
       <input type="text" id="pubUrl" readonly>
@@ -394,6 +421,7 @@
     <p class="hint mono" id="pubDel" style="word-break:break-all;"></p>
     <div style="display:flex; gap:8px; margin-top:14px;">
       <button id="pubOpen" class="primary">Abrir la página</button>
+      <button id="pubReceipt">Guardar enlace y llave</button>
       <button id="pubClose">Cerrar</button>
     </div>
   </div>
@@ -404,7 +432,7 @@
   <div id="pvBar">
     <b>Vista previa</b>
     <button id="pvClose">Volver al creador</button>
-    <span class="hint">esta es exactamente la página exportada — mismo motor, imágenes embebidas</span>
+    <span class="hint">esta es exactamente la página exportada · mismo motor, imágenes embebidas</span>
   </div>
   <iframe id="pvBox" title="vista previa"></iframe>
 </div>

@@ -22,6 +22,7 @@ const pixBtn = $('pixBtn');
 const blindBtn = $('blindBtn');
 const solarBtn = $('solarBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
+let originalTitle = 'Comparación';
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
 let FRAMES = [], VARIANTS = [];
@@ -41,7 +42,7 @@ function makeHttpSource(){
       return m;
     },
     srcFor(id, f){
-      const ext = variant(id).ext || 'webp';
+      const ext = variant(id).image_exts?.[f] || variant(id).ext || 'webp';
       return `img/${id}_${f}.${ext}${VERSION ? '?v='+VERSION : ''}`;
     }
   };
@@ -71,11 +72,15 @@ function makeEmbeddedSource(pkg){
 const SOURCE = (typeof window !== 'undefined' && window.GATOS_PACKAGE)
   ? makeEmbeddedSource(window.GATOS_PACKAGE)
   : makeHttpSource();
+// Opening another saved fragment in the same tab restores the complete view.
+// Internal state writes use replaceState, which does not fire hashchange.
+window.addEventListener('hashchange', () => location.reload());
 
 let frame = null, varA = null, varB = null;
 let mobileZoomPending = matchMedia('(pointer:coarse)').matches || innerWidth <= 820;
 let diffMode = false, blinkMode = false, heat = false, gainIdx = AMPLIFY_DEFAULT_IDX;
 let cropMode = false, cropUV = null;
+let pendingCropFraction = null;
 let dividerPos = 0.5;
 let zoom = 1;                       // 1 = fit
 let pan = {x:0, y:0};               // viewport-space px offset of the content rect
@@ -110,7 +115,8 @@ function computeFit(){
     el.style.left = ox+'px'; el.style.top = oy+'px';
   }
 }
-function zmax(){ return 8/(fitScale*dpr()); }   // 800% of native device pixels
+function zmax(){ return Math.max(1, 8/(fitScale*dpr())); }
+function zmin(){ return Math.min(1, 1/(fitScale*dpr())); }
 function clampPan(){
   const w = comp.clientWidth, h = comp.clientHeight;
   pan.x = clamp(pan.x, Math.min(0, w-ox-rw*zoom), Math.max(0, -ox));
@@ -134,7 +140,7 @@ function setZoomAt(cx, cy, Z2){
   const r = comp.getBoundingClientRect();
   const x = cx-r.left, y = cy-r.top;
   const u = (x-ox-pan.x)/zoom, v = (y-oy-pan.y)/zoom;
-  zoom = clamp(Z2, 1, zmax());
+  zoom = clamp(Z2, zmin(), zmax());
   if (zoom === 1){ pan = {x:0, y:0}; }
   else { pan.x = x-ox-u*zoom; pan.y = y-oy-v*zoom; clampPan(); }
   applyTransform(); writeHash();
@@ -157,7 +163,10 @@ comp.addEventListener('pointerdown', e => {
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pointers.size === 2){
     const [p1, p2] = [...pointers.values()];
-    pinch = {d0: pdist(p1,p2) || 1, z0: zoom, mx0:(p1.x+p2.x)/2, my0:(p1.y+p2.y)/2, tx0:pan.x, ty0:pan.y};
+    const r = comp.getBoundingClientRect();
+    pinch = {d0: pdist(p1,p2) || 1, z0: zoom,
+      u: ((p1.x+p2.x)/2-r.left-ox-pan.x)/zoom,
+      v: ((p1.y+p2.y)/2-r.top-oy-pan.y)/zoom};
     drag = null;
   } else if (pointers.size === 1){
     const r = comp.getBoundingClientRect();
@@ -174,19 +183,20 @@ comp.addEventListener('pointermove', e => {
   if (pointers.size === 2 && pinch){
     const [p1, p2] = [...pointers.values()];
     const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
-    setZoomAt(mx, my, pinch.z0 * pdist(p1,p2)/pinch.d0);
-    pan.x = pinch.tx0 + (mx-pinch.mx0);
-    pan.y = pinch.ty0 + (my-pinch.my0);
-    clampPan(); applyTransform();
+    const r = comp.getBoundingClientRect();
+    zoom = clamp(pinch.z0 * pdist(p1,p2)/pinch.d0, zmin(), zmax());
+    pan.x = mx-r.left-ox-pinch.u*zoom;
+    pan.y = my-r.top-oy-pinch.v*zoom;
+    clampPan(); applyTransform(); writeHash();
   } else if (drag){
     const w = comp.clientWidth, h = comp.clientHeight;
     if (drag.mode === 'divider'){
       dividerPos = clamp(drag.start + (e.clientX-drag.sx)/w, 0, 1);
       applyTransform(); writeHash();
     } else {
-      pan.x = drag.px - (e.clientX-drag.sx);
-      pan.y = drag.py - (e.clientY-drag.sy);
-      clampPan(); applyTransform();
+      pan.x = drag.px + (e.clientX-drag.sx);
+      pan.y = drag.py + (e.clientY-drag.sy);
+      clampPan(); applyTransform(); writeHash();
     }
   }
 });
@@ -199,6 +209,7 @@ comp.addEventListener('pointerup', pointerEnd);
 comp.addEventListener('pointercancel', pointerEnd);
 comp.addEventListener('dblclick', fitView);
 window.addEventListener('resize', () => { computeFit(); clampPan(); applyTransform(); syncVariantOverflow(); });
+new ResizeObserver(() => { computeFit(); clampPan(); applyTransform(); }).observe(comp);
 
 /* ---------- pane strips: bounded, horizontally scrollable ---------- */
 function syncVariantOverflow(){
@@ -252,7 +263,16 @@ function ensureDiffBase(){
 function renderDiff(){
   if (!diffMode) return;
   const d = ensureDiffBase();
-  if (!d){ diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 cargando\u2026'; return; }
+  if (!d){
+    diffCanvas.style.display = 'none';
+    imgB.style.display = '';
+    const mismatch = imgA.naturalWidth && realB.naturalWidth &&
+      (imgA.naturalWidth !== realB.naturalWidth || imgA.naturalHeight !== realB.naturalHeight);
+    diffNote.textContent = mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
+    return;
+  }
+  diffCanvas.width = d.w; diffCanvas.height = d.h;
+  diffCanvas.style.display = 'block'; imgB.style.display = 'none';
   const A = GAINS[gainIdx];
   const out = diffCtx.createImageData(d.w, d.h);
   const o = out.data;
@@ -273,6 +293,8 @@ function setDiff(on){
   diffMode = on;
   if (on) setBlink(false, true);
   diffBtn.classList.toggle('diff-on', on);
+  diffBtn.setAttribute('aria-pressed', String(on));
+  $('diffTools').hidden = !on;
   diffCanvas.style.display = on ? 'block' : 'none';
   imgB.style.display = on ? 'none' : '';
   diffNote.style.display = on ? 'block' : 'none';
@@ -285,19 +307,30 @@ function setDiff(on){
     diffData = null;
     imgB.src = srcFor(varB, frame);
   }
-  updateMeta(); writeHash();
+  applyTransform(); updateMeta(); writeHash();
 }
 function setGain(i){
   gainIdx = clamp(i, 0, GAINS.length-1);
+  $('diffGain').value = String(gainIdx);
   if (diffMode) renderDiff();
   writeHash();
 }
 function setHeat(on){
   heat = on;
+  $('heatBtn').setAttribute('aria-pressed', String(on));
   if (diffMode) renderDiff();
   writeHash();
 }
-imgA.addEventListener('load', () => { computeFit(); if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); } applyTransform(); renderDiff(); updateBadge(); });
+imgA.addEventListener('load', () => {
+  computeFit();
+  if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); }
+  zoom = clamp(zoom, zmin(), zmax()); clampPan();
+  if (pendingCropFraction){
+    cropUV = {u:Math.round(pendingCropFraction[0]*imgA.naturalWidth),v:Math.round(pendingCropFraction[1]*imgA.naturalHeight)};
+    pendingCropFraction = null; openCropPanel();
+  }
+  applyTransform(); renderDiff(); updateBadge();
+});
 imgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\u00f3'; });
 
 /* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
@@ -307,13 +340,17 @@ function setSmooth(on){
   smoothScale = on;
   for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';
   pixBtn.classList.toggle('active', !on);
+  pixBtn.setAttribute('aria-pressed', String(!on));
   try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
+  if (FRAMES.length) writeHash();
 }
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
 imgB.addEventListener('load', updateBadge);
 realB.addEventListener('load', renderDiff);
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
+$('diffGain').addEventListener('change', () => setGain(Number($('diffGain').value)));
+$('heatBtn').addEventListener('click', () => setHeat(!heat));
 
 /* ---------- blink mode ---------- */
 let blinkTimer = null;
@@ -321,6 +358,8 @@ function setBlink(on, quiet){
   blinkMode = on;
   if (on) setDiff(false);
   blinkBtn.classList.toggle('blink-on', on);
+  blinkBtn.setAttribute('aria-pressed', String(on));
+  clearInterval(blinkTimer);
   modeBadge.style.display = on ? 'block' : 'none';
   if (on){
     imgB.style.opacity = '1';
@@ -338,6 +377,9 @@ let blindMode = false;
 function setBlind(on){
   blindMode = on;
   blindBtn.classList.toggle('blind-on', on);
+  blindBtn.setAttribute('aria-pressed', String(on));
+  pageTitle.textContent = on ? 'Comparación a ciegas' : originalTitle;
+  document.title = pageTitle.textContent;
   if (on) hideTip();
   refreshVariantButtons();
   loadImg();
@@ -348,9 +390,15 @@ blindBtn.addEventListener('click', () => setBlind(!blindMode));
 
 /* ---------- curva solar: revela banding ---------- */
 let solarMode = false;
+// SVG transfer tables use normalized channel values, not byte values.
+document.querySelectorAll('#solarCurve feFuncR, #solarCurve feFuncG, #solarCurve feFuncB').forEach(el => {
+  const values = el.getAttribute('tableValues').trim().split(/\s+/).map(Number);
+  el.setAttribute('tableValues', values.map(v => v/255).join(' '));
+});
 function setSolar(on){
   solarMode = on;
   solarBtn.classList.toggle('solar-on', on);
+  solarBtn.setAttribute('aria-pressed', String(on));
   const f = on ? 'url(#solarCurve)' : '';
   imgA.style.filter = f;
   imgB.style.filter = f;
@@ -390,16 +438,17 @@ function drawCropRow(id, canvas){
     im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});
     return;
   }
-  const sw = Math.round(canvas.width), sh = Math.round(canvas.height);
+  const sw = Math.min(canvas.width, im.naturalWidth), sh = Math.min(canvas.height, im.naturalHeight);
   const sx = clamp(Math.round(cropUV.u - sw/2), 0, im.naturalWidth - sw);
   const sy = clamp(Math.round(cropUV.v - sh/2), 0, im.naturalHeight - sh);
-  ctx.drawImage(im, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(im, sx, sy, sw, sh, Math.floor((canvas.width-sw)/2), Math.floor((canvas.height-sh)/2), sw, sh);
 }
 function openCropPanel(){
   cropPanel.style.display = 'block';
   cropHint.style.display = 'none';
   const d = dpr();
-  const CW = Math.min(480, comp.clientWidth - 220), CH = Math.round(CW*9/16);
+  const CW = Math.max(64, Math.min(480, comp.clientWidth - (innerWidth <= 820 ? 64 : 220))), CH = Math.round(CW*9/16);
   cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
   cropRows.innerHTML = '';
   VARIANTS.forEach(v => {
@@ -408,7 +457,7 @@ function openCropPanel(){
     const name = document.createElement('span');
     name.className = 'cname';
     name.textContent = variantName(v.id);
-    name.style.color = v.color;
+    name.style.color = blindMode ? '#e8e8f0' : v.color;
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(CW*d); canvas.height = Math.round(CH*d);
     canvas.style.width = CW+'px'; canvas.style.height = CH+'px';
@@ -426,6 +475,7 @@ function closeCrop(){
 function setCropMode(on){
   cropMode = on;
   cropBtn.classList.toggle('crop-on', on);
+  cropBtn.setAttribute('aria-pressed', String(on));
   cropHint.style.display = on ? 'block' : 'none';
   if (on){ VARIANTS.forEach(v => cropImg(v.id)); }   // warm the cache for current frame
   else if (cropUV) closeCrop();
@@ -436,9 +486,7 @@ $('cropClose').addEventListener('click', () => { setCropMode(false); closeCrop()
 
 /* ---------- state: URL hash (shareable) > localStorage > defaults ---------- */
 let hashTimer = null;
-function writeHash(){
-  clearTimeout(hashTimer);
-  hashTimer = setTimeout(() => {
+function stateParams(){
     const p = new URLSearchParams();
     if (frame != null) p.set('f', frame);
     if (varA) p.set('a', varA);
@@ -449,34 +497,41 @@ function writeHash(){
     if (blinkMode) p.set('blink', 1);
     if (blindMode) p.set('blind', 1);
     if (solarMode) p.set('solar', 1);
+    p.set('smooth', smoothScale ? '1' : '0');
     if (cropMode) p.set('crops', 1);
     if (cropUV){
       const {nw, nh} = naturalDims();
       p.set('crop', (cropUV.u/nw).toFixed(4)+','+(cropUV.v/nh).toFixed(4));
     }
-    history.replaceState(null, '', '#'+p.toString());
+    return p;
+}
+const stateStorageKey = 'gatosState:' + location.pathname;
+function writeHash(){
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(() => {
+    try { history.replaceState(null, '', '#'+stateParams()); } catch(e){}
     try {
-      localStorage.setItem('gatosState', JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));
+      localStorage.setItem(stateStorageKey, JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));
     } catch(e){}
   }, 150);
 }
 function readState(){
   let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('gatosState')) || {}; } catch(e){}
   const h = new URLSearchParams(location.hash.slice(1));
+  if (!h.size) try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
   const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };
-  const hf = num(h.get('f'));
-  frame = FRAMES.includes(hf) ? hf : (FRAMES.includes(saved.f) ? saved.f : FRAMES[Math.floor(FRAMES.length/2)]);
+  const findFrame = value => value == null ? undefined : FRAMES.find(f => String(f) === String(value));
+  frame = findFrame(h.get('f')) ?? findFrame(saved.f) ?? FRAMES[0];
   const hv = (k, fb) => VARIANTS.some(v=>v.id===h.get(k)) ? h.get(k) : (VARIANTS.some(v=>v.id===fb) ? fb : null);
   varA = hv('a', saved.a) || (VARIANTS[0] && VARIANTS[0].id);
   varB = hv('b', saved.b) || (VARIANTS[Math.min(1, VARIANTS.length-1)] || VARIANTS[0] || {}).id;
   const hd = num(h.get('d'));
   dividerPos = clamp(hd != null ? hd : (isFinite(saved.d) ? saved.d : 0.5), 0, 1);
   const hg = parseInt(h.get('g'));
-  gainIdx = clamp(GAINS.includes(hg) ? hg-0 : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);
+  gainIdx = clamp(Number.isInteger(hg) ? hg : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);
   heat = h.get('heat') === '1' || saved.h === true;
   const hz = num(h.get('z'));
-  if (hz != null && hz >= 1){
+  if (hz != null && hz > 0){
     zoom = hz;
     pan.x = num(h.get('x')) || 0;
     pan.y = num(h.get('y')) || 0;
@@ -496,7 +551,7 @@ function variantStats(id){
     if (pf.ssimulacra2 != null) l.push('S2 '+pf.ssimulacra2.toFixed(1));
     if (pf.psnr_avg != null) l.push('PSNR '+pf.psnr_avg.toFixed(2)+' dB');
     if (pf.ssim_all != null) l.push('SSIM '+pf.ssim_all.toFixed(4));
-    if (l.length) lines.push(l.join(' \u00B7 ')+' @'+frame+'s');
+    if (l.length) lines.push(l.join(' \u00B7 ')+' · '+(FRAME_LABELS[frame] || 'frame '+frame));
   }
   const l2 = [];
   if (m.custom_note) l2.push(m.custom_note);
@@ -509,13 +564,13 @@ function variantStats(id){
   return lines.join('\n');
 }
 function updateMeta(){
-  const lbl = FRAME_LABELS[frame] || (frame + 's');
+  const lbl = FRAME_LABELS[frame] || String(frame);
   const m = FRAME_META[frame] || {};
   const where = m.clip_s != null ? ` \u00B7 clip +${m.clip_s.toFixed(1)}s` : '';
-  const origin = CLIP.start_label ? `clip starts ${CLIP.start_label} \u00B7 ` : '';
+  const origin = CLIP.start_label ? `Inicio del clip ${CLIP.start_label} \u00B7 ` : '';
   const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}frame ${lbl} (#${frame}${where}) \u2014 izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}`;
+    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
@@ -538,8 +593,8 @@ function loadImg(){
   labelBName.textContent = variantName(varB);
   statsA.textContent = variantStats(varA);
   statsB.textContent = variantStats(varB);
-  labelA.style.color = variant(varA).color;
-  labelB.style.color = variant(varB).color;
+  labelA.style.color = blindMode ? '#e8e8f0' : variant(varA).color;
+  labelB.style.color = blindMode ? '#e8e8f0' : variant(varB).color;
   refreshFrameButtons(); refreshVariantButtons(); syncVariantOverflow();
   updateMeta();
   updateBadge();
@@ -564,6 +619,7 @@ function makeButtons(containerId, items, activeId, onPick){
       b.className = item.id === activeId ? 'active' : '';
     }
     b.addEventListener('click', () => onPick(item.id));
+    b.setAttribute('aria-pressed', String(item.id === activeId));
     c.appendChild(b);
   });
 }
@@ -645,7 +701,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
 function refreshFrameButtons(){
-  makeButtons('frames', FRAMES.map(f=>({id:f, label: FRAME_LABELS[f] || (f+'s')})), frame, f => { frame = f; loadImg(); });
+  makeButtons('frames', FRAMES.map(f=>({id:f, label: FRAME_LABELS[f] || String(f)})), frame, f => { frame = f; loadImg(); });
 }
 function variantButtonItems(){
   return VARIANTS.map((v, vi) => {
@@ -667,7 +723,7 @@ function fillSelect(selId, items, activeId, onPick){
   items.forEach(it => {
     const o = document.createElement('option');
     o.value = it.id;
-    o.textContent = it.id === 'src' ? it.main + ' \u2014 ' + it.sub : `${it.main} \u2014 ${it.sub}`;
+    o.textContent = [it.main, it.sub].filter(Boolean).join(' · ');
     s.appendChild(o);
   });
   s.value = activeId;
@@ -689,23 +745,28 @@ $('swapBtn').addEventListener('click', swapAB);
 
 window.addEventListener('keydown', e => {
   const t = e.target;
+  if (e.ctrlKey || e.metaKey || e.altKey || t?.isContentEditable) return;
   if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT')){
     if (e.key === 'Escape'){ t.blur(); closeShareIfOpen(); }
     return;   // escribiendo/seleccionando: los atajos esperan
   }
-  if (e.key === 'Escape' && sharePanel.style.display === 'flex'){ sharePanel.style.display = 'none'; return; }
+  if (sharePanel.style.display === 'flex'){
+    if (e.key === 'Escape') closeShareIfOpen();
+    return;
+  }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    e.preventDefault();
     const i = FRAMES.indexOf(frame);
     const ni = e.key === 'ArrowRight' ? i+1 : i-1;
     if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }
-  } else if (e.key === ' ' && !e.repeat){
+  } else if (e.key === ' ' && !e.repeat && t?.tagName !== 'BUTTON'){
     e.preventDefault();   // no hacer scroll de página
     const ids = VARIANTS.map(v => v.id);
     varB = ids[(ids.indexOf(varB)+1) % ids.length];
     loadImg();
   } else if (!e.repeat && (e.key === 'n' || e.key === 'N')){ setSmooth(!smoothScale);
-  } else if (/^[1-9]$/.test(e.key)){
-    const idx = +e.key-1;
+  } else if (/^[1-9]$/.test(e.key) || /^Digit[1-9]$/.test(e.code)){
+    const idx = Number(/^Digit/.test(e.code) ? e.code.slice(-1) : e.key)-1;
     if (idx >= VARIANTS.length) return;
     if (e.shiftKey) varA = VARIANTS[idx].id; else varB = VARIANTS[idx].id;
     loadImg();
@@ -730,7 +791,24 @@ const sharePanel = $('sharePanel'), shareRows = $('shareRows');
 let shareBlobUrl = null, shareName = 'gatos.pics.png';
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
+function drawBrand(ctx, x, y){
+  ctx.save();
+  ctx.fillStyle = '#7bd389';
+  ctx.beginPath(); ctx.roundRect(x, y, 42, 22, [4,0,0,4]); ctx.fill();
+  ctx.fillStyle = '#ffb454';
+  ctx.beginPath(); ctx.roundRect(x+50, y, 42, 22, [0,4,4,0]); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
+  ctx.beginPath(); ctx.arc(x+46, y+11, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right'; ctx.fillText('gato', x+36, y+11);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+56, y+11);
+  ctx.restore();
+}
+
 function renderViewCanvas(){
+  if (!imgA.complete || !imgA.naturalWidth || !imgB.complete || !imgB.naturalWidth)
+    throw new Error('Espera a que terminen de cargar las dos imágenes.');
+  if (diffMode && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
   const comp2 = $('comp');
   const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
   // region visible del contenido, sin barras negras: el lienzo es exactamente
@@ -746,13 +824,12 @@ function renderViewCanvas(){
   x.translate(-ix, -iy);
   x.fillStyle = '#000';
   x.fillRect(ix, iy, vw, vh);
-  if (solarMode) x.filter = 'url(#solarCurve)';
   x.imageSmoothingEnabled = smoothScale;
   const drawImg = (img) => {
     x.save();
-    x.translate(pan.x, pan.y);
-    x.scale(zoom, zoom);
-    x.drawImage(img, ox, oy, rw, rh);
+    if (solarMode && img !== diffCanvas) x.filter = 'url(#solarCurve)';
+    // CSS left/top are outside the transform. Scaling them shifts the export.
+    x.drawImage(img, ox + pan.x, oy + pan.y, rw * zoom, rh * zoom);
     x.restore();
   };
   drawImg(imgA);
@@ -760,61 +837,66 @@ function renderViewCanvas(){
   if (!blinkMode){
     x.save();
     x.beginPath();
-    x.rect(divX, iy, ir - divX, vh);
+    const split = clamp(divX, ix, ir);
+    x.rect(split, iy, ir - split, vh);
     x.clip();
     drawImg(diffMode ? diffCanvas : imgB);
     x.restore();
     // linea del divisor, solo dentro del contenido
     x.fillStyle = 'rgba(255,255,255,.92)';
     x.fillRect(divX - 1, iy, 2, vh);
-  } else {
+  } else if (imgB.style.opacity !== '0') {
     drawImg(imgB);
   }
   x.filter = 'none';
   // etiquetas DENTRO del area de contenido, pegadas a sus esquinas
-  const pill = (right, name, stats) => {
+  const ellipsis = (text, max) => {
+    let s = text;
+    if (x.measureText(s).width <= max) return s;
+    while (s.length && x.measureText(s+'…').width > max) s = s.slice(0, -1);
+    return s+'…';
+  };
+  const pill = (right, id) => {
+    const name = variantName(id), stats = variantStats(id).split('\n').filter(Boolean);
+    const maxWidth = Math.max(20, (vw-36)/2);
     x.font = '600 13px system-ui, sans-serif';
     const wName = x.measureText(name).width;
     x.font = '400 10px system-ui, sans-serif';
-    const wStats = stats ? x.measureText(stats).width : 0;
+    const wStats = Math.max(0, ...stats.map(s => x.measureText(s).width));
     x.font = '600 13px system-ui, sans-serif';
-    const pw = Math.max(wName, wStats) + 20;
-    const px2 = Math.min(Math.max(right ? ir - pw - 12 : ix + 12, ix), ir - pw - 4);
-    const py2 = Math.min(iy + 10, ib - (stats ? 50 : 34));
+    const pw = Math.min(maxWidth, Math.max(wName, wStats) + 20);
+    const px2 = right ? ir-pw-12 : ix+12, py2 = iy+10;
     x.fillStyle = 'rgba(0,0,0,.75)';
     x.beginPath();
-    x.roundRect(px2, py2, pw, stats ? 40 : 24, 6);
+    x.roundRect(px2, py2, pw, 24+stats.length*14, 6);
     x.fill();
-    x.fillStyle = '#7bd389';
-    x.fillText(name, px2 + 10, py2 + 17);
-    if (stats){
+    x.fillStyle = blindMode ? '#e8e8f0' : variant(id).color || '#e8e8f0';
+    x.fillText(ellipsis(name, pw-20), px2 + 10, py2 + 17);
+    if (stats.length){
       x.font = '400 10px system-ui, sans-serif';
       x.fillStyle = '#c8c8d4';
-      x.fillText(stats, px2 + 10, py2 + 33);
+      stats.forEach((s, i) => x.fillText(ellipsis(s, pw-20), px2+10, py2+31+i*14));
     }
   };
-  pill(false, variantName(varA), variantStats(varA));
-  pill(true, variantName(varB), variantStats(varB));
-  // marca arriba al centro: el logo de dos cajas, texto blanco dentro
-  x.font = '600 12px system-ui, sans-serif';
-  const t1 = x.measureText('gato').width, t2 = x.measureText('pics').width;
-  const pad2 = 9, boxH = 22;
-  const b1w = t1 + pad2*2, b2w = t2 + pad2*2, bTot = b1w + b2w;
-  const bx2 = Math.min(Math.max(ix + (ir - ix) / 2 - bTot / 2, ix + 4), ir - bTot - 4);
-  const by2 = Math.min(iy + 10, ib - boxH - 4);
-  x.fillStyle = '#7bd389';
-  x.beginPath(); x.roundRect(bx2, by2, b1w, boxH, 6); x.fill();
-  x.fillStyle = '#ffb454';
-  x.beginPath(); x.roundRect(bx2 + b1w, by2, b2w, boxH, 6); x.fill();
-  x.fillStyle = '#fff';
-  x.fillText('gato', bx2 + pad2, by2 + 15);
-  x.fillText('pics', bx2 + b1w + pad2, by2 + 15);
+  if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-92)/2, ib-30);
+  const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
+  if (modes && vw >= 160 && vh >= 100){
+    x.font = '600 11px system-ui, sans-serif';
+    const mw = Math.min(vw-16, x.measureText(modes).width+16);
+    x.fillStyle = '#101014e6'; x.fillRect(ix+8, ib-54, mw, 18);
+    x.fillStyle = '#ffb454'; x.fillText(ellipsis(modes, mw-16), ix+16, ib-41);
+  }
   return c;
 }
 
 async function openShare(){
-  const url = location.href.split('#')[0];
-  const rows = [['Link', url]];
+  let c;
+  try { c = renderViewCanvas(); } catch(e){ alert(e.message); return; }
+  const url = location.href.split('#')[0]+'#'+stateParams();
+  const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [['Enlace a esta vista', url]];
+  $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
+  $('shareOwner').hidden = true;
   shareRows.innerHTML = '';
   for (const [label, text] of rows){
     const l = document.createElement('div');
@@ -841,8 +923,8 @@ async function openShare(){
   }
   sharePanel.style.display = 'flex';
   // generar la imagen de la vista actual
-  const c = renderViewCanvas();
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  if (!blob){ $('shareHint').textContent = 'No se pudo generar el PNG.'; return; }
   if (shareBlobUrl) URL.revokeObjectURL(shareBlobUrl);
   shareBlobUrl = URL.createObjectURL(blob);
   const prev = $('sharePreview');
@@ -864,19 +946,23 @@ async function openShare(){
   const up = $('shareUp');
   if (!m){ up.style.display = 'none'; return; }
   up.style.display = 'inline-block';
+  $('shareOwner').hidden = false;
+  try { $('shareKey').value = localStorage.getItem('gatosOwner:'+m[1]) || ''; } catch(e){}
   up.onclick = async () => {
+    const key = $('shareKey').value.trim();
+    if (!key){ $('shareHint').textContent = 'Ingresa la llave que recibiste al publicar.'; $('shareKey').focus(); return; }
     up.disabled = true; up.textContent = 'Subiendo…';
     try {
-      const resp = await fetch('/api/shot/' + m[1], { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
+      const resp = await fetch('/api/shot/' + m[1], { method: 'POST', headers: { 'content-type': 'image/png', 'x-delete-key': key }, body: blob });
       let j = null;
       try { j = await resp.json(); } catch(e){}
       if (!resp.ok) throw new Error((j && j.error) || ('HTTP ' + resp.status));
-      const page = location.href.split('#')[0];
-      const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
+      const page = url;
+      const title = document.title || 'Comparación';
       const codes = [
         ['BBCode (foros, la vista exacta clicable)', '[url=' + page + '][img]' + j.url + '[/img][/url]'],
-        ['Markdown', '[![' + title + '](' + j.url + ')](' + page + ')'],
-        ['HTML', '<a href="' + page + '"><img src="' + j.url + '" alt="' + title + '" loading="lazy"></a>'],
+        ['Markdown', '[![' + title.replace(/[\[\]\\]/g, '\\$&') + '](' + j.url + ')](' + page + ')'],
+        ['HTML', '<a href="' + escq(page) + '"><img src="' + escq(j.url) + '" alt="' + escq(title) + '" loading="lazy"></a>'],
         ['Imagen directa', j.url],
       ];
       const host2 = $('shareCodes');
@@ -911,7 +997,7 @@ async function openShare(){
 }
 $('shareBtn').addEventListener('click', openShare);
 $('shareClose').addEventListener('click', closeShareIfOpen);
-function closeShareIfOpen(){ if (sharePanel.style.display === 'flex') sharePanel.style.display = 'none'; }
+function closeShareIfOpen(){ if (sharePanel.style.display === 'flex'){ sharePanel.style.display = 'none'; $('shareBtn').focus(); } }
 for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
   sharePanel.addEventListener(ev, e => e.stopPropagation());
 
@@ -922,8 +1008,11 @@ function applyManifest(m){
   FRAME_LABELS = m.frame_labels || {};
   FRAME_META = m.frame_meta || {};
   CLIP = m.clip || {};
-  if (m.title){ document.title = m.title; pageTitle.textContent = m.title; }
+  originalTitle = m.title || 'Comparación';
+  document.title = originalTitle; pageTitle.textContent = originalTitle;
   const h = readState();
+  $('diffGain').value = String(gainIdx);
+  $('heatBtn').setAttribute('aria-pressed', String(heat));
   if (h.get('z') != null) mobileZoomPending = false;
   computeFit();
   loadImg();
@@ -933,13 +1022,12 @@ function applyManifest(m){
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('blind') === '1') setBlind(true);
   if (h.get('solar') === '1') setSolar(true);
+  if (h.has('smooth')) setSmooth(h.get('smooth') !== '0');
   if (h.get('crops') === '1') setCropMode(true);
   if (h.get('crop')){
     const [cu, cv] = h.get('crop').split(',').map(Number);
     if (isFinite(cu) && isFinite(cv)){
-      const {nw, nh} = naturalDims();
-      cropUV = {u: Math.round(cu*nw), v: Math.round(cv*nh)};
-      openCropPanel();
+      pendingCropFraction = [clamp(cu,0,1),clamp(cv,0,1)];
     }
   }
 }

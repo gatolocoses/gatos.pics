@@ -60,14 +60,16 @@ gatos.pics lo acepta como contrato de publicación.
 | `note` | string | no | Línea secundaria del botón. Convención: campos unidos por ` · ` (`codec · CRF 26 · Mb/s`). |
 | `cmd` | string | no | Comando completo del encoder; se muestra como tooltip al mantener el botón. |
 | `ext` | string | no | Extensión de archivo SOLO para el despliegue en carpeta (`img/<id>_<frame>.<ext>`). Ignorada en el paquete embebido. |
+| `image_exts` | objeto | no | `String(frame)` → extensión real de esa imagen. Tiene prioridad sobre `ext`; permite mezclar PNG, JPEG y otros formatos dentro de una variante. Lo generan el export ZIP y el servicio a partir de los archivos. |
 | `metrics` | objeto | no | `ssimulacra2` (media), `per_frame: {frame: {ssimulacra2}}`, `psnr_avg`, `ssim_all`, `size_bytes`, `kbps` — se muestran bajo el nombre si existen. El creador puede calcular S2 (SSIMULACRA2) contra la primera variante con un toggle; es el mismo algoritmo que el paquete `ssimulacra2` de PyPI sobre RGB 8 bit (números comparables entre herramientas 8-bit, no contra salidas de otras rutas). |
 
 ## Reglas
 
 1. **Dimensiones idénticas**: todas las imágenes de una comparación deben tener
    el mismo ancho/alto — el diff y los recortes 1:1 lo exigen.
-2. **Cada combinación presente**: una clave faltante en `images` se renderiza
-   como casilla rota; el creador lo marca antes de exportar.
+2. **Cada combinación presente al compartir**: el creador bloquea la vista previa,
+   HTML, ZIP y publicación si faltan imágenes. Guardar `.cmp` sí permite proyectos
+   incompletos para continuar después. El servicio rechaza matrices incompletas.
 3. **`note` con ` · `**: el visor parte la nota en ese separador para componer
    el botón; úsalo para alinear columnas visuales.
 4. **PNG para grano**: si la comparación depende de grano o textura fina,
@@ -79,4 +81,5 @@ gatos.pics lo acepta como contrato de publicación.
 
 El mismo `manifest.json` (sin `images`) junto a `img/<id>_<frame>.<ext>` sirve
 una página estática: es exactamente lo que exporta el creador como .zip. El
-campo `ext` por variante le dice al visor cómo construir cada URL.
+campo `image_exts` por variante le dice al visor cómo construir cada URL;
+`ext` sigue funcionando como respaldo para manifiestos anteriores.
