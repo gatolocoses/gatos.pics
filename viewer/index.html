@@ -22,10 +22,12 @@
     background:var(--panel); border-bottom:1px solid #000;
     position:relative;
   }
-  #brand{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; pointer-events:none; z-index:2;}
-  #brand .bb{font-size:11px; font-weight:700; color:#fff; padding:3px 9px; line-height:1.2; letter-spacing:.5px;}
-  #brand .g{background:#7bd389; border-radius:6px 0 0 6px;}
-  #brand .y{background:#ffb454; border-radius:0 6px 6px 0;}
+  /* marca: misma fila que Diff/Blink; textos convergen al punto blanco central */
+  #brand{position:absolute; left:50%; top:9px; transform:translateX(-50%); display:flex; align-items:stretch; gap:5px; pointer-events:none; z-index:2;}
+  #brand .bb{font-size:11px; font-weight:700; color:#fff; padding:3px 8px; line-height:1.25; letter-spacing:.5px; text-shadow:0 1px 2px rgba(0,0,0,.7);}
+  #brand .g{background:#7bd389; border-radius:6px 0 0 6px; text-align:right; min-width:46px;}
+  #brand .y{background:#ffb454; border-radius:0 6px 6px 0; text-align:left; min-width:36px;}
+  #brand .bdot{color:#fff; font-size:15px; font-weight:900; line-height:1; align-self:center; text-shadow:0 1px 2px rgba(0,0,0,.6);}
   /* Two deliberate rows instead of one wrapping row: with a single flex row the
      Right-hand selector wrapped onto a second line at the LEFT edge, so "Left" and
      "Right" ended up in each other's corner. Row 1 is global (title, frames, view
@@ -171,7 +173,7 @@
 </head>
 <body>
 <header>
-  <div id="brand" title="gatos.pics"><span class="bb g">gato</span><span class="bb y">pics</span></div>
+  <div id="brand" title="gatos.pics"><span class="bb g">gato</span><span class="bdot">&middot;</span><span class="bb y">pics</span></div>
   <div class="hrow">
     <h1 id="pageTitle">gatos.pics</h1>
     <div class="group"><span class="glabel">Frame</span><div class="frames" id="frames"></div></div>
