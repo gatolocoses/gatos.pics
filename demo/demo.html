@@ -24,18 +24,18 @@
     position:relative;
   }
   /* 92 × 22 px. The middle column owns the gap and its single centered dot. */
-  .brand{display:inline-grid; grid-template-columns:42px 8px 42px; width:92px; height:22px;
-    flex:0 0 92px; align-items:stretch; pointer-events:none; user-select:none;
+  .brand{display:inline-grid; grid-template-columns:40px 3px 36px; width:79px; height:22px;
+    flex:0 0 79px; align-items:stretch; pointer-events:none; user-select:none;
     font:700 12px/22px system-ui,sans-serif; color:#fff;
     text-shadow:0 1px 2px #000c,0 0 1px #000;}
-  .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:6px;}
-  .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:6px;}
-  .brand-dot{width:3px; height:3px; place-self:center; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
-  .hrow-main{column-gap:12px; row-gap:8px;}
+  .brand-gato{background:#7bd389; border-radius:4px 0 0 4px; text-align:right; padding-right:5px;}
+  .brand-pics{background:#ffb454; border-radius:0 4px 4px 0; text-align:left; padding-left:5px;}
+  .brand-dot{width:3px; height:3px; place-self:end center; margin-bottom:3px; border-radius:50%; background:#fff; box-shadow:0 1px 2px #000c;}
+  .hrow-main{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:12px;}
   .frame-tools{display:flex; align-items:center; flex:1 1 300px; gap:12px; min-width:0;}
   .frame-tools h1{max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .frame-tools .group{flex:1; flex-wrap:nowrap;}
-  .view-tools{display:flex; align-items:center; justify-content:flex-end; flex:1 1 580px; flex-wrap:wrap; gap:6px;}
+  .view-tools{display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; min-width:0;}
   #diffTools{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim);}
   #diffGain{background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px;}
   #frames{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin;}
@@ -1092,14 +1092,14 @@ function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').
 function drawBrand(ctx, x, y){
   ctx.save();
   ctx.fillStyle = '#7bd389';
-  ctx.beginPath(); ctx.roundRect(x, y, 42, 22, [4,0,0,4]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x, y, 40, 22, [4,0,0,4]); ctx.fill();
   ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+50, y, 42, 22, [0,4,4,0]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+43, y, 36, 22, [0,4,4,0]); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.arc(x+46, y+11, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+41.5, y+17.5, 1.5, 0, Math.PI*2); ctx.fill();
   ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right'; ctx.fillText('gato', x+36, y+11);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+56, y+11);
+  ctx.textAlign = 'right'; ctx.fillText('gato', x+35, y+11);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+48, y+11);
   ctx.restore();
 }
 
@@ -1177,7 +1177,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-92)/2, ib-30);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-79)/2, ib-30);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';

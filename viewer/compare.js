@@ -794,14 +794,14 @@ function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').
 function drawBrand(ctx, x, y){
   ctx.save();
   ctx.fillStyle = '#7bd389';
-  ctx.beginPath(); ctx.roundRect(x, y, 42, 22, [4,0,0,4]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x, y, 40, 22, [4,0,0,4]); ctx.fill();
   ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+50, y, 42, 22, [0,4,4,0]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+43, y, 36, 22, [0,4,4,0]); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.arc(x+46, y+11, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+41.5, y+17.5, 1.5, 0, Math.PI*2); ctx.fill();
   ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right'; ctx.fillText('gato', x+36, y+11);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+56, y+11);
+  ctx.textAlign = 'right'; ctx.fillText('gato', x+35, y+11);
+  ctx.textAlign = 'left'; ctx.fillText('pics', x+48, y+11);
   ctx.restore();
 }
 
@@ -879,7 +879,7 @@ function renderViewCanvas(){
     }
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
-  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-92)/2, ib-30);
+  if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-79)/2, ib-30);
   const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
