@@ -7,8 +7,8 @@ imágenes con divisor arrastrable, diff
 amplificado, recortes 1:1, zoom hasta 800 %, modo ciego y puntaje S2. Todo corre
 en tu computadora. Las imágenes solo se suben cuando eliges Publicar.
 
-- **Sin cuentas, sin subidas, sin límites** — ni de archivos, ni por día, ni de tamaño.
-- **Sin dependencias** — un archivo HTML con JS puro. Sin instalar, sin internet.
+- Sin cuentas ni registros: el creador corre completo en tu navegador.
+- Sin dependencias: un archivo HTML con JS puro, sin instalar nada.
 - **Linux · Windows · macOS** — cualquier navegador moderno.
 - **Conserva una copia**: el HTML exportado incluye las imágenes y se abre
   sin conexión en un navegador compatible.
@@ -94,19 +94,6 @@ imperceptible, debajo de ~60 ya se nota mirando de cerca.
 Los proyectos se guardan y abren como `.cmp` (Ctrl+S / botón Abrir / o suelta
 el archivo en la ventana).
 
-## Por qué no slow.pics / comp.pics
-
-Son buenas herramientas — para subirlas todo al servidor de alguien más:
-
-- **Nada se sube**: sin cooldowns de un minuto, sin límites diarios, sin borrado
-  a los 2 años por falta de visitas.
-- **Zoom de verdad**: los servicios conocidos no tienen zoom ni arrastre — su
-  "1:1" es tamaño natural + scrollbar. Aquí hay zoom anclado al cursor,
-  arrastre y recortes 1:1.
-- **Diff amplificado, calor, ciego y curva solar**: nadie más los ofrece.
-- **Del video a la página en un paso**: ellos solo aceptan imágenes ya hechas.
-- **Vive para siempre en un archivo**: screenshotcomparison.com e imgsli.com ya
-  murieron — lo hospedado se pudre.
 
 ## Repo
 
