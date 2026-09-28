@@ -993,15 +993,21 @@ function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').
 function renderViewCanvas(){
   const comp2 = $('comp');
   const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
+  // region visible del contenido, sin barras negras: el lienzo es exactamente
+  // la interseccion del cuadro de contenido (con zoom/pan) con la ventana
+  const cx = ox + pan.x, cy = oy + pan.y, cw = rw * zoom, chh = rh * zoom;
+  const ix = Math.max(0, cx), iy = Math.max(0, cy);
+  const ir = Math.min(w, cx + cw), ib = Math.min(h, cy + chh);
+  const vw = Math.max(1, ir - ix), vh = Math.max(1, ib - iy);
   const c = document.createElement('canvas');
-  c.width = Math.round(w*d); c.height = Math.round(h*d);
+  c.width = Math.round(vw * d); c.height = Math.round(vh * d);
   const x = c.getContext('2d');
   x.scale(d, d);
+  x.translate(-ix, -iy);
   x.fillStyle = '#000';
-  x.fillRect(0, 0, w, h);
+  x.fillRect(ix, iy, vw, vh);
   if (solarMode) x.filter = 'url(#solarCurve)';
   x.imageSmoothingEnabled = smoothScale;
-  // mismas geometría y transform que el visor: (ox,oy,rw,rh) + pan/zoom
   const drawImg = (img) => {
     x.save();
     x.translate(pan.x, pan.y);
@@ -1010,36 +1016,41 @@ function renderViewCanvas(){
     x.restore();
   };
   drawImg(imgA);
-  // lado derecho: B (o el diff si está activo), recortado desde el divisor
   const divX = dividerPos * w;
-  x.save();
-  x.beginPath();
-  x.rect(divX, 0, w - divX, h);
-  x.clip();
-  drawImg(diffMode ? diffCanvas : imgB);
-  x.restore();
+  if (!blinkMode){
+    x.save();
+    x.beginPath();
+    x.rect(divX, iy, ir - divX, vh);
+    x.clip();
+    drawImg(diffMode ? diffCanvas : imgB);
+    x.restore();
+    // linea del divisor, solo dentro del contenido
+    x.fillStyle = 'rgba(255,255,255,.92)';
+    x.fillRect(divX - 1, iy, 2, vh);
+  } else {
+    drawImg(imgB);
+  }
   x.filter = 'none';
-  // linea del divisor
-  x.fillStyle = 'rgba(255,255,255,.92)';
-  x.fillRect(divX - 1, 0, 2, h);
-  // etiquetas como en pantalla: nombre + stats en pastilla oscura
+  // etiquetas DENTRO del area de contenido, pegadas a sus esquinas
   const pill = (right, name, stats) => {
     x.font = '600 13px system-ui, sans-serif';
     const wName = x.measureText(name).width;
     x.font = '400 10px system-ui, sans-serif';
     const wStats = stats ? x.measureText(stats).width : 0;
     x.font = '600 13px system-ui, sans-serif';
-    const pw = Math.max(wName, wStats) + 20, px2 = right ? w - pw - 12 : 12;
+    const pw = Math.max(wName, wStats) + 20;
+    const px2 = Math.min(Math.max(right ? ir - pw - 12 : ix + 12, ix), ir - pw - 4);
+    const py2 = Math.min(iy + 10, ib - (stats ? 50 : 34));
     x.fillStyle = 'rgba(0,0,0,.75)';
     x.beginPath();
-    x.roundRect(px2, 10, pw, stats ? 40 : 24, 6);
+    x.roundRect(px2, py2, pw, stats ? 40 : 24, 6);
     x.fill();
     x.fillStyle = '#fff';
-    x.fillText(name, px2 + 10, 27);
+    x.fillText(name, px2 + 10, py2 + 17);
     if (stats){
       x.font = '400 10px system-ui, sans-serif';
       x.fillStyle = '#c8c8d4';
-      x.fillText(stats, px2 + 10, 43);
+      x.fillText(stats, px2 + 10, py2 + 33);
     }
   };
   pill(false, variantName(varA), variantStats(varA));
