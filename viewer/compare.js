@@ -1094,6 +1094,36 @@ async function openShare(){
   };
 }
 $('shareBtn').addEventListener('click', openShare);
+/* ---------- reporte de pagina (solo paginas /p/) ---------- */
+{
+  const rm = location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/);
+  const rBtn = $('reportBtn'), rPanel = $('reportPanel');
+  if (rm){
+    rBtn.style.display = '';
+    rBtn.onclick = () => { rPanel.style.display = 'flex'; };
+    $('reportClose').onclick = () => { rPanel.style.display = 'none'; };
+    $('reportSend').onclick = async () => {
+      const send = $('reportSend');
+      send.disabled = true; send.textContent = 'Enviando…';
+      try {
+        const resp = await fetch('/api/report/' + rm[1], {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ reason: $('reportReason').value, note: $('reportNote').value }),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        $('reportStatus').textContent = 'Reporte enviado. Gracias.';
+        setTimeout(() => { rPanel.style.display = 'none'; $('reportStatus').textContent = ''; }, 1400);
+      } catch (e) {
+        $('reportStatus').textContent = 'No se pudo enviar: ' + e.message;
+      } finally {
+        send.disabled = false; send.textContent = 'Enviar reporte';
+      }
+    };
+    for (const ev of ['pointerdown','mousedown','touchstart'])
+      rPanel.addEventListener(ev, e => e.stopPropagation());
+  }
+}
 $('shareClose').addEventListener('click', closeShareIfOpen);
 function closeShareIfOpen(){ if (sharePanel.style.display === 'flex'){ sharePanel.style.display = 'none'; $('shareBtn').focus(); } }
 for (const ev of ['pointerdown','mousedown','touchstart','wheel'])

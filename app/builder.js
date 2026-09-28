@@ -1159,6 +1159,7 @@ const publisher = new GatosUpload({
   panel:$('publishUpload'), progress:$('publishProgress'), status:$('publishStatus'),
   cancel:$('publishCancel'), retry:$('publishRetry'),
   retryCaution:'El servidor pudo recibir el paquete. Reintentar puede crear otra página.',
+  onApiKeyRequired: () => { setTimeout(askApiKeyAndRetry, 400); },
   onBusy:busy => { for (const id of ['btnPublish','btnPublish2']) $(id).disabled = busy; },
   onSuccess:(j, meta) => {
     $('pubUrl').value = j.url;
@@ -1181,7 +1182,9 @@ function publishPage(){
     if (cancelled()) return;
     const v = pkg.manifest.variants[0], f = pkg.manifest.frames[0];
     const ext = pkg.images[v.id+'_'+f].slice(0,40).match(/^data:image\/([^;]+)/)[1].replace('jpeg','jpg');
-    return {url:PUBLISH_URL, headers:{'content-type':'application/json'},
+    let apiKey = '';
+    try { apiKey = localStorage.getItem('gatosApiKey') || ''; } catch(e){}
+    return {url:PUBLISH_URL, headers:{'content-type':'application/json', ...(apiKey ? { 'x-api-key': apiKey } : {})},
       body:new Blob([JSON.stringify(pkg)], {type:'application/json'}),
       meta:{title:pkg.manifest.title || 'Comparación', image:'img/'+v.id+'_'+f+'.'+ext}};
   });

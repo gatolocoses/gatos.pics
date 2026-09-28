@@ -78,6 +78,7 @@ class GatosUpload {
         const retryable = xhr.status === 429 || xhr.status >= 500 || (xhr.status >= 200 && xhr.status < 300);
         const message = response?.error || `No se pudo enviar (HTTP ${xhr.status}).`;
         this.finish(message + (xhr.status === 429 ? ' Espera antes de reintentar.' : retryable ? ' '+uncertain : ''), retryable);
+        if (xhr.status === 403 && this.onApiKeyRequired) this.onApiKeyRequired();
       }
     };
     xhr.send(this.request.body);
