@@ -60,7 +60,7 @@ gatos.pics lo acepta como contrato de publicación.
 | `note` | string | no | Línea secundaria del botón. Convención: campos unidos por ` · ` (`codec · CRF 26 · Mb/s`). |
 | `cmd` | string | no | Comando completo del encoder; se muestra como tooltip al mantener el botón. |
 | `ext` | string | no | Extensión de archivo SOLO para el despliegue en carpeta (`img/<id>_<frame>.<ext>`). Ignorada en el paquete embebido. |
-| `metrics` | objeto | no | `psnr_avg`, `ssim_all`, `per_frame` — se muestran bajo el nombre si existen. |
+| `metrics` | objeto | no | `ssimulacra2` (media), `per_frame: {frame: {ssimulacra2}}`, `psnr_avg`, `ssim_all`, `size_bytes`, `kbps` — se muestran bajo el nombre si existen. El creador puede calcular S2 (SSIMULACRA2) contra la primera variante con un toggle; es el mismo algoritmo que el paquete `ssimulacra2` de PyPI sobre RGB 8 bit (números comparables entre herramientas 8-bit, no contra salidas de otras rutas). |
 
 ## Reglas
 

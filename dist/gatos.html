@@ -823,7 +823,7 @@ function makeDemoPackage(){
     // S2 real del par sintético (determinista: los mismos números en toda máquina)
     const sc = S2.score(srcC.getContext('2d').getImageData(0, 0, W, H),
                         encC.getContext('2d').getImageData(0, 0, W, H));
-    per[f] = Math.round(sc*100)/100;
+    per[f] = {ssimulacra2: Math.round(sc*100)/100};
     sum += sc;
   }
   return {
@@ -1492,7 +1492,7 @@ async function computeS2Metrics(manifest){
     for (const fk of manifest.frames){
       const fa = state.cells.get(refId+'|'+fk), fb = state.cells.get(v.id+'|'+fk);
       if (fa && fb){
-        try { per[fk] = await s2Of(fa, fb); sum += per[fk]; n++; }
+        try { const sc = await s2Of(fa, fb); per[fk] = {ssimulacra2: sc}; sum += sc; n++; }
         catch (e) { /* dimensiones distintas u otro problema: se omite */ }
       }
       done++;

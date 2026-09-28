@@ -20,6 +20,12 @@ zoom hasta 800 %. Todo corre en tu computadora; ninguna imagen sale de tu pesta�
 **Básico** — solo pares. Suelta imágenes; cada dos forman un par (izquierda contra
 derecha). Nada más que decidir.
 
+**Video** — de los archivos a la comparación sin capturar nada a mano: suelta el
+máster y los encodes, marca momentos en la línea de tiempo y la herramienta
+captura el frame exacto de cada variante (PNG sin pérdida para grano). MP4 /
+WebM / MOV que tu navegador abra; HDR pasa por la conversión del navegador
+(consistente entre variantes, no controlada).
+
 **Avanzado** — para comparaciones de encode serias:
 
 - **Variantes**: fuente, encodes, lo que quieras. Codec, CRF y bitrate van en el
@@ -29,6 +35,11 @@ derecha). Nada más que decidir.
   crea la variante "Blu Ray" y el frame 1001 solos, y llena su casilla.
 - Todo campo es opcional — pero la página se ve mejor con ellos llenos, y el
   creador te lo avisa.
+
+**S2 opcional**: con un toggle, el creador calcula SSIMULACRA2 de cada frame de
+cada variante contra la referencia — mismo algoritmo que el paquete de PyPI,
+validado bit-exacto contra él — y la página lo muestra bajo cada variante
+(`S2 67.0 @6052s · S2 media 57.0`).
 
 El proyecto se guarda como `.cmp` (Ctrl+S) y se abre de nuevo con el botón
 Abrir o soltándolo en la ventana.

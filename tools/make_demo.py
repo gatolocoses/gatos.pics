@@ -74,7 +74,7 @@ if VENV and _os.path.exists(VENV):
             "import sys, json\n"
             "from ssimulacra2.ssimulacra2 import compute_ssimulacra2\n"
             "pairs = json.load(open(sys.argv[1]))\n"
-            "print(json.dumps({k: round(compute_ssimulacra2(v[0], v[1]), 2) for k, v in pairs.items()}))\n"
+            "print(json.dumps({k: {\"ssimulacra2\": round(compute_ssimulacra2(v[0], v[1]), 2)} for k, v in pairs.items()}))\n"
         )
         mapping = {str(f): paths[f] for f in FRAMES}
         r = subprocess.run([VENV, "-c", code, "/dev/stdin"], input=_json.dumps(mapping),
@@ -84,7 +84,7 @@ if VENV and _os.path.exists(VENV):
 
 metrics = {"per_frame": s2}
 if s2:
-    metrics["ssimulacra2"] = round(sum(s2.values()) / len(s2), 2)
+    metrics["ssimulacra2"] = round(sum(v["ssimulacra2"] for v in s2.values()) / len(s2), 2)
 
 pkg = {
   "format": "gatos.pics/cmp@1",
