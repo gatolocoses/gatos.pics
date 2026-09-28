@@ -153,6 +153,24 @@ function makeDemoPackage(){
   };
 }
 
+/* ---------- deteccion de formatos con perdida ---------- */
+async function countLossy(files){
+  let n = 0;
+  for (const f of files){
+    let head;
+    try { head = new Uint8Array(await f.slice(0, 32).arrayBuffer()); } catch(e){ continue; }
+    if (head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF){ n++; continue; }   // JPEG: siempre con perdida
+    if (head[0] === 0x52 && head[1] === 0x49 && head[8] === 0x57 && head[9] === 0x45){ // RIFF....WEBP
+      const four = String.fromCharCode(head[12], head[13], head[14], head[15]);
+      if (four !== 'VP8L') n++;   // VP8L es sin perdida; VP8 y VP8X se asumen con perdida
+    }
+  }
+  return n;
+}
+function lossyWarnHTML(n){
+  return n ? `<div class="warn" style="margin-top:6px;">\u26a0 ${n} imagen${n>1?'es':''} con p\u00e9rdida (JPEG o WebP con p\u00e9rdida): la evidencia se degrada y el S2 medir\u00e1 esa compresi\u00f3n extra, no tu encode. Se aceptan, pero usa PNG sin p\u00e9rdida para comparaciones serias.</div>` : '';
+}
+
 /* ---------- archivos ---------- */
 const fileURLs = new Map();   // File -> object URL (miniaturas)
 function thumb(f){ if (f && !fileURLs.has(f)) fileURLs.set(f, URL.createObjectURL(f)); return f ? fileURLs.get(f) : ''; }
@@ -232,6 +250,7 @@ function addBasicFiles(files){
   while (loose.length >= 2) state.pairs.push([loose.shift(), loose.shift()]);
   if (loose.length) state.pairs.push([loose.shift(), null]);
   renderPairs();
+  countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
 }
 
 function renderPairs(){
@@ -785,6 +804,7 @@ function bulkAdd(files){
     state.frames.sort((a,b) => parseInt(a.key,10) - parseInt(b.key,10));
   state.unassigned.push(...misses);
   renderMatrix(); renderVariants(); renderFrames();
+  countLossy(imgs).then(n => { if (n) $('bulkWarn').innerHTML = lossyWarnHTML(n); });
   return {createdV: [...createdV], createdF: [...createdF], misses: misses.length};
 }
 function renderMatrix(){
