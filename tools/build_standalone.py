@@ -14,6 +14,8 @@ def build(pkg_path, out_path):
     pkg = json.load(open(pkg_path))
     html = (ROOT / "viewer" / "index.html").read_text()
     engine = (ROOT / "viewer" / "compare.js").read_text()
+    upload = (ROOT / "viewer" / "upload.js").read_text()
+    html = html.replace('<script src="upload.js"></script>', '<script>\n'+upload+'\n</script>')
     tag = '<script src="compare.js"></script>'
     assert tag in html, "engine script tag not found in viewer/index.html"
     injection = ("<script>window.GATOS_PACKAGE = "

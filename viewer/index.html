@@ -160,6 +160,15 @@
   #cmdTip .cmdtext{padding:10px 12px; user-select:text; cursor:text; color:#8aa39b;}
   #cmdTip .cmdtext .dline{color:#ffd27f; background:rgba(255,180,84,.09); border-radius:3px;}
   #cmdTip .copied{color:#7bd389;}
+  #helpDialog{margin:auto; width:min(560px,calc(100vw - 32px)); max-height:85dvh; overflow:auto;
+    padding:20px; border:1px solid var(--border); border-radius:12px; background:var(--panel); color:var(--text);}
+  #helpDialog::backdrop{background:#000b;}
+  #helpDialog h2{display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:17px;}
+  #helpDialog dl{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:10px 16px; margin:20px 0;}
+  #helpDialog dd,#helpDialog p{font-size:13px; color:var(--dim);}
+  .upload-status{margin-top:12px; padding:12px; background:var(--panel2); border:1px solid var(--border); border-radius:8px;}
+  .upload-status progress{width:100%; height:14px; accent-color:var(--accent);}
+  .upload-status p{font-size:12px; margin:6px 0; color:var(--text);}
   .variants, .frames{display:flex; flex-wrap:wrap; gap:5px; max-width:100%;}
   .vsel{display:none;}
   .kh{display:contents;}
@@ -210,12 +219,14 @@
   <span id="diffTools" hidden><label for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
   <button id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
   <button id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
+  <button id="revealBtn" hidden title="Mostrar las identidades de esta asignación (R)">Revelar</button>
   <button id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
   <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
   <button id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
+  <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
     </div>
   </div>
   <div class="hrow hrow-panes">
@@ -278,6 +289,32 @@
   <span id="metaLine"></span>
 </footer>
 
+<dialog id="helpDialog" aria-labelledby="helpTitle">
+  <h2 id="helpTitle">Atajos y controles <button id="helpClose">Cerrar (Esc)</button></h2>
+  <dl>
+    <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Frame anterior o siguiente.</dd>
+    <dt><kbd>Espacio</kbd></dt><dd>Siguiente variante a la derecha.</dd>
+    <dt><kbd>1</kbd> a <kbd>9</kbd></dt><dd>Elegir variante a la derecha. Con Shift, a la izquierda.</dd>
+    <dt><kbd>S</kbd></dt><dd>Intercambiar izquierda y derecha.</dd>
+    <dt><kbd>D</kbd></dt><dd>Activar o desactivar la diferencia amplificada.</dd>
+    <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Aumentar o reducir la intensidad del diff.</dd>
+    <dt><kbd>H</kbd></dt><dd>Activar o desactivar el mapa de calor del diff.</dd>
+    <dt><kbd>B</kbd></dt><dd>Activar o desactivar el parpadeo A/B.</dd>
+    <dt><kbd>G</kbd></dt><dd>Entrar al modo ciego o revelar las identidades.</dd>
+    <dt><kbd>R</kbd></dt><dd>Revelar las identidades en modo ciego.</dd>
+    <dt><kbd>L</kbd></dt><dd>Activar o desactivar la curva solar.</dd>
+    <dt><kbd>C</kbd></dt><dd>Elegir un punto para ver recortes 1:1.</dd>
+    <dt><kbd>O</kbd></dt><dd>Ver un píxel de imagen por píxel del dispositivo.</dd>
+    <dt><kbd>F</kbd></dt><dd>Ajustar la imagen al área disponible.</dd>
+    <dt><kbd>N</kbd></dt><dd>Alternar escala suave y píxeles nítidos.</dd>
+    <dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Mover el divisor. Con Shift, moverlo en pasos mayores.</dd>
+    <dt><kbd>?</kbd></dt><dd>Abrir esta ayuda.</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Cerrar ayuda, Compartir, comandos o recortes.</dd>
+  </dl>
+  <p>Rueda o pellizco: zoom. Arrastra la imagen ampliada para moverla. Doble clic: ajustar. Mantén el cursor sobre una variante para consultar su comando, si tiene uno.</p>
+  <p style="margin-top:10px;">Los atajos no cambian la comparación mientras escribes en un campo.</p>
+</dialog>
+
 <div id="sharePanel" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
   <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:560px; width:100%; max-height:86%; overflow:auto;">
     <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">Compartir
@@ -285,6 +322,7 @@
       <button id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>
     </h2>
     <p style="font-size:12px; color:var(--dim); margin-bottom:8px;">Guarda la comparación visible como PNG sin pérdida. El enlace conserva el frame, las variantes y los ajustes.</p>
+    <p id="shareBlindNote" hidden style="font-size:12px; color:var(--accent); margin-bottom:8px;">La imagen conserva el modo ciego. El enlace abre la comparación sin la asignación privada de esta sesión.</p>
     <div id="shareRows"></div>
     <img id="sharePreview" alt="vista a compartir" style="width:100%; border:1px solid #333; border-radius:8px; background:#000; margin-top:8px; display:none;">
     <div id="shareOwner" hidden style="margin-top:12px;">
@@ -296,9 +334,16 @@
       <button id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>
       <button id="shareUp" style="display:none;" title="sube esta imagen exacta a gatos.pics y arma el BBCode para foros">Subir y obtener BBCode</button>
     </div>
+    <div id="shotUpload" class="upload-status" hidden>
+      <progress id="shotProgress" max="1" value="0" aria-label="Progreso del envío de la imagen"></progress>
+      <p id="shotStatus" role="status" aria-live="polite"></p>
+      <button id="shotCancel" hidden>Cancelar envío</button>
+      <button id="shotRetry" hidden>Reintentar esta imagen</button>
+    </div>
     <div id="shareCodes" style="display:none;"></div>
   </div>
 </div>
+<script src="upload.js"></script>
 <script src="compare.js"></script>
 </body>
 </html>

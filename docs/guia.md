@@ -52,8 +52,10 @@ De los archivos de video a la comparación, sin capturar nada a mano.
    Repite para cada momento — cada marca es un chip que puedes re-visitar con
    un clic o quitar con su ×.
 3. Elige formato: **PNG** (sin pérdida — el correcto si hay grano) o JPEG 92.
-4. **Capturar todo**: la herramienta busca cada marca en cada video y captura
-   el frame exacto. Al terminar, "Seguir en Avanzado" te deja revisar las
+4. **Capturar todo**: la herramienta hace una captura en el instante pedido
+   de cada video. No garantiza que dos archivos estén alineados por frame.
+   Cada marca muestra la variante y su resultado; las fallas incluyen el motivo.
+   Al terminar, "Seguir en Avanzado" te deja revisar las
    capturas en la tabla.
 
 Consejos:
@@ -123,19 +125,35 @@ La página que se lleva quien abre tu export.
 | `N` | escala en píxeles nítidos (sin suavizado) |
 | `+` / `−` | ganancia del diff |
 | `H` | modo calor del diff |
+| `?` / `Esc` | abrir ayuda / cerrar el panel abierto |
+| `R` | revelar identidades en modo ciego |
 | `,` / `.` | mover el divisor (con `Shift` da saltos) |
 | rueda / pellizco | zoom anclado al cursor · arrastrar = mover · doble clic = ajustar |
 
 - **Diff**: la diferencia entre las dos variantes amplificada ×5–×40; el color
   indica el canal que difiere. Con `H`, lo que supera cierto umbral se pinta
   rojo.
-- **Ciego**: pensado para juzgar sin sesgo — los nombres, notas, estadísticas y
-  comandos se ocultan (las variantes pasan a ser 1, 2, 3). `G` de nuevo para
-  revelar. Compartible por URL.
+- **Ciego**: mezcla el orden de las variantes y les asigna números estables
+  durante la sesión de esta pestaña, también en los recortes y atajos.
+  Oculta nombres, notas, estadísticas, comandos y metadatos. Usa **Revelar**,
+  `R` o `G` para ver las identidades de las imágenes elegidas.
+  La asignación ciega no se incluye en el enlace. El PNG conserva las etiquetas
+  anónimas; quien abra el enlace podrá ver las identidades. Las imágenes y el
+  manifiesto siguen siendo inspeccionables: es una ayuda para juzgar sin sesgo.
 - **Solar**: curva no lineal que convierte degradados suaves en escalones
   gigantes — el banding salta a la vista.
-- El estado completo (frame, variantes, zoom, divisor, modo) vive en la URL:
-  cópiala y quien la abra ve exactamente lo que tú ves.
+- Fuera del modo ciego, el estado (frame, variantes, zoom, divisor, modo) vive
+  en la URL: cópiala para compartir la vista.
+
+### Progreso al publicar o actualizar una imagen
+
+**Publicar** y **Subir y obtener BBCode** muestran los MiB enviados y el
+porcentaje. Al llegar a 100 %, esperan la confirmación del servidor.
+**Cancelar envío** detiene la conexión; si el servidor ya recibió los datos,
+puede haber creado la página o actualizado la imagen. El mensaje lo indica.
+Los errores temporales permiten reintentar manualmente el mismo paquete o PNG.
+Reintentar una publicación puede crear otra página; una imagen compartida
+reemplaza la misma URL. Si la llave es incorrecta, corrígela antes de volver a subir.
 
 ## S2 (SSIMULACRA2) en lenguaje claro
 

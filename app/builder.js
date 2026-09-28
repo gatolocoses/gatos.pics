@@ -4,7 +4,7 @@
    Construye el mismo paquete que consume el motor del visor:
    {format, manifest:{title, version, frames, frame_labels, variants},
     images:{"<id>_<frame>": dataURL}}
-   assets.js (generado) define SHELL_HTML y ENGINE_SRC.
+   assets.js (generado) define SHELL_HTML, ENGINE_SRC y UPLOAD_SRC.
    ============================================================ */
 const $ = id => document.getElementById(id);
 
@@ -157,13 +157,24 @@ function makeDemoPackage(){
 const fileURLs = new Map();   // File -> object URL (miniaturas)
 function thumb(f){ if (f && !fileURLs.has(f)) fileURLs.set(f, URL.createObjectURL(f)); return f ? fileURLs.get(f) : ''; }
 const fileDims = new Map();   // File -> "WxH"
+const probingDims = new WeakSet();
+let dimsRenderPending = false;
 function probeDims(f){
-  if (!f || fileDims.has(f)) return;
+  if (!f || fileDims.has(f) || probingDims.has(f)) return;
+  probingDims.add(f);
   const im = new Image();
+  im.onerror = () => probingDims.delete(f);
   im.onload = () => {
+    probingDims.delete(f);
     fileDims.set(f, im.naturalWidth+'x'+im.naturalHeight);
-    if (state.mode === 'basic') renderPairs();
-    else if (curStep === 4) renderFinish();
+    if (!dimsRenderPending){
+      dimsRenderPending = true;
+      requestAnimationFrame(() => {
+        dimsRenderPending = false;
+        if (state.mode === 'basic') renderPairs();
+        else if (curStep === 4) renderFinish();
+      });
+    }
   };
   im.src = thumb(f);
 }
@@ -285,7 +296,7 @@ function pickOne(cb){
 }
 
 /* básico -> paquete */
-async function basicPackage(){
+async function basicPackage(cancelled = () => false){
   const pairs = state.pairs;
   const manifest = {
     title: 'Comparación',
@@ -299,6 +310,7 @@ async function basicPackage(){
   };
   const images = {};
   for (let i = 0; i < pairs.length; i++){
+    if (cancelled()) throw new Error('Preparación cancelada.');
     if (pairs[i][0]) images['a_'+(i+1)] = await readAsDataURL(pairs[i][0]);
     if (pairs[i][1]) images['b_'+(i+1)] = await readAsDataURL(pairs[i][1]);
   }
@@ -400,7 +412,7 @@ function syncVideoToAdvanced(){
   state.variants = vidState.files.map((f, i) => {
     const id = 'v'+(i+1);
     const old = state.variants.find(v => v.id === id);
-    return Object.assign({id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[i % PALETTE.length]}, old ? {codec: old.codec, crf: old.crf, bitrate: old.bitrate, cmd: old.cmd} : {});
+    return Object.assign({id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[i % PALETTE.length]}, old ? {codec: old.codec, crf: old.crf, bitrate: old.bitrate, cmd: old.cmd, metric:old.metric || ''} : {});
   });
   nextVar = state.variants.length+1;
   renderVariants();
@@ -459,47 +471,78 @@ $('vidGo').addEventListener('click', async () => {
   if (!vidState.marks.length){ $('vidProg').textContent = 'primero marca al menos un momento'; return; }
   const fmt = $('vidFmt').value;
   syncVideoToAdvanced();
-  // frames desde las marcas: clave = centésimas de segundo
-  for (const t of vidState.marks){
-    const key = String(Math.round(t*100));
-    if (!state.frames.some(f => f.key === key))
-      state.frames.push({key, label: fmtT(t)});
+  const files = [...vidState.files], variants = [...state.variants];
+  const marks = [...new Set(vidState.marks)].map(t => ({t,key:'t'+String(t).replace('.','_')}));
+  // Drop only the unused starter frame, keep existing captures and manual rows.
+  if (state.frames.length===1 && state.frames[0].key==='1' && !state.frames[0].label && !state.cells.size) state.frames=[];
+  const frameKeys = new Set(state.frames.map(f=>f.key));
+  for (const {t,key} of marks){
+    if (!frameKeys.has(key)){ state.frames.push({key, label:fmtT(t)}); frameKeys.add(key); }
   }
-  state.frames.sort((a,b) => parseInt(a.key,10) - parseInt(b.key,10));
   const btn = $('vidGo');
   btn.disabled = true;
-  let n = 0, fails = [];
-  const total = vidState.files.length * vidState.marks.length;
-  for (const f of vidState.files){
+  // Freeze capture inputs while this batch owns the shared project state.
+  const controls = [...document.querySelectorAll('#videoView button, #videoView input, #videoView select, #tabBasic, #tabAdv, #btnOpen')];
+  const disabled = controls.map(el=>el.disabled);
+  controls.forEach(el=>el.disabled=true);
+  $('vidDrop').style.pointerEvents='none'; $('vidMarks').style.pointerEvents='none';
+  let n=0, failures=0;
+  const total = files.length * marks.length, host=$('vidResults');
+  host.replaceChildren(); $('vidDone').replaceChildren();
+  const rows = files.map((file,vi)=>marks.map(({t},mi)=>{
+    const row=document.createElement('li');
+    row.textContent=`Marca ${mi+1} · ${t.toFixed(3)} s · ${variants[vi].name} (${file.name}): pendiente`;
+    const prefix=row.textContent.replace(/pendiente$/,'');
+    host.appendChild(row);
+    return (message,status) => { row.textContent=prefix+message; row.dataset.status=status; };
+  }));
+  for (let vi=0;vi<files.length;vi++){
+    const f=files[vi], vid=variants[vi];
     const v = document.createElement('video');
     v.muted = true; v.preload = 'auto';
-    v.src = vidURL(f);
-    await new Promise(r => {
-      const timer = setTimeout(r, 15000);
-      v.onloadeddata = v.onerror = () => { clearTimeout(timer); r(); };
-      if (v.readyState >= 2) { clearTimeout(timer); r(); }
-    });
-    const vid = state.variants.find(x => vidState.files.indexOf(f)+1 === +x.id.slice(1));
-    if (!vid){ continue; }
-    for (const t of vidState.marks){
+    let loadError;
+    $('vidProg').textContent = `Abriendo ${f.name}…`;
+    try {
+      await new Promise((resolve,reject) => {
+        const finish = error => {
+          clearTimeout(timer); v.onloadeddata=v.onerror=null;
+          error ? reject(error) : resolve();
+        };
+        const timer=setTimeout(()=>finish(new Error('Se agotó el tiempo al abrir el video.')),15000);
+        v.onloadeddata=()=>finish();
+        v.onerror=()=>finish(new Error('El navegador no pudo abrir o decodificar este archivo (código '+(v.error?.code || 'desconocido')+').'));
+        v.src=vidURL(f);
+      });
+    } catch(e){ loadError=e; }
+    for (let mi=0;mi<marks.length;mi++){
+      const {t,key}=marks[mi], result=rows[vi][mi];
+      result('buscando el instante pedido…','working');
       try {
+        if (loadError) throw loadError;
         const c = await captureFrame(v, t);
         const b = await canvasToBlob(c, fmt);
+        if (!b) throw new Error('El navegador no pudo generar la imagen.');
         const ext = fmt === 'jpeg' ? 'jpg' : 'png';
-        state.cells.set(vid.id+'|'+String(Math.round(t*100)), new File([b], `${vid.id}_${Math.round(t*100)}.${ext}`, {type: b.type}));
-        probeDims(state.cells.get(vid.id+'|'+String(Math.round(t*100))));
+        state.cells.set(vid.id+'|'+key, new File([b], `${vid.id}_${key}.${ext}`, {type: b.type}));
+        probeDims(state.cells.get(vid.id+'|'+key));
+        result('captura lista','ok');
       } catch (err) {
-        fails.push(f.name+' @'+fmtT(t));
+        failures++;
+        const previous = state.cells.has(vid.id+'|'+key) ? ' Se conservó la captura anterior.' : '';
+        result('Falló: '+err.message+previous,'error');
       }
       n++;
-      $('vidProg').textContent = `capturando… ${n}/${total}`;
+      $('vidProg').textContent = `Capturas procesadas: ${n}/${total}. Fallas: ${failures}.`;
+      // Paint each result before proceeding, including consecutive decode errors.
+      await new Promise(resolve=>setTimeout(resolve,0));
     }
     v.removeAttribute('src'); v.load();
   }
-  btn.disabled = false;
+  controls.forEach((el,i)=>el.disabled=disabled[i]); btn.disabled=false;
+  $('vidDrop').style.pointerEvents=''; $('vidMarks').style.pointerEvents='';
   renderFrames(); renderMatrix(); renderVariants();
-  $('vidProg').textContent = fails.length
-    ? `listo con ${fails.length} falla${fails.length>1?'s':''}: ${fails.slice(0,3).join(' · ')}${fails.length>3?'…':''}`
+  $('vidProg').textContent = failures
+    ? `${n-failures}/${total} capturas listas. Revisa las ${failures} fallas indicadas abajo.`
     : `✓ ${total} capturas listas`;
   $('vidDone').innerHTML = `<button class="primary" id="vidToMatrix">Seguir en Avanzado → revisar imágenes</button>`;
   $('vidToMatrix').onclick = () => { setMode('advanced'); window.BUILDER.renderSteps(); [...document.querySelectorAll('#stepNav button')][3].click(); };
@@ -540,8 +583,8 @@ $('pjVersion').addEventListener('change', () => { state.version = Math.max(1, pa
 $('pjBump').addEventListener('click', () => { state.version++; $('pjVersion').value = state.version; });
 
 /* ---------- paso: variantes ---------- */
-function defVariant(){
-  while (state.variants.some(v => v.id === 'v'+nextVar)) nextVar++;
+function defVariant(ids){
+  while (ids ? ids.has('v'+nextVar) : state.variants.some(v => v.id === 'v'+nextVar)) nextVar++;
   return {id:'v'+(nextVar++), name:'', codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
 }
 function ensureSeed(){
@@ -692,44 +735,43 @@ function noteBulk(r){
   bulkNoteT = setTimeout(() => { el.textContent = ''; }, 6000);
 }
 
-function matchVariant(token){
-  const t = slug(token);
-  if (!t) return null;
-  return state.variants.find(v => v.id === t)
-      || state.variants.find(v => slug(v.name) === t)
-      || state.variants.find(v => slug(v.name).startsWith(t) && t.length >= 3)
-      || null;
-}
-function matchFrame(token){
-  const t = slug(token);
-  if (!t) return null;
-  return state.frames.find(f => slug(f.key) === t)
-      || state.frames.find(f => slug(f.label) === t)
-      || null;
-}
 function bulkAdd(files){
   const imgs = files.filter(f => f.type.startsWith('image/'));
   const misses = [];
   const createdV = new Set(), createdF = new Set();
+  const ids = new Map(), names = new Map(), prefixes = new Map(), keys = new Map(), labels = new Map();
+  const first = (map,key,value) => { if (key && !map.has(key)) map.set(key,value); };
+  const indexVariant = v => {
+    ids.set(v.id,v);
+    const name = slug(v.name); first(names,name,v);
+    for (let n=3;n<=name.length;n++){
+      const prefix = name.slice(0,n);
+      prefixes.set(prefix, prefixes.has(prefix) ? null : v);
+    }
+  };
+  const indexFrame = f => { first(keys,slug(f.key),f); first(labels,slug(f.label),f); };
+  state.variants.forEach(indexVariant); state.frames.forEach(indexFrame);
   for (const f of imgs){
     const stem = f.name.replace(/\.[^.]+$/, '');
     const cut = stem.lastIndexOf('_');
     if (cut > 0){
-      let v = matchVariant(stem.slice(0, cut));
-      let fr = matchFrame(stem.slice(cut+1));
-      // lo que no existe, se crea: soltar todo y que la tabla se arme sola
-      if (!v && slug(stem.slice(0, cut)).length >= 2){
-        const id = 'v'+(nextVar++);
-        v = {id, name: stem.slice(0, cut).replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase()),
-             codec:'', crf:'', bitrate:'', note:'', cmd:'', color:PALETTE[(nextVar-2) % PALETTE.length]};
-        state.variants.push(v); createdV.add(v.name);
+      const vt = slug(stem.slice(0,cut)), ft = slug(stem.slice(cut+1));
+      let v = ids.get(vt) || names.get(vt) || prefixes.get(vt);
+      let fr = keys.get(ft) || labels.get(ft);
+      if (!v && prefixes.has(vt)){
+        misses.push({file:f, why:'nombre ambiguo · usa el nombre completo o el identificador de la variante'});
+        continue;
       }
-      if (!fr && slug(stem.slice(cut+1)).length >= 1){
+      // lo que no existe, se crea: soltar todo y que la tabla se arme sola
+      if (!v && vt.length >= 2){
+        v = defVariant(ids);
+        v.name = stem.slice(0, cut).replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+        state.variants.push(v); indexVariant(v); createdV.add(v.name);
+      }
+      if (!fr && ft.length >= 1){
         const key = stem.slice(cut+1).trim();
-        if (!state.frames.some(x => x.key === key)){
-          state.frames.push({key, label:''}); createdF.add(key);
-        }
-        fr = matchFrame(key);
+        fr = {key,label:''};
+        state.frames.push(fr); indexFrame(fr); createdF.add(key);
       }
       if (v && fr){ state.cells.set(v.id+'|'+fr.key, f); probeDims(f); continue; }
     }
@@ -747,6 +789,7 @@ function bulkAdd(files){
 }
 function renderMatrix(){
   const host = $('matrix');
+  matrixCells.clear();
   if (!state.variants.length || !state.frames.length){ host.innerHTML = '<p class="hint">Primero define variantes y frames.</p>'; return; }
   let html = '<table class="mtx"><tr><th></th>';
   for (const v of state.variants) html += `<th><span style="color:${v.color}">\u25CF</span> ${esc(v.name || v.id)}</th>`;
@@ -756,30 +799,46 @@ function renderMatrix(){
     for (const v of state.variants){
       const f = state.cells.get(v.id+'|'+fr.key);
       html += `<td><div class="cell ${f?'filled':'empty'}" data-cell="${v.id}|${esc(fr.key)}">${
-        f ? `<img src="${thumb(f)}" alt=""><button class="rm" title="quitar">×</button>` : 'suelta / clic'
+        matrixCellContent(f)
       }</div></td>`;
     }
     html += '</tr>';
   }
   html += '</table>';
   host.innerHTML = html;
-  host.querySelectorAll('.cell').forEach(cell => {
-    const key = cell.dataset.cell;
-    cell.addEventListener('click', e => {
-      if (e.target.classList.contains('rm')){ state.cells.delete(key); renderMatrix(); return; }
-      pickOne(file => { state.cells.set(key, file); probeDims(file); renderMatrix(); });
-    });
-    cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('over'); });
-    cell.addEventListener('dragleave', () => cell.classList.remove('over'));
-    cell.addEventListener('drop', e => {
-      e.preventDefault(); e.stopPropagation(); cell.classList.remove('over');
-      const f = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
-      if (f){ state.cells.set(key, f); probeDims(f); renderMatrix(); }
-    });
-  });
+  host.querySelectorAll('.cell').forEach(cell => matrixCells.set(cell.dataset.cell,cell));
+  renderUnassigned();
+}
+const matrixCells = new Map();
+function matrixCellContent(f){
+  return f ? `<img src="${thumb(f)}" loading="lazy" decoding="async" alt=""><button class="rm" title="quitar">×</button>` : 'suelta / clic';
+}
+function updateMatrixCell(key,file){
+  if (file){ state.cells.set(key,file); probeDims(file); }
+  else state.cells.delete(key);
+  const cell = matrixCells.get(key);
+  if (cell){ cell.className = 'cell '+(file?'filled':'empty'); cell.innerHTML = matrixCellContent(file); }
+}
+$('matrix').addEventListener('click', e => {
+  const cell = e.target.closest('[data-cell]'); if (!cell) return;
+  if (e.target.closest('.rm')) updateMatrixCell(cell.dataset.cell,null);
+  else pickOne(file => updateMatrixCell(cell.dataset.cell,file));
+});
+for (const event of ['dragover','dragleave','drop']) $('matrix').addEventListener(event, e => {
+  const cell = e.target.closest('[data-cell]'); if (!cell) return;
+  e.preventDefault(); cell.classList.toggle('over',event==='dragover');
+  if (event==='drop'){
+    e.stopPropagation();
+    const file = [...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));
+    if (file) updateMatrixCell(cell.dataset.cell,file);
+  }
+});
+function renderUnassigned(){
   /* archivos sin asignar */
   const un = $('unassigned');
   if (state.unassigned.length){
+    const variantOptions = state.variants.map(v=>`<option value="${v.id}">${esc(v.name||v.id)}</option>`).join('');
+    const frameOptions = state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' · '+esc(f.label):''}</option>`).join('');
     let h = '<div class="card"><b>Archivos sin asignar</b><ul style="list-style:none;margin-top:6px;">';
     state.unassigned.forEach((u, i) => {
       h += `<li style="display:flex;gap:8px;align-items:center;margin:4px 0;flex-wrap:wrap;">
@@ -788,10 +847,10 @@ function renderMatrix(){
         <span class="hint">${esc(u.why)}</span>
         <span style="margin-left:auto;"></span>
         <select data-i="${i}" data-w="v" class="asSel">
-          <option value="">variante…</option>${state.variants.map(v=>`<option value="${v.id}">${esc(v.name||v.id)}</option>`).join('')}
+          <option value="">variante…</option>${variantOptions}
         </select>
         <select data-i="${i}" data-w="f" class="asSel">
-          <option value="">frame…</option>${state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' · '+esc(f.label):''}</option>`).join('')}
+          <option value="">frame…</option>${frameOptions}
         </select>
         <button class="iconbtn" data-rm="${i}" title="descartar este archivo">×</button>
       </li>`;
@@ -803,12 +862,12 @@ function renderMatrix(){
       const vs = un.querySelector(`select[data-i="${i}"][data-w="v"]`);
       const fs = un.querySelector(`select[data-i="${i}"][data-w="f"]`);
       if (vs.value && fs.value){
-        state.cells.set(vs.value+'|'+fs.value, state.unassigned[i].file);
+        updateMatrixCell(vs.value+'|'+fs.value, state.unassigned[i].file);
         state.unassigned.splice(i,1);
-        renderMatrix();
+        renderUnassigned();
       }
     }));
-    un.querySelectorAll('button[data-rm]').forEach(b => b.addEventListener('click', () => { state.unassigned.splice(+b.dataset.rm,1); renderMatrix(); }));
+    un.querySelectorAll('button[data-rm]').forEach(b => b.addEventListener('click', () => { state.unassigned.splice(+b.dataset.rm,1); renderUnassigned(); }));
   } else un.innerHTML = '';
 }
 
@@ -851,7 +910,7 @@ async function computeS2Metrics(manifest){
   $('s2Prog').textContent = '';
 }
 
-async function advancedPackage(){
+async function advancedPackage(cancelled = () => false){
   const manifest = {
     ...state.manifestExtras,
     title: state.title.trim() || 'Comparación',
@@ -879,6 +938,7 @@ async function advancedPackage(){
   };
   const images = {};
   for (const [k, f] of state.cells){
+    if (cancelled()) throw new Error('Preparación cancelada.');
     const [vid, fk] = k.split('|');
     images[vid+'_'+fk] = await readAsDataURL(f);
   }
@@ -915,14 +975,14 @@ function renderFinish(){
 /* ============================================================
    vista previa + exportaciones
    ============================================================ */
-async function currentPackage({complete = false} = {}){
+async function currentPackage({complete = false, cancelled = () => false} = {}){
   if (complete){
     const problems = state.mode === 'basic'
       ? (!state.pairs.length || state.pairs.some(p => !p[0] || !p[1]) ? ['Agrega dos imágenes a cada par antes de compartir.'] : [])
       : validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
     if (problems.length) throw new Error(problems.join(' '));
   }
-  return state.mode === 'basic' ? basicPackage() : advancedPackage();   // video también alimenta el estado avanzado
+  return state.mode === 'basic' ? basicPackage(cancelled) : advancedPackage(cancelled);   // video también alimenta el estado avanzado
 }
 async function runAction(action){
   $('builderStatus').textContent = '';
@@ -935,7 +995,9 @@ function buildStandaloneHTML(pkg){
   const json = JSON.stringify(pkg).replace(/</g, '\\u003c');
   const injection = '<script>window.GATOS_PACKAGE = ' + json + ';<\/script>\n';
   const engineTag = '<script>\n' + ENGINE_SRC + '\n<\/script>';
-  return SHELL_HTML.replace('<script src="compare.js"><\/script>', () => injection + engineTag);
+  return SHELL_HTML
+    .replace('<script src="upload.js"><\/script>', () => '<script>\n'+UPLOAD_SRC+'\n<\/script>')
+    .replace('<script src="compare.js"><\/script>', () => injection + engineTag);
 }
 async function openPreviewOverlay(){
   const pkg = await currentPackage({complete:true});
@@ -1044,44 +1106,40 @@ const serviceHere = location.hostname === 'gatos.pics' ||
   (['localhost','127.0.0.1'].includes(location.hostname) && location.pathname.startsWith('/crear'));
 const PUBLISH_URL = serviceHere ? '/api/upload' : 'https://gatos.pics/api/upload';
 let publicationReceipt = null;
-async function publishPage(btn, label){
-  const orig = label || btn.textContent;
-  btn.disabled = true; btn.textContent = 'Publicando…';
-  try {
-    const pkg = await currentPackage({complete:true});
-    const r = await fetch(PUBLISH_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(pkg),
-    });
-    let j = null;
-    try { j = await r.json(); } catch(e){}
-    if (!r.ok){
-      const msg = (j && j.error) ? j.error : ('HTTP ' + r.status);
-      throw new Error(r.status === 429 ? 'demasiadas publicaciones desde tu IP · espera un rato' : msg);
-    }
+const publisher = new GatosUpload({
+  panel:$('publishUpload'), progress:$('publishProgress'), status:$('publishStatus'),
+  cancel:$('publishCancel'), retry:$('publishRetry'),
+  retryCaution:'El servidor pudo recibir el paquete. Reintentar puede crear otra página.',
+  onBusy:busy => { for (const id of ['btnPublish','btnPublish2']) $(id).disabled = busy; },
+  onSuccess:(j, meta) => {
     $('pubUrl').value = j.url;
     $('pubKey').value = j.delete_key;
     publicationReceipt = {url:j.url, delete_url:j.delete_url, delete_key:j.delete_key};
     try { localStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
     $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
     // formatos para compartir: vista previa clicable con la primera variante/frame
-    const v0 = pkg.manifest.variants[0], f0 = pkg.manifest.frames[0];
-    const ext = dataURLtoBytes(pkg.images[v0.id+'_'+f0]).mime.split('/')[1].replace('jpeg','jpg');
-    const img = j.url + 'img/' + v0.id + '_' + f0 + '.' + ext;
-    const title = pkg.manifest.title || 'Comparación';
+    const img = j.url + meta.image;
+    const title = meta.title;
     $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
     $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
     $('pubHTML').value = '<a href="' + esc(j.url) + '"><img src="' + esc(img) + '" alt="' + esc(title) + '" loading="lazy"></a>';
     $('pubFrame').style.display = 'flex';
-  } catch (e) {
-    alert('No se pudo publicar: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = orig;
   }
+});
+function publishPage(){
+  publisher.start(async cancelled => {
+    const pkg = await currentPackage({complete:true, cancelled});
+    if (cancelled()) return;
+    const v = pkg.manifest.variants[0], f = pkg.manifest.frames[0];
+    const ext = pkg.images[v.id+'_'+f].slice(0,40).match(/^data:image\/([^;]+)/)[1].replace('jpeg','jpg');
+    return {url:PUBLISH_URL, headers:{'content-type':'application/json'},
+      body:new Blob([JSON.stringify(pkg)], {type:'application/json'}),
+      meta:{title:pkg.manifest.title || 'Comparación', image:'img/'+v.id+'_'+f+'.'+ext}};
+  });
+  $('publishUpload').scrollIntoView({block:'nearest'});
 }
-$('btnPublish').addEventListener('click', e => publishPage(e.target));
-$('btnPublish2').addEventListener('click', e => publishPage(e.target));
+$('btnPublish').addEventListener('click', publishPage);
+$('btnPublish2').addEventListener('click', publishPage);
 $('pubClose').addEventListener('click', () => { $('pubFrame').style.display = 'none'; });
 $('pubOpen').addEventListener('click', () => { window.open($('pubUrl').value, '_blank'); });
 $('pubReceipt').addEventListener('click', () => {
@@ -1127,6 +1185,7 @@ $('btnExpZip').addEventListener('click', () => runAction(async () => {
   const entries = [
     {name:'index.html', data: strBytes(SHELL_HTML)},
     {name:'compare.js', data: strBytes(ENGINE_SRC)},
+    {name:'upload.js', data: strBytes(UPLOAD_SRC)},
     {name:'manifest.json', data: strBytes(JSON.stringify(pkg.manifest, null, 2))},
   ];
   for (const [key, du] of Object.entries(pkg.images)){

@@ -43,6 +43,12 @@
   .err{color:var(--err); font-size:12px;}
   .okline{color:var(--ok); font-size:12px;}
   #builderStatus:not(:empty){padding:10px 12px; margin-bottom:14px; border:1px solid var(--err); border-radius:8px; color:var(--text);}
+  .upload-status{padding:12px; margin-bottom:14px; background:var(--panel); border:1px solid #363642; border-radius:8px;}
+  .upload-status progress{width:100%; height:14px; accent-color:var(--accent);}
+  .upload-status p{font-size:13px; margin:6px 0;}
+  #vidResults li{padding:4px 0; overflow-wrap:anywhere;}
+  #vidResults [data-status="error"]{color:#ff8b8b;}
+  #vidResults [data-status="ok"]{color:var(--ok);}
   .stepbody{flex:1; min-width:0;}
   .stepbody h2{font-size:20px; margin-bottom:6px;}
   .sub{color:var(--dim); margin-bottom:16px; max-width:72ch;}
@@ -237,6 +243,12 @@
 
 <main>
   <div id="builderStatus" role="alert"></div>
+  <div id="publishUpload" class="upload-status" hidden>
+    <progress id="publishProgress" max="1" value="0" aria-label="Progreso de la publicación"></progress>
+    <p id="publishStatus" role="status" aria-live="polite"></p>
+    <button id="publishCancel" hidden>Cancelar envío</button>
+    <button id="publishRetry" hidden>Reintentar el mismo paquete</button>
+  </div>
   <!-- ======================= BÁSICO ======================= -->
   <section id="basicView">
     <h2 style="font-size:20px;">Compara dos imágenes</h2>
@@ -258,7 +270,7 @@
     <h2 style="font-size:16px;">De videos a comparación</h2>
     <p class="hint" style="margin:4px 0 14px;">
       Suelta el máster y los encodes. Marcas momentos en la línea de tiempo y la
-      herramienta captura cada video en esos tiempos. Revisa que las capturas correspondan al mismo momento.
+      herramienta hace una captura en el instante pedido de cada video. Revisa que las capturas correspondan al mismo momento.
     </p>
     <div class="drop" id="vidDrop" role="button" tabindex="0" aria-label="Elegir videos">
       <div class="big">Suelta los videos aquí</div>
@@ -287,7 +299,8 @@
         <button id="vidGo" class="primary">Capturar todo</button>
       </div>
       <div id="vidMarks" style="margin-top:10px;"></div>
-      <div id="vidProg" class="okline" style="margin-top:8px; min-height:16px;"></div>
+      <div id="vidProg" class="okline" role="status" aria-live="polite" style="margin-top:8px; min-height:16px;"></div>
+      <ul id="vidResults" aria-label="Resultado por marca y variante" style="max-height:240px;overflow:auto;padding-left:20px;font-size:12px;"></ul>
       <div class="hint" style="margin-top:8px;">
         La captura depende del decodificador y de la conversión de color del navegador.
         Para evaluar HDR o sincronía exacta entre frames, usa capturas de tu propio proceso de extracción.
@@ -444,6 +457,7 @@
 
 <!-- generado por tools/build_app.py: SHELL_HTML + ENGINE_SRC como cadenas -->
 <script src="assets.js"></script>
+<script src="../viewer/upload.js"></script>
 <script src="s2.js"></script>
 <script src="builder.js"></script>
 </body>

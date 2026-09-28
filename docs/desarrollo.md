@@ -10,6 +10,7 @@ sabes leer JS, sabes leer todo el producto.
 viewer/            EL MOTOR — lo que ve quien abre una comparación
   index.html       shell: layout, estilos, SVG de la curva solar
   compare.js       DataSource (Embedded/Http), divisor, diff, recortes, S2 visible
+  upload.js        progreso XHR, cancelación y reintento manual de subidas explícitas
 app/               EL CREADOR — lo que usa quien arma la comparación
   index.html       markup + estilos del creador
   builder.js       estados, tres modos, exportaciones, zip STORE+CRC32
@@ -94,6 +95,17 @@ La prueba abre `dist/gatos.html` desde `file://` y usa un servicio temporal en
 Comprueba importación, exportaciones, permisos de la imagen compartida, estado
 de URL, diff, captura PNG con zoom, marca sin solapamientos y tamaños de pantalla
 de 320 a 1920 px. La suite del servicio se ejecuta con `node test/e2e.mjs`.
+
+`tools/review_round2.cjs` prueba el modo ciego, la ayuda, la importación en lote,
+los resultados de captura por marca y las subidas con conexión limitada,
+cancelación y errores. Usa un servidor de prueba en un puerto local libre;
+`GATOS_REVIEW2_OUT` elige dónde guardar los resultados.
+
+`tools/profile_browser.cjs` genera 60 frames × 6 variantes de PNG sintéticos
+de 320×180 y mide importación, matriz, paquete, HTML y vista previa sin red.
+`GATOS_PROFILE_HTML` permite elegir otro archivo del creador para comparar
+versiones; `GATOS_PROFILE_OUT` elige el JSON de resultados. Ambos scripts usan
+Playwright solo en desarrollo y aceptan `GATOS_PLAYWRIGHT_MODULE`.
 
 Cualquier cosa que entre debe: no usar red, no añadir dependencias, seguir en
 es-LA, y venir con la prueba de que sigue funcionando desde `file://`.

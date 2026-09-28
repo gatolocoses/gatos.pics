@@ -5,7 +5,7 @@ Fuentes de verdad: viewer/index.html + viewer/compare.js (el motor) y
 app/index.html + app/builder.js (el creador).
 
 Salidas:
-  app/assets.js   — SHELL_HTML + ENGINE_SRC como cadenas JS (el creador las
+  app/assets.js   — SHELL_HTML + ENGINE_SRC + UPLOAD_SRC como cadenas JS (el creador las
                     necesita para generar vista previa y exportaciones sin
                     fetch, que no funciona en file://)
   dist/gatos.html — el creador completo en UN solo archivo (para compartir
@@ -28,12 +28,14 @@ def js_str(s: str) -> str:
 def build():
     shell = (VIEWER / "index.html").read_text(encoding="utf-8")
     engine = (VIEWER / "compare.js").read_text(encoding="utf-8")
+    upload = (VIEWER / "upload.js").read_text(encoding="utf-8")
 
     assets = (
         "/* Generado por tools/build_app.py — no editar a mano.\n"
-        "   SHELL_HTML: viewer/index.html · ENGINE_SRC: viewer/compare.js */\n"
+        "   SHELL_HTML: viewer/index.html · ENGINE_SRC: viewer/compare.js · UPLOAD_SRC: viewer/upload.js */\n"
         f"const SHELL_HTML = {js_str(shell)};\n\n"
         f"const ENGINE_SRC = {js_str(engine)};\n"
+        f"const UPLOAD_SRC = {js_str(upload)};\n"
     )
     (APP / "assets.js").write_text(assets, encoding="utf-8")
 
@@ -42,12 +44,13 @@ def build():
     builder_js = (APP / "builder.js").read_text(encoding="utf-8")
     s2_js = (APP / "s2.js").read_text(encoding="utf-8")
     tags = ('<script src="assets.js"></script>\n'
+            '<script src="../viewer/upload.js"></script>\n'
             '<script src="s2.js"></script>\n'
             '<script src="builder.js"></script>')
     assert tags in idx, "no se encontraron las etiquetas <script> esperadas en app/index.html"
     single = idx.replace(
         tags,
-        "<script>\n" + assets + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + builder_js + "</script>",
+        "<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + builder_js + "</script>",
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 

@@ -140,7 +140,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       });
       return {height:b.height,width:b.width,overlap,overflow:document.documentElement.scrollWidth>innerWidth};
     });
-    ok('brand fits without overlap at '+width,geometry,{height:22,width:92,overlap:false,overflow:false});
+    ok('brand fits without overlap at '+width,geometry,{height:16,width:72,overlap:false,overflow:false});
     if([390,1440].includes(width))await page.screenshot({path:path.join(OUT,'viewer-'+width+'.png')});
   }
   await page.setViewportSize({width:1000,height:1000});
