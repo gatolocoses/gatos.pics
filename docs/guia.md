@@ -51,8 +51,7 @@ De los archivos de video a la comparación, sin capturar nada a mano.
 2. Reproduce el máster, pausa donde quieras comparar, y dale **Marcar aquí**.
    Repite para cada momento — cada marca es un chip que puedes re-visitar con
    un clic o quitar con su ×.
-3. Elige formato: **PNG** (sin pérdida — el correcto si hay grano) o JPEG 92.
-4. **Capturar todo**: la herramienta hace una captura en el instante pedido
+3. 4. **Capturar todo**: la herramienta hace una captura en el instante pedido
    de cada video. No garantiza que dos archivos estén alineados por frame.
    Cada marca muestra la variante y su resultado; las fallas incluyen el motivo.
    Al terminar, "Seguir en Avanzado" te deja revisar las

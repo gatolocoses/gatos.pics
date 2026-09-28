@@ -1333,7 +1333,7 @@ function canvasToBlob(c, fmt){
 $('vidGo').addEventListener('click', async () => {
   if (!vidState.files.length){ $('vidProg').textContent = 'primero suelta los videos'; return; }
   if (!vidState.marks.length){ $('vidProg').textContent = 'primero marca al menos un momento'; return; }
-  const fmt = $('vidFmt').value;
+  const fmt = 'png';   // evidencia sin pérdida, siempre
   syncVideoToAdvanced();
   const files = [...vidState.files], variants = [...state.variants];
   const marks = [...new Set(vidState.marks)].map(t => ({t,key:'t'+String(t).replace('.','_')}));
