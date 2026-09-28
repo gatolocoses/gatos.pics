@@ -245,6 +245,11 @@
       <span id="shareHint" style="font-size:11px; color:var(--ok); font-weight:400;"></span>
       <button id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>
     </h2>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap;">
+      <span style="font-size:11px; color:var(--dim);">vista previa:</span>
+      <select id="shareFrame" style="background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:4px 6px; font-size:12px;"></select>
+      <select id="shareVariant" style="background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:4px 6px; font-size:12px;"></select>
+    </div>
     <div id="shareRows"></div>
   </div>
 </div>
@@ -980,8 +985,17 @@ window.addEventListener('keydown', e => {
 /* ---------- compartir: link, BBCode, Markdown, HTML ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
 function openShare(){
+  const fs = $('shareFrame'), vs = $('shareVariant');
+  fs.innerHTML = FRAMES.map(f => `<option value="${f}">${escq(FRAME_LABELS[f] || f + 's')}</option>`).join('');
+  vs.innerHTML = VARIANTS.map(v => `<option value="${v.id}">${escq(variantName(v.id))}</option>`).join('');
+  fs.value = String(frame); vs.value = varA;
+  fs.onchange = vs.onchange = () => shareRowsRender(+fs.value || fs.value, vs.value);
+  shareRowsRender(frame, varA);
+}
+function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function shareRowsRender(f, v){
   const url = location.href.split('#')[0];
-  const abs = new URL(srcFor(varA, frame), location.href).href.split('?')[0];
+  const abs = new URL(srcFor(v, f), location.href).href.split('?')[0];
   const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
   const rows = [
     ['Link', url],

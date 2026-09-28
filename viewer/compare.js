@@ -728,8 +728,17 @@ window.addEventListener('keydown', e => {
 /* ---------- compartir: link, BBCode, Markdown, HTML ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
 function openShare(){
+  const fs = $('shareFrame'), vs = $('shareVariant');
+  fs.innerHTML = FRAMES.map(f => `<option value="${f}">${escq(FRAME_LABELS[f] || f + 's')}</option>`).join('');
+  vs.innerHTML = VARIANTS.map(v => `<option value="${v.id}">${escq(variantName(v.id))}</option>`).join('');
+  fs.value = String(frame); vs.value = varA;
+  fs.onchange = vs.onchange = () => shareRowsRender(+fs.value || fs.value, vs.value);
+  shareRowsRender(frame, varA);
+}
+function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function shareRowsRender(f, v){
   const url = location.href.split('#')[0];
-  const abs = new URL(srcFor(varA, frame), location.href).href.split('?')[0];
+  const abs = new URL(srcFor(v, f), location.href).href.split('?')[0];
   const title = (document.title || 'Comparación').replace(/"/g, '&quot;');
   const rows = [
     ['Link', url],
