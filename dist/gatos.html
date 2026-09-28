@@ -200,6 +200,7 @@
   </nav>
   <span class="spacer"></span>
   <button id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
+  <button id="btnPublish" class="primary" title="Subir la comparación a gatos.pics y obtener un link">Publicar</button>
   <button id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
   <button id="btnHelp">?</button>
   <button id="btnPreviewTop" class="primary">Vista previa</button>
@@ -350,8 +351,13 @@
             </div>
             <div class="exp">
               <b>Paquete .cmp</b>
-              <span class="hint">el formato de gatos.pics — súbelo directo al servicio cuando lo abras al público.</span>
+              <span class="hint">el formato de gatos.pics — para guardar o subir por tu cuenta.</span>
               <button id="btnExpCmp">Descargar .cmp</button>
+            </div>
+            <div class="exp">
+              <b>Publicar en gatos.pics</b>
+              <span class="hint">sube la página tal cual y te da el link para compartir. Se puede borrar con la llave que entrega.</span>
+              <button id="btnPublish2" class="primary">Publicar y obtener link</button>
             </div>
           </div>
         </div>
@@ -365,6 +371,27 @@
   <span>gatos.pics — local, sin subidas. Todo pasa en esta pestaña.</span>
   <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo</span>
 </footer>
+
+<!-- resultado de publicacion -->
+<div id="pubFrame" style="position:fixed; inset:0; background:#000a; z-index:45; display:none; align-items:center; justify-content:center; padding:20px;">
+  <div class="card" id="pubCard" style="max-width:560px; width:100%;">
+    <h2 style="font-size:16px; margin-bottom:6px;">Publicado</h2>
+    <p class="hint" style="margin-bottom:12px;">guarda estos datos — la llave de borrado no se muestra otra vez.</p>
+    <label class="f">Link para compartir</label>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="pubUrl" readonly>
+      <button id="pubCopy" style="flex:0 0 auto;">Copiar</button>
+    </div>
+    <label class="f">Llave de borrado</label>
+    <input type="text" id="pubKey" readonly class="mono">
+    <label class="f">Borrar más tarde</label>
+    <p class="hint mono" id="pubDel" style="word-break:break-all;"></p>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button id="pubOpen" class="primary">Abrir la página</button>
+      <button id="pubClose">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <!-- vista previa -->
 <div id="pvFrame">
@@ -1667,6 +1694,46 @@ $('btnExpHtml').addEventListener('click', async () => {
 $('btnExpCmp').addEventListener('click', async () => {
   const pkg = await currentPackage();
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
+});
+
+/* ---------- publicar en gatos.pics ---------- */
+const PUBLISH_URL = 'https://gatos.pics/api/upload';
+async function publishPage(btn, label){
+  const orig = label || btn.textContent;
+  btn.disabled = true; btn.textContent = 'Publicando…';
+  try {
+    const pkg = await currentPackage();
+    const r = await fetch(PUBLISH_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(pkg),
+    });
+    let j = null;
+    try { j = await r.json(); } catch(e){}
+    if (!r.ok){
+      const msg = (j && j.error) ? j.error : ('HTTP ' + r.status);
+      throw new Error(r.status === 429 ? 'demasiadas publicaciones desde tu IP — espera un rato' : msg);
+    }
+    $('pubUrl').value = j.url;
+    $('pubKey').value = j.delete_key;
+    $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
+    $('pubFrame').style.display = 'flex';
+  } catch (e) {
+    alert('No se pudo publicar: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+$('btnPublish').addEventListener('click', e => publishPage(e.target));
+$('btnPublish2').addEventListener('click', e => publishPage(e.target));
+$('pubClose').addEventListener('click', () => { $('pubFrame').style.display = 'none'; });
+$('pubOpen').addEventListener('click', () => { window.open($('pubUrl').value, '_blank'); });
+$('pubCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('pubUrl').value);
+    $('pubCopy').textContent = '✓';
+    setTimeout(() => { $('pubCopy').textContent = 'Copiar'; }, 1200);
+  } catch(e){}
 });
 
 /* guardar / abrir proyecto (.cmp) */

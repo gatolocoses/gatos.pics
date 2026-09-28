@@ -973,6 +973,46 @@ $('btnExpCmp').addEventListener('click', async () => {
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
 });
 
+/* ---------- publicar en gatos.pics ---------- */
+const PUBLISH_URL = 'https://gatos.pics/api/upload';
+async function publishPage(btn, label){
+  const orig = label || btn.textContent;
+  btn.disabled = true; btn.textContent = 'Publicando…';
+  try {
+    const pkg = await currentPackage();
+    const r = await fetch(PUBLISH_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(pkg),
+    });
+    let j = null;
+    try { j = await r.json(); } catch(e){}
+    if (!r.ok){
+      const msg = (j && j.error) ? j.error : ('HTTP ' + r.status);
+      throw new Error(r.status === 429 ? 'demasiadas publicaciones desde tu IP — espera un rato' : msg);
+    }
+    $('pubUrl').value = j.url;
+    $('pubKey').value = j.delete_key;
+    $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
+    $('pubFrame').style.display = 'flex';
+  } catch (e) {
+    alert('No se pudo publicar: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+$('btnPublish').addEventListener('click', e => publishPage(e.target));
+$('btnPublish2').addEventListener('click', e => publishPage(e.target));
+$('pubClose').addEventListener('click', () => { $('pubFrame').style.display = 'none'; });
+$('pubOpen').addEventListener('click', () => { window.open($('pubUrl').value, '_blank'); });
+$('pubCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('pubUrl').value);
+    $('pubCopy').textContent = '✓';
+    setTimeout(() => { $('pubCopy').textContent = 'Copiar'; }, 1200);
+  } catch(e){}
+});
+
 /* guardar / abrir proyecto (.cmp) */
 async function saveProject(){
   const pkg = await currentPackage();
