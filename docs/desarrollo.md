@@ -1,0 +1,85 @@
+# Desarrollo
+
+gatos.pics es a propósito un proyecto aburrido de construir: HTML, CSS y JS
+planos, sin framework, sin gestor de paquetes, sin paso de build en uso. Si
+sabes leer JS, sabes leer todo el producto.
+
+## Estructura
+
+```
+viewer/            EL MOTOR — lo que ve quien abre una comparación
+  index.html       shell: layout, estilos, SVG de la curva solar
+  compare.js       DataSource (Embedded/Http), divisor, diff, recortes, S2 visible
+app/               EL CREADOR — lo que usa quien arma la comparación
+  index.html       markup + estilos del creador
+  builder.js       estados, tres modos, exportaciones, zip STORE+CRC32
+  s2.js            SSIMULACRA2 en JS puro (puerto validado bit-exacto)
+  assets.js        GENERADO — no editar a mano
+tools/
+  build_app.py     inyecta viewer/* en app/assets.js y arma dist/gatos.html
+  make_demo.py     regenera demo/demo.cmp y demo/demo.html (sintético)
+  build_standalone.py  empaqueta un .cmp dentro del shell del visor
+dist/
+  gatos.html       el creador completo en un solo archivo (artefacto público)
+demo/              demo sintética; S2 real si existe GATOS_S2_PYTHON
+docs/              guía, formato .cmp, este archivo
+```
+
+## Ley de la fuente única
+
+`viewer/` es el motor canónico. `app/assets.js` (que contiene el shell y el
+motor como cadenas JS, porque `fetch` no funciona en `file://` y el creador
+necesita generar la vista previa y los exports sin red) y `dist/gatos.html`
+se **generan**. Después de tocar cualquier cosa:
+
+```sh
+python3 tools/build_app.py        # app/assets.js + dist/gatos.html
+python3 tools/make_demo.py        # opcional: regenerar la demo
+python3 tools/build_standalone.py # opcional: demo.html
+```
+
+Los tres corren con Python 3 puro, sin dependencias.
+
+## Contratos que no se deben romper
+
+- **`.cmp` = `gatos.pics/cmp@1`** — manifiesto + imágenes (`docs/formato-cmp.md`).
+  Es el formato que el servicio hospedado va a aceptar como subida; cambios
+  incompatibles suben el sufijo.
+- **`per_frame` con objetos** — los valores de `metrics.per_frame` son objetos
+  (`{"ssimulacra2": 67.0}`), no números sueltos; el visor y el kit histórico
+  lo esperan así.
+- **Nada de red, nunca** — el producto promete cero llamadas. Ni CDN, ni
+  fuentes remotas, ni telemetría. Si un cambio necesita internet, está mal.
+- **`file://` primero** — todo lo que entre al creador debe funcionar abierto
+  con doble clic, sin servidor.
+- **UI en español latino** — el producto habla es-LA; nada de tuteo cruzado ni
+  términos de España (`ordenador`, `fichero`, `vosotros`).
+
+## El puerto de SSIMULACRA2
+
+`app/s2.js` es un puerto fiel del paquete `ssimulacra2` de PyPI. Dos trampas
+que ya costaron sudor y quedaron documentadas en el código:
+
+1. Los arreglos XYB del paquete van **transpuestos** (W,H,C): su cero-pad
+   "vertical" cae en los bordes izquierdo/derecho y su reflexión en
+   superior/inferior. El blur del puerto es: horizontal con cero-padding,
+   vertical con reflexión de borde incluido (`f(-1) = f(0)`).
+2. El vector de 108 pesos se copia de la fuente, nunca a mano.
+
+Validación: contra el paquete PyPI sobre los mismos PNG, el puntaje coincide a
+4 decimales. Si tocas `s2.js`, revalida — el caso de prueba del repo es la demo
+(`make_demo.py` recalcula sus S2 si exportas `GATOS_S2_PYTHON=/ruta/al/python`
+con el paquete instalado; sin la variable, la demo se regenera sin métricas).
+
+## Cómo se prueba
+
+A mano y de verdad: abrir `dist/gatos.html` desde `file://`, pasar el flujo
+completo (soltar archivos → vista previa → tres exportaciones), y abrir el
+export. El zip se valida con `python3 -m zipfile -t`. Regresiones conocidas:
+el manifiesto de la carpeta necesita `ext` por variante (si no, el visor
+hospedado busca `.webp` y da 404).
+
+## Contribuir
+
+Cualquier cosa que entre debe: no usar red, no añadir dependencias, seguir en
+es-LA, y venir con la prueba de que sigue funcionando desde `file://`.
