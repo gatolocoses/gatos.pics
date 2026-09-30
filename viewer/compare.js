@@ -811,7 +811,11 @@ document.addEventListener('click', e => {
   if (act && act.dataset.act === 'close'){ hideTip(); return; }
   if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
+// Escape pertenece al modal abierto (compartir/reportar): no cierra a la vez
+// el tooltip de comandos fijado detras del overlay
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sharePanel.style.display !== 'flex' && reportPanel.style.display !== 'flex') hideTip();
+});
 function refreshFrameButtons(){
   makeButtons('frames', FRAMES.map((f,i)=>({id:f, label: blindMode ? 'Frame '+(i+1) : FRAME_LABELS[f] || String(f)})), frame, f => { frame = f; loadImg(); });
 }
@@ -862,6 +866,11 @@ helpDialog.addEventListener('close', () => $('helpBtn').focus());
 
 window.addEventListener('keydown', e => {
   const t = e.target;
+  // reportar es un modal: bloquea los atajos y Escape lo cierra (ops#5)
+  if (reportPanel.style.display === 'flex'){
+    if (e.key === 'Escape') closeReport();
+    return;
+  }
   if (helpDialog.open){
     if (e.key === 'Escape'){ e.preventDefault(); helpDialog.close(); }
     return;
@@ -911,6 +920,7 @@ window.addEventListener('keydown', e => {
 
 /* ---------- compartir: imagen PNG sin pérdida de la vista actual ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
+const reportPanel = $('reportPanel');
 let shareBlobUrl = null, shareName = 'gatos.pics.png';
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
@@ -1184,13 +1194,16 @@ async function openShare(){
 }
 $('shareBtn').addEventListener('click', openShare);
 /* ---------- reporte de pagina (solo paginas /p/) ---------- */
+function closeReport(){
+  if (reportPanel.style.display === 'flex'){ reportPanel.style.display = 'none'; $('reportBtn').focus(); }
+}
 {
   const rm = location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/);
-  const rBtn = $('reportBtn'), rPanel = $('reportPanel');
+  const rBtn = $('reportBtn');
   if (rm){
     rBtn.style.display = '';
-    rBtn.onclick = () => { rPanel.style.display = 'flex'; };
-    $('reportClose').onclick = () => { rPanel.style.display = 'none'; };
+    rBtn.onclick = () => { reportPanel.style.display = 'flex'; $('reportReason').focus(); };
+    $('reportClose').onclick = closeReport;
     $('reportSend').onclick = async () => {
       const send = $('reportSend');
       send.disabled = true; send.textContent = 'Enviando…';
@@ -1202,7 +1215,7 @@ $('shareBtn').addEventListener('click', openShare);
         });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         $('reportStatus').textContent = 'Reporte enviado. Gracias.';
-        setTimeout(() => { rPanel.style.display = 'none'; $('reportStatus').textContent = ''; }, 1400);
+        setTimeout(() => { closeReport(); $('reportStatus').textContent = ''; }, 1400);
       } catch (e) {
         $('reportStatus').textContent = 'No se pudo enviar: ' + e.message;
       } finally {
@@ -1210,7 +1223,7 @@ $('shareBtn').addEventListener('click', openShare);
       }
     };
     for (const ev of ['pointerdown','mousedown','touchstart'])
-      rPanel.addEventListener(ev, e => e.stopPropagation());
+      reportPanel.addEventListener(ev, e => e.stopPropagation());
   }
 }
 $('shareClose').addEventListener('click', closeShareIfOpen);
