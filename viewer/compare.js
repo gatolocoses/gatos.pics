@@ -476,6 +476,23 @@ document.querySelectorAll('#solarCurve feFuncR, #solarCurve feFuncG, #solarCurve
   const values = el.getAttribute('tableValues').trim().split(/\s+/).map(Number);
   el.setAttribute('tableValues', values.map(v => v/255).join(' '));
 });
+// Safari nunca implemento CanvasRenderingContext2D.filter: la asignacion se
+// ignora en silencio y el PNG compartido salia sin curva. Deteccion de feature
+// + LUT de 256 entradas desde la misma tabla normalizada (ops#4).
+const CTX_FILTER_OK = (() => {
+  try { return typeof document.createElement('canvas').getContext('2d').filter === 'string'; } catch(e){ return false; }
+})();
+const SOLAR_LUT = (() => {
+  const el = document.querySelector('#solarCurve feFuncR');
+  const v = el ? el.getAttribute('tableValues').trim().split(/\s+/).map(Number) : [];
+  const lut = new Uint8Array(256);
+  for (let i=0;i<256;i++){
+    if (v.length < 2){ lut[i] = i; continue; }   // sin tabla: identidad
+    const t = i/255*(v.length-1), j = Math.min(v.length-2, Math.floor(t)), f = t-j;
+    lut[i] = Math.round(255*(v[j]*(1-f) + v[j+1]*f));
+  }
+  return lut;
+})();
 function setSolar(on){
   solarMode = on;
   solarBtn.classList.toggle('solar-on', on);
@@ -923,6 +940,19 @@ function drawBrand(ctx, x, y){
   ctx.restore();
 }
 
+// curva solar aplicada píxel a píxel en una copia offscreen (motores sin
+// ctx.filter: el PNG debe mostrar lo mismo que la pantalla)
+function solarizedCopy(img){
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const cx = c.getContext('2d', {willReadFrequently:true});
+  cx.drawImage(img, 0, 0);
+  const id = cx.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i=0;i<d.length;i+=4){ d[i]=SOLAR_LUT[d[i]]; d[i+1]=SOLAR_LUT[d[i+1]]; d[i+2]=SOLAR_LUT[d[i+2]]; }
+  cx.putImageData(id, 0, 0);
+  return c;
+}
+
 function renderViewCanvas(){
   if (loadFailA || loadFailB) throw new Error('No se puede compartir: una imagen no carg\u00f3.');
   // autoridad de URL asentada (misma clase de carrera que el diff): complete
@@ -950,7 +980,10 @@ function renderViewCanvas(){
   x.imageSmoothingEnabled = smoothScale;
   const drawImg = (img) => {
     x.save();
-    if (solarMode && img !== diffCanvas) x.filter = 'url(#solarCurve)';
+    if (solarMode && img !== diffCanvas){
+      if (CTX_FILTER_OK) x.filter = 'url(#solarCurve)';
+      else img = solarizedCopy(img);   // Safari: LUT sobre copia offscreen
+    }
     // CSS left/top are outside the transform. Scaling them shifts the export.
     x.drawImage(img, ox + pan.x, oy + pan.y, rw * zoom, rh * zoom);
     x.restore();
