@@ -518,6 +518,16 @@ function pickCrop(cx, cy){
   openCropPanel();
   writeHash();
 }
+// teclado (gatolocoses/gatos.pics#10): sin puntero no había forma de elegir
+// punto; las flechas siembran el centro y luego lo mueven en px nativos
+// (Shift = pasos de 10). writeHash conserva el punto en el enlace compartido.
+function moveCrop(dx, dy){
+  const {nw, nh} = naturalDims();
+  if (!cropUV) cropUV = {u: Math.round(nw/2), v: Math.round(nh/2)};
+  cropUV = {u: clamp(cropUV.u+dx, 0, nw), v: clamp(cropUV.v+dy, 0, nh)};
+  openCropPanel();
+  writeHash();
+}
 function cropImg(id){
   const url = srcFor(id, frame);
   let im = cropImgs.get(id);
@@ -546,6 +556,7 @@ function drawCropRow(id, canvas){
   ctx.drawImage(im, sx, sy, sw, sh, Math.floor((canvas.width-sw)/2), Math.floor((canvas.height-sh)/2), sw, sh);
 }
 function openCropPanel(){
+  const wasHidden = cropPanel.style.display !== 'block';
   cropPanel.style.display = 'block';
   cropHint.style.display = 'none';
   const d = dpr();
@@ -566,11 +577,15 @@ function openCropPanel(){
     cropRows.appendChild(row);
     drawCropRow(v.id, canvas);
   });
+  // el panel entra al orden de foco al abrirse (no en repintados del mismo
+  // panel): sin esto, un usuario de teclado quedaba fuera del diálogo
+  if (wasHidden) $('cropClose').focus();
 }
 function closeCrop(){
   cropPanel.style.display = 'none';
   cropUV = null;
   if (cropMode) cropHint.style.display = 'block';
+  else cropBtn.focus();   // retorno de foco al botón que abre el modo (gatolocoses/gatos.pics#10)
   writeHash();
 }
 function setCropMode(on){
@@ -890,7 +905,14 @@ window.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeShareIfOpen();
     return;
   }
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+  const CROP_ARROWS = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+  if (CROP_ARROWS[e.key] && (cropMode || cropUV)){
+    // con el modo recortes activo las flechas son del punto (gatolocoses/gatos.pics#10):
+    // siembran el centro si aún no hay punto; para cambiar frame, cierra el modo (C o Esc)
+    e.preventDefault();
+    const s = e.shiftKey ? 10 : 1;
+    moveCrop(CROP_ARROWS[e.key][0]*s, CROP_ARROWS[e.key][1]*s);
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
     e.preventDefault();
     const i = FRAMES.indexOf(frame);
     const ni = e.key === 'ArrowRight' ? i+1 : i-1;
