@@ -95,7 +95,8 @@ let diffData = null;                // cached abs-diff planes for current pair
 // La autoridad es la URL que cada lado TERMINO de cargar (la registra su
 // handler de load); el diff solo se calcula cuando ambos lados coinciden
 // con la URL actual del par.
-let loadedUrlA = null, loadedUrlB = null;
+let loadedUrlA = null, loadedUrlB = null;   // URLs que cada lado termino de cargar (A: imgA, B: realB)
+let loadedUrlPaneB = null;                 // imgB carga sola fuera de diff: asentamiento propio (ops#24)
 // Fallo de carga del par actual (ops#2): el panel afectado se vacia con
 // estado de error visible y las etiquetas revierten al par asentado.
 let loadFailA = false, loadFailB = false;
@@ -383,7 +384,7 @@ function setSmooth(on){
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
 imgB.addEventListener('load', () => {
-  loadFailB = false; imgB.style.visibility = ''; shownB = varB;
+  loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = ''; shownB = varB;
   if (!diffMode) diffNote.style.display = 'none';
   updateBadge();
 });
@@ -921,7 +922,11 @@ function drawBrand(ctx, x, y){
 
 function renderViewCanvas(){
   if (loadFailA || loadFailB) throw new Error('No se puede compartir: una imagen no carg\u00f3.');
-  if (!imgA.complete || !imgA.naturalWidth || !imgB.complete || !imgB.naturalWidth)
+  // autoridad de URL asentada (misma clase de carrera que el diff): complete
+  // puede seguir en true con pixeles de la generacion anterior; el PNG exige
+  // el par actual asentado en ambos lados (en diff realB es la autoridad)
+  const bSettled = diffMode ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
+  if (loadedUrlA !== imgA.src || !bSettled || !imgA.naturalWidth || !imgB.naturalWidth)
     throw new Error('Espera a que terminen de cargar las dos imágenes.');
   if (diffMode && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
   const comp2 = $('comp');
