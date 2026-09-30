@@ -1296,8 +1296,23 @@ async function importCmp(file){
       const {mime, buf} = dataURLtoBytes(du);
       return new File([buf], key.replace(/[\\/:*?"<>|]/g,'_')+'.'+mime.split('/')[1], {type:mime});
     };
+      // metricas de archivo externo: el visor las lee asumiendo tipos; un
+      // ssimulacra2 no-numerico tumba TODO el export (pf.ssimulacra2.toFixed)
+      const cleanMetrics = (m) => {
+        if (!m || typeof m !== 'object') return undefined;
+        const out = {};
+        if (typeof m.ssimulacra2 === 'number' && isFinite(m.ssimulacra2)) out.ssimulacra2 = m.ssimulacra2;
+        if (typeof m.custom_note === 'string') out.custom_note = m.custom_note.slice(0,60);
+        if (m.per_frame && typeof m.per_frame === 'object'){
+          out.per_frame = {};
+          for (const [fk, pm] of Object.entries(m.per_frame))
+            if (pm && typeof pm === 'object' && typeof pm.ssimulacra2 === 'number' && isFinite(pm.ssimulacra2))
+              out.per_frame[fk] = {ssimulacra2: pm.ssimulacra2};
+        }
+        return Object.keys(out).length ? out : undefined;
+      };
       const variants = pkg.manifest.variants.map(v => ({
-        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', metric: (v.metrics && v.metrics.custom_note) || '', color: /^#[0-9a-f]{6}$/i.test(v.color) ? v.color : '#7bd389', source:{...v},
+        id: v.id, name: v.name||'', codec:'', crf:'', bitrate:'', note: v.note||'', cmd: v.cmd||'', metric: (typeof (v.metrics&&v.metrics.custom_note) === 'string' ? v.metrics.custom_note : ''), color: /^#[0-9a-f]{6}$/i.test(v.color) ? v.color : '#7bd389', source: cleanMetrics(v.metrics) ? {...v, metrics: cleanMetrics(v.metrics)} : {...v, metrics: undefined},
       }));
       const frames = pkg.manifest.frames.map(f => ({key:String(f), label:(pkg.manifest.frame_labels||{})[String(f)]||''}));
       const cells = new Map();
