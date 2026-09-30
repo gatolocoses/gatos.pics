@@ -495,8 +495,11 @@ function makeHttpSource(){
   return {
     async init(){
       const r = await fetch('manifest.json?t='+Date.now(), {cache:'no-store'});
-      const m = await r.json();
-      VERSION = String(m.version || '');
+      if (!r.ok) throw new Error('manifest.json HTTP '+r.status);
+      let m;
+      try { m = await r.json(); }
+      catch(e){ throw Object.assign(new Error('manifest inv\u00e1lido: JSON truncado o malformado'), {manifestInvalid:true}); }
+      VERSION = String(m?.version || '');
       return m;
     },
     srcFor(id, f){
@@ -553,7 +556,12 @@ let diffData = null;                // cached abs-diff planes for current pair
 // La autoridad es la URL que cada lado TERMINO de cargar (la registra su
 // handler de load); el diff solo se calcula cuando ambos lados coinciden
 // con la URL actual del par.
-let loadedUrlA = null, loadedUrlB = null;
+let loadedUrlA = null, loadedUrlB = null;   // URLs que cada lado termino de cargar (A: imgA, B: realB)
+let loadedUrlPaneB = null;                 // imgB carga sola fuera de diff: asentamiento propio (ops#24)
+// Fallo de carga del par actual (ops#2): el panel afectado se vacia con
+// estado de error visible y las etiquetas revierten al par asentado.
+let loadFailA = false, loadFailB = false;
+let shownA = null, shownB = null;   // ids del par cuyos pixeles hay en pantalla
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -585,10 +593,14 @@ function zmax(){ return Math.max(1, 8/(fitScale*dpr())); }
 function zmin(){ return Math.min(1, 1/(fitScale*dpr())); }
 function clampPan(){
   const w = comp.clientWidth, h = comp.clientHeight;
-  pan.x = clamp(pan.x, Math.min(0, w-ox-rw*zoom), Math.max(0, -ox));
-  pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));
+  // ramificar por cobertura: si el contenido cubre el eje, sus bordes deben
+  // poder llegar a 0 y al borde contrario (sin franjas muertas); si no cubre,
+  // no hay pan posible y queda centrado por ox/oy (contenido letterbox)
+  if (rw*zoom >= w) pan.x = clamp(pan.x, w-ox-rw*zoom, -ox); else pan.x = 0;
+  if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
 }
 function updateBadge(){
+  if (loadFailA){ zoomBadge.textContent = 'la imagen no carg\u00f3'; return; }
   if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
   zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
@@ -719,6 +731,7 @@ function ensureDiffBase(){
   // pixeles asentados de ESTE par: el complete=true de pixeles previos no
   // prueba nada mientras la URL actual no haya terminado de cargar
   if (loadedUrlA !== keyA || loadedUrlB !== keyB) return null;
+  if (loadFailA || loadFailB) return null;
   if (!imgA.naturalWidth || !realB.naturalWidth) return null;
   const w = imgA.naturalWidth, h = imgA.naturalHeight;
   if (realB.naturalWidth !== w || realB.naturalHeight !== h) return null;
@@ -749,7 +762,9 @@ function renderDiff(){
     const mismatch = loadedUrlA === imgA.src && loadedUrlB === realB.src &&
       imgA.naturalWidth && realB.naturalWidth &&
       (imgA.naturalWidth !== realB.naturalWidth || imgA.naturalHeight !== realB.naturalHeight);
-    diffNote.textContent = mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
+    diffNote.textContent = loadFailA || loadFailB
+      ? 'Diff no disponible: una imagen no carg\u00f3.'
+      : mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
     return;
   }
   diffCanvas.width = d.w; diffCanvas.height = d.h;
@@ -803,7 +818,8 @@ function setHeat(on){
   writeHash();
 }
 imgA.addEventListener('load', () => {
-  loadedUrlA = imgA.src;
+  loadedUrlA = imgA.src; loadFailA = false;
+  imgA.style.visibility = ''; shownA = varA;
   computeFit();
   if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); }
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
@@ -813,7 +829,10 @@ imgA.addEventListener('load', () => {
   }
   applyTransform(); renderDiff(); updateBadge();
 });
-imgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\u00f3'; });
+imgA.addEventListener('error', () => {
+  loadFailA = true; imgA.style.visibility = 'hidden';
+  paintSide('A'); updateBadge(); renderDiff();
+});
 
 /* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
 let smoothScale = true;
@@ -828,8 +847,22 @@ function setSmooth(on){
 }
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
-imgB.addEventListener('load', updateBadge);
-realB.addEventListener('load', () => { loadedUrlB = realB.src; renderDiff(); });
+imgB.addEventListener('load', () => {
+  loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = ''; shownB = varB;
+  if (!diffMode) diffNote.style.display = 'none';
+  updateBadge();
+});
+realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; shownB = varB; renderDiff(); });
+// el lado B no deja pixeles viejos bajo etiquetas nuevas: panel vacio y
+// etiquetas revertidas al par asentado hasta que un load exitoso las avance
+function onBError(){
+  loadFailB = true; imgB.style.visibility = 'hidden';
+  paintSide('B');
+  if (diffMode) renderDiff();
+  else { diffNote.style.display = 'block'; diffNote.textContent = 'la imagen derecha no carg\u00f3'; }
+}
+imgB.addEventListener('error', onBError);
+realB.addEventListener('error', onBError);
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
 $('diffGain').addEventListener('change', () => setGain(Number($('diffGain').value)));
 $('heatBtn').addEventListener('click', () => setHeat(!heat));
@@ -904,6 +937,23 @@ document.querySelectorAll('#solarCurve feFuncR, #solarCurve feFuncG, #solarCurve
   const values = el.getAttribute('tableValues').trim().split(/\s+/).map(Number);
   el.setAttribute('tableValues', values.map(v => v/255).join(' '));
 });
+// Safari nunca implemento CanvasRenderingContext2D.filter: la asignacion se
+// ignora en silencio y el PNG compartido salia sin curva. Deteccion de feature
+// + LUT de 256 entradas desde la misma tabla normalizada (ops#4).
+const CTX_FILTER_OK = (() => {
+  try { return typeof document.createElement('canvas').getContext('2d').filter === 'string'; } catch(e){ return false; }
+})();
+const SOLAR_LUT = (() => {
+  const el = document.querySelector('#solarCurve feFuncR');
+  const v = el ? el.getAttribute('tableValues').trim().split(/\s+/).map(Number) : [];
+  const lut = new Uint8Array(256);
+  for (let i=0;i<256;i++){
+    if (v.length < 2){ lut[i] = i; continue; }   // sin tabla: identidad
+    const t = i/255*(v.length-1), j = Math.min(v.length-2, Math.floor(t)), f = t-j;
+    lut[i] = Math.round(255*(v[j]*(1-f) + v[j+1]*f));
+  }
+  return lut;
+})();
 function setSolar(on){
   solarMode = on;
   solarBtn.classList.toggle('solar-on', on);
@@ -1094,7 +1144,16 @@ function preload(){
     }
   });
 }
+// repinta la etiqueta de un lado desde el par asentado (reversion en error)
+function paintSide(side){
+  const id = side === 'A' ? shownA : shownB;
+  if (id == null) return;   // primer par sin carga exitosa: etiqueta inicial
+  $('label'+side+'Name').textContent = variantName(id);
+  $('stats'+side).textContent = variantStats(id);
+  $('label'+side).style.color = blindMode ? '#e8e8f0' : variant(id).color;
+}
 function loadImg(){
+  loadFailA = loadFailB = false;   // arranca un intento nuevo del par actual
   imgA.src = srcFor(varA, frame);
   if (diffMode){
     realB.src = srcFor(varB, frame);
@@ -1213,7 +1272,11 @@ document.addEventListener('click', e => {
   if (act && act.dataset.act === 'close'){ hideTip(); return; }
   if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
+// Escape pertenece al modal abierto (compartir/reportar): no cierra a la vez
+// el tooltip de comandos fijado detras del overlay
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sharePanel.style.display !== 'flex' && reportPanel.style.display !== 'flex') hideTip();
+});
 function refreshFrameButtons(){
   makeButtons('frames', FRAMES.map((f,i)=>({id:f, label: blindMode ? 'Frame '+(i+1) : FRAME_LABELS[f] || String(f)})), frame, f => { frame = f; loadImg(); });
 }
@@ -1264,6 +1327,11 @@ helpDialog.addEventListener('close', () => $('helpBtn').focus());
 
 window.addEventListener('keydown', e => {
   const t = e.target;
+  // reportar es un modal: bloquea los atajos y Escape lo cierra (ops#5)
+  if (reportPanel.style.display === 'flex'){
+    if (e.key === 'Escape') closeReport();
+    return;
+  }
   if (helpDialog.open){
     if (e.key === 'Escape'){ e.preventDefault(); helpDialog.close(); }
     return;
@@ -1313,6 +1381,7 @@ window.addEventListener('keydown', e => {
 
 /* ---------- compartir: imagen PNG sin pérdida de la vista actual ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
+const reportPanel = $('reportPanel');
 let shareBlobUrl = null, shareName = 'gatos.pics.png';
 function escq(x){ return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
@@ -1342,8 +1411,26 @@ function drawBrand(ctx, x, y){
   ctx.restore();
 }
 
+// curva solar aplicada píxel a píxel en una copia offscreen (motores sin
+// ctx.filter: el PNG debe mostrar lo mismo que la pantalla)
+function solarizedCopy(img){
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const cx = c.getContext('2d', {willReadFrequently:true});
+  cx.drawImage(img, 0, 0);
+  const id = cx.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i=0;i<d.length;i+=4){ d[i]=SOLAR_LUT[d[i]]; d[i+1]=SOLAR_LUT[d[i+1]]; d[i+2]=SOLAR_LUT[d[i+2]]; }
+  cx.putImageData(id, 0, 0);
+  return c;
+}
+
 function renderViewCanvas(){
-  if (!imgA.complete || !imgA.naturalWidth || !imgB.complete || !imgB.naturalWidth)
+  if (loadFailA || loadFailB) throw new Error('No se puede compartir: una imagen no carg\u00f3.');
+  // autoridad de URL asentada (misma clase de carrera que el diff): complete
+  // puede seguir en true con pixeles de la generacion anterior; el PNG exige
+  // el par actual asentado en ambos lados (en diff realB es la autoridad)
+  const bSettled = diffMode ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
+  if (loadedUrlA !== imgA.src || !bSettled || !imgA.naturalWidth || !imgB.naturalWidth)
     throw new Error('Espera a que terminen de cargar las dos imágenes.');
   if (diffMode && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
   const comp2 = $('comp');
@@ -1364,7 +1451,10 @@ function renderViewCanvas(){
   x.imageSmoothingEnabled = smoothScale;
   const drawImg = (img) => {
     x.save();
-    if (solarMode && img !== diffCanvas) x.filter = 'url(#solarCurve)';
+    if (solarMode && img !== diffCanvas){
+      if (CTX_FILTER_OK) x.filter = 'url(#solarCurve)';
+      else img = solarizedCopy(img);   // Safari: LUT sobre copia offscreen
+    }
     // CSS left/top are outside the transform. Scaling them shifts the export.
     x.drawImage(img, ox + pan.x, oy + pan.y, rw * zoom, rh * zoom);
     x.restore();
@@ -1565,13 +1655,16 @@ async function openShare(){
 }
 $('shareBtn').addEventListener('click', openShare);
 /* ---------- reporte de pagina (solo paginas /p/) ---------- */
+function closeReport(){
+  if (reportPanel.style.display === 'flex'){ reportPanel.style.display = 'none'; $('reportBtn').focus(); }
+}
 {
   const rm = location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/);
-  const rBtn = $('reportBtn'), rPanel = $('reportPanel');
+  const rBtn = $('reportBtn');
   if (rm){
     rBtn.style.display = '';
-    rBtn.onclick = () => { rPanel.style.display = 'flex'; };
-    $('reportClose').onclick = () => { rPanel.style.display = 'none'; };
+    rBtn.onclick = () => { reportPanel.style.display = 'flex'; $('reportReason').focus(); };
+    $('reportClose').onclick = closeReport;
     $('reportSend').onclick = async () => {
       const send = $('reportSend');
       send.disabled = true; send.textContent = 'Enviando…';
@@ -1583,7 +1676,7 @@ $('shareBtn').addEventListener('click', openShare);
         });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         $('reportStatus').textContent = 'Reporte enviado. Gracias.';
-        setTimeout(() => { rPanel.style.display = 'none'; $('reportStatus').textContent = ''; }, 1400);
+        setTimeout(() => { closeReport(); $('reportStatus').textContent = ''; }, 1400);
       } catch (e) {
         $('reportStatus').textContent = 'No se pudo enviar: ' + e.message;
       } finally {
@@ -1591,7 +1684,7 @@ $('shareBtn').addEventListener('click', openShare);
       }
     };
     for (const ev of ['pointerdown','mousedown','touchstart'])
-      rPanel.addEventListener(ev, e => e.stopPropagation());
+      reportPanel.addEventListener(ev, e => e.stopPropagation());
   }
 }
 $('shareClose').addEventListener('click', closeShareIfOpen);
@@ -1601,6 +1694,11 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
 
 /* ---------- init ---------- */
 function applyManifest(m){
+  // un manifest truncado o mano-editado no es un fallo de transporte: sin
+  // esto, readState revienta en .find/.some y el init culpa al transportista
+  if (!m || !Array.isArray(m.frames) || !m.frames.length ||
+      !Array.isArray(m.variants) || m.variants.length < 2)
+    throw Object.assign(new Error('manifest inv\u00e1lido: faltan frames o hay menos de 2 variantes'), {manifestInvalid:true});
   FRAMES = m.frames;
   VARIANTS = m.variants;
   FRAME_LABELS = m.frame_labels || {};
@@ -1615,7 +1713,9 @@ function applyManifest(m){
   computeFit();
   loadImg();
   applyTransform();
-  if (!h.get('z') && matchMedia('(max-width:820px), (pointer:coarse)').matches) oneToOne();
+  // el 1:1 movil espera al load (mobileZoomPending): contra las dimensiones
+  // de respaldo 1920x1080 escribe zoom/pan incorrecto en el hash y queda
+  // como estado final si imgA falla (ops#8)
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);
@@ -1636,7 +1736,8 @@ function applyManifest(m){
     applyManifest(m);
   } catch (err) {
     console.error('comparison data unavailable', err);
-    metaLine.textContent = 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
+    metaLine.textContent = err?.manifestInvalid ? err.message
+      : 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
   }
 })();
 
