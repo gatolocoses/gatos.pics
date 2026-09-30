@@ -26,6 +26,7 @@ const state = {
   pairs: [],             // [File|null, File|null]
 };
 let nextVar = 1, nextFrame = 1;
+let busy = false;   // un lote de captura de video posee el estado compartido: nada más puede guardarlo ni reemplazarlo
 
 const slug = s => String(s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -552,8 +553,9 @@ $('vidGo').addEventListener('click', async () => {
   }
   const btn = $('vidGo');
   btn.disabled = true;
+  busy = true;   // gate único: guardar/publicar/importar/vista previa quedan fuera durante el lote
   // Freeze capture inputs while this batch owns the shared project state.
-  const controls = [...document.querySelectorAll('#videoView button, #videoView input, #videoView select, #tabBasic, #tabAdv, #btnOpen')];
+  const controls = [...document.querySelectorAll('#videoView button, #videoView input, #videoView select, #tabBasic, #tabAdv, #btnOpen, #btnSave, #btnPublish, #btnPreviewTop')];
   const disabled = controls.map(el=>el.disabled);
   controls.forEach(el=>el.disabled=true);
   $('vidDrop').style.pointerEvents='none'; $('vidMarks').style.pointerEvents='none';
@@ -609,7 +611,7 @@ $('vidGo').addEventListener('click', async () => {
     }
     v.removeAttribute('src'); v.load();
   }
-  controls.forEach((el,i)=>el.disabled=disabled[i]); btn.disabled=false;
+  controls.forEach((el,i)=>el.disabled=disabled[i]); btn.disabled=false; busy = false;
   $('vidDrop').style.pointerEvents=''; $('vidMarks').style.pointerEvents='';
   renderFrames(); renderMatrix(); renderVariants();
   $('vidProg').textContent = failures
@@ -1081,6 +1083,7 @@ function buildStandaloneHTML(pkg){
     .replace('<script src="compare.js"><\/script>', () => injection + engineTag);
 }
 async function openPreviewOverlay(){
+  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para abrir la vista previa.'; return; }
   const pkg = await currentPackage({complete:true});
   $('pvFrame').classList.add('show');
   $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>Generando vista previa…</body></html>';
@@ -1209,6 +1212,7 @@ const publisher = new GatosUpload({
   }
 });
 function publishPage(){
+  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para publicar.'; return; }
   publisher.start(async cancelled => {
     const pkg = await currentPackage({complete:true, cancelled});
     if (cancelled()) return;
@@ -1239,6 +1243,7 @@ $('pubCopy').addEventListener('click', async () => {
 
 /* guardar / abrir proyecto (.cmp) */
 async function saveProject(){
+  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para guardar.'; return; }
   const pkg = await currentPackage();
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
 }
@@ -1281,6 +1286,7 @@ $('btnExpZip').addEventListener('click', () => runAction(async () => {
 
 /* ---------- importar .cmp (en ambos modos) ---------- */
 async function importCmp(file){
+  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para importar.'; return; }
   try {
     const pkg = JSON.parse(await readAsText(file));
     if (pkg.format !== FORMAT) { alert('No es un paquete '+FORMAT+'.'); return; }
