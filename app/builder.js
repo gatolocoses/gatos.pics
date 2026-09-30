@@ -1167,7 +1167,7 @@ const publisher = new GatosUpload({
     $('pubUrl').value = j.url;
     $('pubKey').value = j.delete_key;
     publicationReceipt = {url:j.url, delete_url:j.delete_url, delete_key:j.delete_key};
-    try { localStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
+    try { sessionStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
     $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
     // formatos para compartir: vista previa clicable con la primera variante/frame
     const img = j.url + meta.image;

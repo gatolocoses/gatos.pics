@@ -1217,10 +1217,22 @@ async function openShare(){
       btn.disabled = false; btn.textContent = 'Borrar esta página…';
     }
   };
+  $('shareUseKey').onclick = () => {
+    try { $('shareKey').value = sessionStorage.getItem('gatosOwner:'+m[1]) || ''; } catch(e){}
+    $('shareUseKey').hidden = true;
+  };
   up.style.display = 'inline-block';
   up.disabled = false;
   $('shareOwner').hidden = false;
-  try { $('shareKey').value = localStorage.getItem('gatosOwner:'+m[1]) || ''; } catch(e){}
+  // la llave de borrado ya no se autocompleta ni persiste para siempre: migra
+  // a sessionStorage (vive una sesion) y se pega explicitamente (ops#97/#100 —
+  // un marco hostil no hereda la llave lista para un solo clic)
+  try {
+    const lk = 'gatosOwner:'+m[1];
+    const oldKey = localStorage.getItem(lk);
+    if (oldKey !== null){ sessionStorage.setItem(lk, oldKey); localStorage.removeItem(lk); }
+    if (sessionStorage.getItem(lk)) $('shareUseKey').hidden = false;
+  } catch(e){}
   shotUploader = new GatosUpload({
     panel:$('shotUpload'), progress:$('shotProgress'), status:$('shotStatus'),
     cancel:$('shotCancel'), retry:$('shotRetry'),
