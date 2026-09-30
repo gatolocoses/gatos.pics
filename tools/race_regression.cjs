@@ -64,11 +64,12 @@ const MEAN = () => { const t=document.getElementById('diffNote').textContent.mat
   // precargado) y computa síncrono. Los pixeles son f1; complete fijado en true
   // emula el navegador rezagado que el guardia viejo confiaba (delete restaura
   // el getter nativo).
-  const early = await page.evaluate(() => {
+  const early = await page.evaluate(async () => {
     for (const im of [imgA, realB]) Object.defineProperty(im, 'complete', {get: () => true, configurable: true});
     for (const im of [imgA, realB]) Object.defineProperty(im, 'currentSrc', {get: () => im.getAttribute('src'), configurable: true});
-    imgA.src = srcFor('source','f3');
-    realB.src = srcFor('encode','f3');
+    // srcFor devuelve Promise desde el fix de la fuente embebida (public#7)
+    imgA.src = await srcFor('source','f3');
+    realB.src = await srcFor('encode','f3');
     imgB.src = realB.src;
     renderDiff();
     const t=document.getElementById('diffNote').textContent.match(/Δ media ([0-9.]+)/);
@@ -89,10 +90,10 @@ const MEAN = () => { const t=document.getElementById('diffNote').textContent.mat
   await page.goto(pub.url+'#f=f1&a=source&b=encode');
   await page.waitForFunction(() => ['imgA','imgB'].every(id=>{const i=document.getElementById(id);return i?.complete && i.naturalWidth;}));
   // sin diff: cada img tiene su propio registro de URL asentada
-  const poisonSplit = await page.evaluate(() => {
+  const poisonSplit = await page.evaluate(async () => {
     for (const im of [imgA, imgB]) Object.defineProperty(im, 'complete', {get: () => true, configurable: true});
-    imgA.src = srcFor('source','f3');   // vecino lejano: no está precargado
-    imgB.src = srcFor('encode','f3');
+    imgA.src = await srcFor('source','f3');   // vecino lejano: no está precargado
+    imgB.src = await srcFor('encode','f3');
     try { renderViewCanvas(); return 'rendered'; } catch(e){ return 'throw:'+e.message; }
   });
   step('sin diff, ventana venenosa: se niega (sin PNG mezclado)', /^throw:/.test(poisonSplit), 'resultado='+poisonSplit);
@@ -102,10 +103,10 @@ const MEAN = () => { const t=document.getElementById('diffNote').textContent.mat
   // modo diff: realB es la autoridad (misma URL que imgB)
   await page.evaluate(() => setDiff(true));
   await page.waitForFunction(() => document.getElementById('diffNote').textContent.includes('media'));
-  const poisonDiff = await page.evaluate(() => {
+  const poisonDiff = await page.evaluate(async () => {
     for (const im of [imgA, realB]) Object.defineProperty(im, 'complete', {get: () => true, configurable: true});
-    imgA.src = srcFor('source','f3');
-    realB.src = srcFor('encode','f3');
+    imgA.src = await srcFor('source','f3');
+    realB.src = await srcFor('encode','f3');
     imgB.src = realB.src;
     renderDiff();
     try { renderViewCanvas(); return 'rendered'; } catch(e){ return 'throw:'+e.message; }
