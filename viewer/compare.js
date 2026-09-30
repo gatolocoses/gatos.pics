@@ -51,7 +51,7 @@ function makeHttpSource(){
   };
 }
 function makeEmbeddedSource(pkg){
-  const urls = new Map();   // "<id>_<frame>" -> object URL (canvas-safe)
+  const urls = new Map();   // "<id>_<frame>" -> Promise<objectURL>
   function toObjectURL(dataurl){
     const parts = dataurl.split(',');
     const mime = (parts[0].match(/^data:([^;]+)/) || [,'image/png'])[1];
@@ -60,13 +60,29 @@ function makeEmbeddedSource(pkg){
     for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
     return URL.createObjectURL(new Blob([buf], {type:mime}));
   }
+  // gatolocoses/gatos.pics#7: fetch(dataURL).blob() decodifica base64 en
+  // código nativo y asíncrono (el bucle atob+byte a byte congelaba cada
+  // interacción) y soltar la dataURL tras convertir evita que un paquete viva
+  // dos veces en RAM. En about:srcdoc (vista previa del creador hospedado) la
+  // CSP heredada bloquea connect-src data: y el intento ensuciaría consola:
+  // ahí y ante cualquier fallo de fetch se decodifica síncrono como antes.
+  async function convert(d, key){
+    if (location.href !== 'about:srcdoc'){
+      try {
+        const u = URL.createObjectURL(await (await fetch(d)).blob());
+        pkg.images[key] = null;
+        return u;
+      } catch(e){ /* sin fetch de data:: decodificador de respaldo síncrono */ }
+    }
+    try { const u = toObjectURL(d); pkg.images[key] = null; return u; } catch(e){ return ''; }
+  }
   return {
     async init(){ return pkg.manifest; },
     srcFor(id, f){
       const key = id+'_'+f;
       if (!urls.has(key)){
         const d = pkg.images && pkg.images[key];
-        urls.set(key, d ? toObjectURL(d) : '');
+        urls.set(key, d ? convert(d, key) : Promise.resolve(''));
       }
       return urls.get(key);
     }
@@ -114,7 +130,29 @@ function variantName(id){
   return v.name;
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }
-function srcFor(id, f){ return SOURCE.srcFor(id, f); }
+// la fuente embebida convierte dataURLs de forma asíncrona (#7): se normaliza
+// a promesa para que ambas fuentes se consuman igual. Memoizada por clave:
+// la misma petición devuelve siempre el MISMO promesa (los consumidores
+// comparan identidad para descartar carreras) y la fuente http, que no
+// cachea, no genera promesas nuevos en cada llamada.
+const srcCache = new Map();
+function srcFor(id, f){
+  const key = id+'_'+f;
+  if (!srcCache.has(key)) srcCache.set(key, Promise.resolve(SOURCE.srcFor(id, f)));
+  return srcCache.get(key);
+}
+// gana la última petición de cada lado: la resolución tardía de una petición
+// vieja no puede sobreescribir el par que el usuario ya pidió
+const sideReq = {A:0, B:0};
+function setSideSrc(side, id){
+  const gen = ++sideReq[side];
+  srcFor(id, frame).then(url => {
+    if (gen !== sideReq[side]) return;
+    if (side === 'A') imgA.src = url;
+    else if (diffMode){ realB.src = url; imgB.src = url; }
+    else imgB.src = url;
+  });
+}
 function naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }
 function dpr(){ return window.devicePixelRatio || 1; }
 
@@ -338,12 +376,11 @@ function setDiff(on){
   diffNote.style.display = on ? 'block' : 'none';
   if (on){
     diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 calculando\u2026';
-    realB.src = srcFor(varB, frame);
-    imgB.src = realB.src;
+    setSideSrc('B', varB);
     renderDiff();
   } else {
     diffData = null;
-    imgB.src = srcFor(varB, frame);
+    setSideSrc('B', varB);
   }
   applyTransform(); updateMeta(); writeHash();
 }
@@ -528,25 +565,31 @@ function moveCrop(dx, dy){
   openCropPanel();
   writeHash();
 }
+const cropSrcReq = new Map();       // variant id -> promesa src en curso (carrera de frame)
 function cropImg(id){
-  const url = srcFor(id, frame);
-  let im = cropImgs.get(id);
-  if (!im || (im.currentSrc||im.src) !== url){
-    im = new Image();
-    im.decoding = 'async';
-    im.src = url;
-    cropImgs.set(id, im);
+  const p = srcFor(id, frame);
+  if (cropSrcReq.get(id) !== p){
+    cropSrcReq.set(id, p);
+    cropImgs.delete(id);            // en tránsito: no pintar píxeles del frame viejo
+    p.then(url => {
+      if (cropSrcReq.get(id) !== p) return;   // una petición más nueva ganó
+      const im = new Image();
+      im.decoding = 'async';
+      im.src = url;
+      cropImgs.set(id, im);
+      if (cropPanel.style.display === 'block') openCropPanel();   // repinta filas en cargando
+    });
   }
-  return im;
+  return cropImgs.get(id);
 }
 function drawCropRow(id, canvas){
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   const im = cropImg(id);
-  if (!im.complete || !im.naturalWidth){
+  if (!im || !im.complete || !im.naturalWidth){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\u2026', 10, 20);
-    im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});
+    if (im) im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});
     return;
   }
   const sw = Math.min(canvas.width, im.naturalWidth), sh = Math.min(canvas.height, im.naturalHeight);
@@ -593,7 +636,9 @@ function setCropMode(on){
   cropBtn.classList.toggle('crop-on', on);
   cropBtn.setAttribute('aria-pressed', String(on));
   cropHint.style.display = on ? 'block' : 'none';
-  if (on){ VARIANTS.forEach(v => cropImg(v.id)); }   // warm the cache for current frame
+  // calentado incremental (#7): solo el par visible; el resto de variantes se
+  // pide al abrir el panel, así entrar a Recortes no calienta todo de golpe
+  if (on){ [varA, varB].forEach(v => cropImg(v)); }
   else if (cropUV) closeCrop();
   writeHash();
 }
@@ -698,8 +743,8 @@ function preload(){
   const i = FRAMES.indexOf(frame);
   [i-1, i+1].forEach(j => {
     if (j >= 0 && j < FRAMES.length){
-      new Image().src = srcFor(varA, FRAMES[j]);
-      new Image().src = srcFor(varB, FRAMES[j]);
+      srcFor(varA, FRAMES[j]).then(u => { new Image().src = u; });
+      srcFor(varB, FRAMES[j]).then(u => { new Image().src = u; });
     }
   });
 }
@@ -713,13 +758,8 @@ function paintSide(side){
 }
 function loadImg(){
   loadFailA = loadFailB = false;   // arranca un intento nuevo del par actual
-  imgA.src = srcFor(varA, frame);
-  if (diffMode){
-    realB.src = srcFor(varB, frame);
-    imgB.src = realB.src;
-  } else {
-    imgB.src = srcFor(varB, frame);
-  }
+  setSideSrc('A', varA);
+  setSideSrc('B', varB);
   labelAName.textContent = variantName(varA);
   labelBName.textContent = variantName(varB);
   statsA.textContent = variantStats(varA);
@@ -731,7 +771,7 @@ function loadImg(){
   updateMeta();
   updateBadge();
   preload();
-  if (cropMode) VARIANTS.forEach(v => cropImg(v.id));
+  if (cropMode) [varA, varB].forEach(v => cropImg(v));
   if (cropUV && cropPanel.style.display !== 'none') openCropPanel();
   writeHash();
 }
