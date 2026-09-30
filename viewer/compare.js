@@ -1255,7 +1255,9 @@ function applyManifest(m){
   computeFit();
   loadImg();
   applyTransform();
-  if (!h.get('z') && matchMedia('(max-width:820px), (pointer:coarse)').matches) oneToOne();
+  // el 1:1 movil espera al load (mobileZoomPending): contra las dimensiones
+  // de respaldo 1920x1080 escribe zoom/pan incorrecto en el hash y queda
+  // como estado final si imgA falla (ops#8)
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);
