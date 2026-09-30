@@ -1,8 +1,8 @@
 /* Explicit uploads only. XHR exposes transmitted bytes; fetch does not. */
 'use strict';
 class GatosUpload {
-  constructor({panel, progress, status, cancel, retry, onBusy = () => {}, onSuccess, retryCaution}){
-    Object.assign(this, {panel, progress, status, cancelButton:cancel, retryButton:retry, onBusy, onSuccess, retryCaution});
+  constructor({panel, progress, status, cancel, retry, onBusy = () => {}, onSuccess, retryCaution, onApiKeyRequired}){
+    Object.assign(this, {panel, progress, status, cancelButton:cancel, retryButton:retry, onBusy, onSuccess, retryCaution, onApiKeyRequired});
     this.busy = false; this.generation = 0;
     cancel.onclick = () => {
       ++this.generation;

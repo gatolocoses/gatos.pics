@@ -1178,6 +1178,18 @@ const publisher = new GatosUpload({
     $('pubFrame').style.display = 'flex';
   }
 });
+function askApiKeyAndRetry(){
+  // camino 403 (tier sin llave cerrado o agotado): pedir la llave una vez,
+  // recordarla y reintentar el MISMO envio con el header puesto
+  const k = (prompt('Publicar sin límite necesita tu llave API. Pégala aquí (el creador la recuerda para la próxima):') || '').trim();
+  if (!k) return;
+  try { localStorage.setItem('gatosApiKey', k); } catch(e){}
+  const req = publisher.request;
+  if (req){
+    req.headers['x-api-key'] = k;
+    publisher.send();
+  }
+}
 function publishPage(){
   if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para publicar.'; return; }
   publisher.start(async cancelled => {
