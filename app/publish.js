@@ -1,9 +1,9 @@
 /* publish.js — flujo de compartir: publicar en gatos.pics y su recibo.
    Extraído de builder.js (gatos.pics#28, serie de extracción sancionada por
    AGENTS.md: builder.js pasó el presupuesto blando). Cargado después de
-   builder.js: consume sus globales ($, esc, busy, currentPackage, download)
-   y GatosUpload, de viewer/upload.js. Nada aquí toca el estado del proyecto
-   más allá de leerlo para serializar el envío. */
+   builder.js: consume sus globales ($, esc, busy, packageCore,
+   packageJSONBlob, download) y GatosUpload, de viewer/upload.js. Nada aquí
+   toca el estado del proyecto más allá de leerlo para serializar el envío. */
 const serviceHere = location.hostname === 'gatos.pics' ||
   (['localhost','127.0.0.1'].includes(location.hostname) && location.pathname.startsWith('/crear'));
 const PUBLISH_URL = serviceHere ? '/api/upload' : 'https://gatos.pics/api/upload';
@@ -44,15 +44,18 @@ function askApiKeyAndRetry(){
 function publishPage(){
   if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para publicar.'; return; }
   publisher.start(async cancelled => {
-    const pkg = await currentPackage({complete:true, cancelled});
+    const core = await packageCore({complete:true, cancelled});
     if (cancelled()) return;
-    const v = pkg.manifest.variants[0], f = pkg.manifest.frames[0];
-    const ext = pkg.images[v.id+'_'+f].slice(0,40).match(/^data:image\/([^;]+)/)[1].replace('jpeg','jpg');
+    const v = core.manifest.variants[0], f = core.manifest.frames[0];
+    const file = new Map(core.entries).get(v.id+'_'+f);
+    const ext = ((file && file.type.split('/')[1]) || 'png').replace('jpeg','jpg');
     let apiKey = '';
     try { apiKey = localStorage.getItem('gatosApiKey') || ''; } catch(e){}
+    // cuerpo por partes (gatos.pics#29): un dataURL a la vez dentro de
+    // packageJSONBlob; publicar ya no sostiene el paquete Y su JSON a la vez
     return {url:PUBLISH_URL, headers:{'content-type':'application/json', ...(apiKey ? { 'x-api-key': apiKey } : {})},
-      body:new Blob([JSON.stringify(pkg)], {type:'application/json'}),
-      meta:{title:pkg.manifest.title || 'Comparación', image:'img/'+v.id+'_'+f+'.'+ext}};
+      body: await packageJSONBlob(core, {cancelled}),
+      meta:{title:core.manifest.title || 'Comparación', image:'img/'+v.id+'_'+f+'.'+ext}};
   });
   $('publishUpload').scrollIntoView({block:'nearest'});
 }

@@ -362,8 +362,9 @@ function pickOne(cb){
   inp.click();
 }
 
-/* básico -> paquete */
-async function basicPackage(cancelled = () => false){
+/* básico -> núcleo: manifest listo + File por clave canónica. Sin dataURLs:
+   la representación única del proyecto son los archivos (gatos.pics#29) */
+async function basicCore(cancelled = () => false){
   const pairs = state.pairs;
   const manifest = {
     title: 'Comparación',
@@ -375,13 +376,13 @@ async function basicPackage(cancelled = () => false){
       {id:'b', name:'B', color:PALETTE[1]},
     ],
   };
-  const images = {};
+  const entries = [];
   for (let i = 0; i < pairs.length; i++){
     if (cancelled()) throw new Error('Preparación cancelada.');
-    if (pairs[i][0]) images['a_'+(i+1)] = await readAsDataURL(pairs[i][0]);
-    if (pairs[i][1]) images['b_'+(i+1)] = await readAsDataURL(pairs[i][1]);
+    if (pairs[i][0]) entries.push(['a_'+(i+1), pairs[i][0]]);
+    if (pairs[i][1]) entries.push(['b_'+(i+1), pairs[i][1]]);
   }
-  return {format: FORMAT, manifest, images};
+  return {format: FORMAT, manifest, entries};
 }
 
 /* ============================================================
@@ -755,7 +756,7 @@ async function computeS2Metrics(manifest){
   $('s2Prog').textContent = '';
 }
 
-async function advancedPackage(cancelled = () => false){
+async function advancedCore(cancelled = () => false){
   const manifest = {
     ...state.manifestExtras,
     title: state.title.trim() || 'Comparación',
@@ -781,14 +782,14 @@ async function advancedPackage(cancelled = () => false){
       return o;
     }),
   };
-  const images = {};
+  const entries = [];
   for (const [k, f] of state.cells){
     if (cancelled()) throw new Error('Preparación cancelada.');
     const [vid, fk] = k.split('|');
-    images[vid+'_'+fk] = await readAsDataURL(f);
+    entries.push([vid+'_'+fk, f]);
   }
   if ($('s2Toggle') && $('s2Toggle').checked) await computeS2Metrics(manifest);
-  return {format: FORMAT, manifest, images};
+  return {format: FORMAT, manifest, entries};
 }
 
 /* ---------- validación (paso final) ---------- */
@@ -828,7 +829,8 @@ function packageMode(){
   const advWork = state.cells.size > 0;
   return basicWork === advWork ? state.mode : (basicWork ? 'basic' : 'advanced');
 }
-async function currentPackage({complete = false, cancelled = () => false} = {}){
+/* núcleo del paquete: manifest + archivos, SIN convertir nada a dataURL */
+async function packageCore({complete = false, cancelled = () => false} = {}){
   const mode = packageMode();
   if (complete){
     let problems;
@@ -849,7 +851,46 @@ async function currentPackage({complete = false, cancelled = () => false} = {}){
     let total = 0; for (const f of files) total += f.size;
     if (total*1.34 > 300*1048576) throw new Error(`El paquete proyectado pasa de 300 MiB (${(total*1.34/1048576).toFixed(1)} MB en base64): reduce frames o imágenes.`);
   }
-  return mode === 'basic' ? basicPackage(cancelled) : advancedPackage(cancelled);   // video también alimenta el estado avanzado
+  return mode === 'basic' ? basicCore(cancelled) : advancedCore(cancelled);   // video también alimenta el estado avanzado
+}
+/* compat con dataURLs eager: consola/pruebas (window.BUILDER) y demo. Los
+   botones de exportar/publicar NO pasan por aquí (gatos.pics#29). */
+async function currentPackage(opts = {}){
+  const cancelled = opts.cancelled || (() => false);
+  const core = await packageCore(opts);
+  const images = {};
+  for (const [k, f] of core.entries){
+    if (cancelled()) throw new Error('Preparación cancelada.');
+    images[k] = await readAsDataURL(f);
+  }
+  return {format: core.format, manifest: core.manifest, images};
+}
+
+/* ---------- serialización por partes (gatos.pics#29) ----------
+   El .cmp sigue necesitando dataURLs, pero cada una vive solo el instante
+   que tarda en entrar a su Blob propio: nunca conviven el paquete completo
+   en cadenas Y su JSON, ni el estado Y la serialización. Los bytes de salida
+   son idénticos a los de JSON.stringify(pkg) con las claves en el mismo
+   orden (format, manifest, images; inserción de entries). */
+const jsonChunk = (s, htmlSafe) => {
+  const j = JSON.stringify(s);
+  return htmlSafe ? j.replace(/</g, '\\u003c') : j;
+};
+async function packageJSONBlob(core, {htmlSafe = false, cancelled = () => false} = {}){
+  const head = '{"format":' + jsonChunk(core.format, htmlSafe) + ',"manifest":'
+    + jsonChunk(core.manifest, htmlSafe) + ',"images":{';
+  const parts = [head];
+  let first = true;
+  for (const [k, f] of core.entries){
+    if (cancelled()) throw new Error('Preparación cancelada.');
+    const du = await readAsDataURL(f);
+    // Blob por imagen: la cadena se suelta en cuanto entra, el Blob final es
+    // una concatenación diferida (no copia) de todos ellos
+    parts.push(new Blob([(first ? '' : ',') + jsonChunk(k, htmlSafe) + ':' + jsonChunk(du, htmlSafe)]));
+    first = false;
+  }
+  parts.push(new Blob(['}}']));
+  return new Blob(parts, {type:'application/json'});
 }
 async function runAction(action){
   $('builderStatus').textContent = '';
@@ -859,6 +900,9 @@ async function runAction(action){
   }
 }
 function buildStandaloneHTML(pkg, opts){
+  // camino eager con el paquete YA armado (demo sintética y consola/pruebas):
+  // los botones de exportar usan standaloneParts y los dataURL nunca se
+  // sostienen todos a la vez (gatos.pics#29).
   // export: inline (portatil, file:// sin CSP). preview: URLs blob: — el srcdoc
   // hereda la CSP del creador hospedado y bloquea scripts inline generados en
   // runtime; los blob: solo pueden mintearlos nuestros scripts (inadivinables)
@@ -878,12 +922,24 @@ function buildStandaloneHTML(pkg, opts){
     .replace('<script src="compare.js"><\/script>', () => injection + engineTag);
 }
 const previewUrls = [];
+/* vista previa: el paquete entra al iframe como Blob por imagen (gatos.pics#29).
+   El srcdoc queda del tamaño del shell y el creador nunca sostiene el paquete
+   serializado: solo un dataURL a la vez, dentro de packageJSONBlob. */
+async function buildPreviewSrcdoc(core){
+  for (const u of previewUrls) URL.revokeObjectURL(u);
+  previewUrls.length = 0;
+  const blobURL = blob => { const u = URL.createObjectURL(blob); previewUrls.push(u); return u; };
+  const pkg = await packageJSONBlob(core, {htmlSafe:true});
+  return SHELL_HTML
+    .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobURL(new Blob([UPLOAD_SRC], {type:'text/javascript'})) + '"><\/script>')
+    .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
+}
 async function openPreviewOverlay(){
   if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para abrir la vista previa.'; return; }
-  const pkg = await currentPackage({complete:true});
+  const core = await packageCore({complete:true});
   $('pvFrame').classList.add('show');
   $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>Generando vista previa…</body></html>';
-  $('pvBox').srcdoc = buildStandaloneHTML(pkg, {blob:true});
+  $('pvBox').srcdoc = await buildPreviewSrcdoc(core);
 }
 $('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; for (const u of previewUrls) URL.revokeObjectURL(u); previewUrls.length = 0; });
 $('btnPreviewTop').addEventListener('click', () => runAction(openPreviewOverlay));
@@ -905,13 +961,32 @@ function fileBase(){
    entradas) se cargan desde zip.js, antes que este archivo. */
 
 /* ---------- export: HTML / .cmp / .zip ---------- */
+/* HTML por partes (gatos.pics#29): el JSON del paquete es un Blob diferido y
+   el archivo final se arma cortando el shell en sus dos etiquetas <script>.
+   Bytes idénticos a buildStandaloneHTML(pkg): mismos marcadores (únicos en el
+   shell), mismo orden de reemplazo, mismo escapado \u003c. */
+const UP_TAG = '<script src="upload.js"><\/script>';
+const CMP_TAG = '<script src="compare.js"><\/script>';
+async function standaloneParts(core){
+  const pkg = await packageJSONBlob(core, {htmlSafe:true});
+  const shell = SHELL_HTML;
+  const i1 = shell.indexOf(UP_TAG), i2 = shell.indexOf(CMP_TAG);
+  if (i1 < 0 || i2 < 0 || i2 < i1) throw new Error('El shell del visor no tiene las etiquetas esperadas.');
+  return [
+    new Blob([shell.slice(0, i1)]),
+    '<script>\n' + UPLOAD_SRC + '\n<\/script>',
+    shell.slice(i1 + UP_TAG.length, i2),
+    new Blob(['<script>window.GATOS_PACKAGE = ', pkg, ';<\/script>\n<script>\n' + ENGINE_SRC + '\n<\/script>']),
+    new Blob([shell.slice(i2 + CMP_TAG.length)]),
+  ];
+}
 $('btnExpHtml').addEventListener('click', () => runAction(async () => {
-  const pkg = await currentPackage({complete:true});
-  download(fileBase()+'.html', new Blob([buildStandaloneHTML(pkg)], {type:'text/html'}));
+  const core = await packageCore({complete:true});
+  download(fileBase()+'.html', new Blob(await standaloneParts(core), {type:'text/html'}));
 }));
 $('btnExpCmp').addEventListener('click', () => runAction(async () => {
-  const pkg = await currentPackage();
-  download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
+  const core = await packageCore();
+  download(fileBase()+'.cmp', await packageJSONBlob(core));
 }));
 
 /* ---------- publicar en gatos.pics: ver app/publish.js (extraído, gatos.pics#28) ---------- */
@@ -921,8 +996,8 @@ $('btnExpCmp').addEventListener('click', () => runAction(async () => {
 /* guardar / abrir proyecto (.cmp) */
 async function saveProject(){
   if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para guardar.'; return; }
-  const pkg = await currentPackage();
-  download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
+  const core = await packageCore();
+  download(fileBase()+'.cmp', await packageJSONBlob(core));
 }
 $('btnSave').addEventListener('click', () => runAction(saveProject));
 $('btnOpen').addEventListener('click', () => $('openFile').click());
@@ -934,39 +1009,35 @@ window.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); runAction(saveProject); }
 });
 $('btnExpZip').addEventListener('click', () => runAction(async () => {
-  const pkg = await currentPackage({complete:true});
+  const core = await packageCore({complete:true});
   // el visor hospedado resuelve img/<id>_<frame>.<ext>: la extensión va en el
-  // manifest por variante, derivada de los archivos reales (solo el mime del
-  // dataURL, sin decodificar el cuerpo completo por adelantado)
+  // manifest por variante, derivada del tipo de los archivos reales
+  const fileOf = new Map(core.entries);
   const exts = {};
-  for (const v of pkg.manifest.variants){
+  for (const v of core.manifest.variants){
     v.image_exts = {};
-    for (const f of pkg.manifest.frames){
+    for (const f of core.manifest.frames){
       const key = v.id+'_'+f;
-      const ext = dataURLMime(pkg.images[key]).split('/')[1].replace('jpeg','jpg');
+      const ext = ((fileOf.get(key) || {type:'image/png'}).type.split('/')[1] || 'png').replace('jpeg','jpg');
       exts[key] = ext; v.image_exts[f] = ext;
     }
-    exts[v.id] = v.image_exts[pkg.manifest.frames[0]];
+    exts[v.id] = v.image_exts[core.manifest.frames[0]];
     v.ext = exts[v.id];
   }
-  // entradas diferidas para makeZip: cada imagen se decodifica recién cuando
-  // entra al zip y su dataURL se suelta en ese momento (gatos.pics#26): nunca
-  // están a la vez el paquete completo y el zip completo en memoria
+  // entradas diferidas para makeZip: los bytes salen DIRECTO del File
+  // (gatos.pics#29): el zip ya no pasa por dataURL en absoluto, cada imagen
+  // se lee recién cuando entra al zip y nunca está el paquete en cadenas
   const makers = [
     () => ({name:'index.html', data: strBytes(SHELL_HTML)}),
     () => ({name:'compare.js', data: strBytes(ENGINE_SRC)}),
     () => ({name:'upload.js', data: strBytes(UPLOAD_SRC)}),
-    () => ({name:'manifest.json', data: strBytes(JSON.stringify(pkg.manifest, null, 2))}),
+    () => ({name:'manifest.json', data: strBytes(JSON.stringify(core.manifest, null, 2))}),
   ];
-  for (const key of Object.keys(pkg.images)){
-    makers.push(() => {
-      const data = dataURLtoBytes(pkg.images[key]).buf;
-      pkg.images[key] = null;   // el zip ya lleva estos bytes
-      return {name:'img/'+key+'.'+exts[key], data};
-    });
+  for (const [key, f] of core.entries){
+    makers.push(async () => ({name:'img/'+key+'.'+exts[key], data: new Uint8Array(await f.arrayBuffer())}));
   }
   let next = 0;
-  download(fileBase()+'.zip', await makeZip(async () => next < makers.length ? makers[next++]() : null));
+  download(fileBase()+'.zip', await makeZip(async () => next < makers.length ? await makers[next++]() : null));
 }));
 
 /* ---------- importar .cmp (en ambos modos) ---------- */
