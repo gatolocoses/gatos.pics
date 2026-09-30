@@ -945,7 +945,7 @@ function renderUnassigned(){
 
 /* ---------- avanzado -> paquete ---------- */
 /* ---------- S2 (SSIMULACRA2) opcional ---------- */
-const idCache = new Map();   // File -> ImageData
+const idCache = new WeakMap();   // File -> ImageData · débil: los Files viven en state.cells; sin esto, 10 PNG 4K retenían ~330 MB para siempre
 async function imageDataOf(f){
   if (!idCache.has(f)) idCache.set(f, await S2.imageDataFrom(f));
   return idCache.get(f);
