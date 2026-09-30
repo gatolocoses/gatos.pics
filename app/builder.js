@@ -238,8 +238,10 @@ basicFile.addEventListener('change', () => { addBasicFiles([...basicFile.files])
 ['dragleave','drop'].forEach(ev => basicDrop.addEventListener(ev, e => { e.preventDefault(); basicDrop.classList.remove('over'); }));
 basicDrop.addEventListener('drop', e => addBasicFiles([...e.dataTransfer.files]));
 
+let pairWarns = [];   // avisos del último emparejamiento por nombre
 function addBasicFiles(files){
   $('builderStatus').textContent = '';
+  pairWarns = [];
   const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
   imgs.forEach(probeDims);
   const loose = [...imgs];
@@ -247,22 +249,27 @@ function addBasicFiles(files){
   // emparejamiento por nombre: <variante>_<frame> comparte frame. La referencia
   // (fuente/src/master...) queda a la izquierda contra cada otra variante.
   const REFERENCE_RE = /^(fuente|src|source|master|original|orig|remux|bd|bluray)$/i;
-  const prefixOf = f => { const stem = f.name.replace(/\.[^.]+$/, ''); const cut = stem.lastIndexOf('_'); return cut > 0 ? stem.slice(0, cut) : null; };
+  const prefixOf = f => { const stem = f.name.replace(/\.[^.]+$/, ''); const cut = stem.lastIndexOf('_'); return cut > 0 ? stem.slice(0, cut).toLowerCase() : null; };
   const groups = new Map();
   for (const f of loose){
     const pre = prefixOf(f);
     if (pre === null) continue;
     const stem = f.name.replace(/\.[^.]+$/, '');
-    const g = stem.slice(stem.lastIndexOf('_') + 1);
+    const g = stem.slice(stem.lastIndexOf('_') + 1).toLowerCase();
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(f);
   }
-  const usable = [...groups.values()].filter(g => g.length >= 2 && new Set(g.map(prefixOf)).size >= 2);
+  const sameVariant = (a, b) => prefixOf(a) && prefixOf(a) === prefixOf(b);
+  const usable = [...groups.entries()].filter(([,g]) => g.length >= 2 && new Set(g.map(prefixOf)).size >= 2);
   if (usable.length){
-    const patterned = new Set(usable.flat());
-    for (const g of usable){
-      let ref = g.find(f => REFERENCE_RE.test(prefixOf(f)));
-      if (!ref) ref = [...g].sort((a, b) => prefixOf(a).localeCompare(prefixOf(b)))[0];
+    const patterned = new Set(usable.flatMap(([,g]) => g));
+    for (const [suffix, g] of usable){
+      // la referencia se detecta por el token inicial del prefijo: master_shot_001 -> master
+      let ref = g.find(f => REFERENCE_RE.test(prefixOf(f).split('_')[0]));
+      if (!ref){
+        ref = [...g].sort((a, b) => prefixOf(a).localeCompare(prefixOf(b)))[0];
+        pairWarns.push(`Ningún archivo del grupo «${suffix}» parece la referencia (fuente, src, máster): el lado izquierdo es una suposición. Revísalo.`);
+      }
       for (const other of g){
         if (other === ref) continue;
         state.pairs.push([ref, other]);
@@ -275,9 +282,17 @@ function addBasicFiles(files){
   // completa primero el par cojo del final
   for (let i = state.pairs.length-1; i >= 0; i--){
     const p = state.pairs[i];
-    if (p[0] && !p[1] && loose.length){ p[1] = loose.shift(); }
+    if (p[0] && !p[1] && loose.length){
+      const b = loose.shift();
+      if (sameVariant(p[0], b)) pairWarns.push(`${p[0].name} y ${b.name} parecen la misma variante: se completó el par por orden. Revísalo.`);
+      p[1] = b;
+    }
   }
-  while (loose.length >= 2) state.pairs.push([loose.shift(), loose.shift()]);
+  while (loose.length >= 2){
+    const a = loose.shift(), b = loose.shift();
+    if (sameVariant(a, b)) pairWarns.push(`${a.name} y ${b.name} parecen la misma variante: se emparejaron por orden. Revísalos.`);
+    state.pairs.push([a, b]);
+  }
   if (loose.length) state.pairs.push([loose.shift(), null]);
   renderPairs();
   countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
@@ -323,6 +338,7 @@ function renderPairs(){
   let h = '';
   if (half) h += `<div class="warn">Completa el par vacío antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
   if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
+  for (const w of pairWarns) h += `<div class="warn">${esc(w)}</div>`;
   if (state.pairs.length && !half){
     h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} · y exporta cuando quieras:</div>`;
     h += `<div class="exports" style="margin-top:8px;">
