@@ -29,6 +29,7 @@ let nextVar = 1, nextFrame = 1;
 
 const slug = s => String(s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ID_RE = /^[A-Za-z0-9_-]{1,32}$/;   // ids de variante/frame: lo que el .cmp puede traer y la UI acepta
 
 /* ---------- onboarding ---------- */
 function showOnboard(force){
@@ -722,7 +723,7 @@ function renderFrames(){
     row.querySelectorAll('input[data-k]').forEach(inp => {
       inp.addEventListener(inp.dataset.k === 'key' ? 'change' : 'input', () => {
         const old = fr.key;
-        if (inp.dataset.k === 'key' && (!/^[A-Za-z0-9_-]{1,32}$/.test(inp.value) || state.frames.some(f => f !== fr && f.key === inp.value))){
+        if (inp.dataset.k === 'key' && (!ID_RE.test(inp.value) || state.frames.some(f => f !== fr && f.key === inp.value))){
           inp.value = old; $('builderStatus').textContent = 'Usa un identificador único de frame, con letras, números o guiones.'; return;
         }
         fr[inp.dataset.k] = inp.value;
@@ -847,7 +848,7 @@ function renderMatrix(){
     html += `<tr><th class="mono">${esc(fr.key)}${fr.label ? '<br><span style="font-weight:400">'+esc(fr.label)+'</span>' : ''}</th>`;
     for (const v of state.variants){
       const f = state.cells.get(v.id+'|'+fr.key);
-      html += `<td><div class="cell ${f?'filled':'empty'}" data-cell="${v.id}|${esc(fr.key)}">${
+      html += `<td><div class="cell ${f?'filled':'empty'}" data-cell="${esc(v.id)}|${esc(fr.key)}">${
         matrixCellContent(f)
       }</div></td>`;
     }
@@ -886,7 +887,7 @@ function renderUnassigned(){
   /* archivos sin asignar */
   const un = $('unassigned');
   if (state.unassigned.length){
-    const variantOptions = state.variants.map(v=>`<option value="${v.id}">${esc(v.name||v.id)}</option>`).join('');
+    const variantOptions = state.variants.map(v=>`<option value="${esc(v.id)}">${esc(v.name||v.id)}</option>`).join('');
     const frameOptions = state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' · '+esc(f.label):''}</option>`).join('');
     let h = '<div class="card"><b>Archivos sin asignar</b><ul style="list-style:none;margin-top:6px;">';
     state.unassigned.forEach((u, i) => {
@@ -1007,7 +1008,7 @@ function validateAdvanced(){
   if (!state.frames.length) out.push(['bad','Hace falta al menos un frame.']);
   const keys = state.frames.map(f => f.key);
   if (new Set(keys).size !== keys.length) out.push(['bad','Hay identificadores de frame repetidos. Usa uno distinto para cada momento.']);
-  if (keys.some(k => !/^[A-Za-z0-9_-]{1,32}$/.test(k))) out.push(['bad','Los identificadores de frame admiten letras, números, guion y guion bajo (máximo 32).']);
+  if (keys.some(k => !ID_RE.test(k))) out.push(['bad','Los identificadores de frame admiten letras, números, guion y guion bajo (máximo 32).']);
   const dims = new Set([...state.cells.values()].map(f => fileDims.get(f)).filter(Boolean));
   if (dims.size > 1) out.push(['bad',`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`]);
   let total = 0; for (const f of state.cells.values()) total += f.size;
@@ -1254,6 +1255,10 @@ async function importCmp(file){
     if (pkg.format !== FORMAT) { alert('No es un paquete '+FORMAT+'.'); return; }
     if (!pkg.manifest || !Array.isArray(pkg.manifest.frames) || !Array.isArray(pkg.manifest.variants) || !pkg.images)
       throw new Error('Faltan los datos del proyecto.');
+    // Los ids llegan de un archivo externo y llegan a innerHTML: sin este
+    // filtro, un .cmp hostil inyecta HTML en la matriz (XSS same-origin en /crear/).
+    if (pkg.manifest.variants.some(v => !ID_RE.test(String(v.id))) || pkg.manifest.frames.some(f => !ID_RE.test(String(f))))
+      throw new Error('identificador de variante o frame no válido: se admite A-Z a-z 0-9 _ y -, máximo 32.');
     const b64toFile = async (key, du) => {
       const {mime, buf} = dataURLtoBytes(du);
       return new File([buf], key.replace(/[\\/:*?"<>|]/g,'_')+'.'+mime.split('/')[1], {type:mime});
