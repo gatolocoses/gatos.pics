@@ -458,12 +458,18 @@ function renderVidMarks(){
 /* el modo video siembra el estado avanzado: variantes = archivos, frames = marcas */
 function syncVideoToAdvanced(){
   if (!vidState.files.length) return;
+  const old = new Map(state.variants.map(v => [v.id, v]));
   state.variants = vidState.files.map((f, i) => {
     const id = 'v'+(i+1);
-    const old = state.variants.find(v => v.id === id);
-    return Object.assign({id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[i % PALETTE.length]}, old ? {codec: old.codec, crf: old.crf, bitrate: old.bitrate, cmd: old.cmd, metric:old.metric || ''} : {});
+    const o = old.get(id);
+    // fusión por id: si la variante ya existe se conserva entera (nombres,
+    // notas, colores), no solo los campos técnicos
+    return o || {id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[i % PALETTE.length]};
   });
-  nextVar = state.variants.length+1;
+  // las variantes que desaparecen llevan sus celdas: sin esto quedan huérfanas
+  const live = new Set(state.variants.map(v => v.id));
+  for (const k of [...state.cells.keys()]) if (!live.has(k.split('|')[0])) state.cells.delete(k);
+  while (state.variants.some(v => v.id === 'v'+nextVar)) nextVar++;   // monótono: nunca reutilizar un id
   renderVariants();
 }
 
