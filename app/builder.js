@@ -1330,6 +1330,15 @@ $('btnExpZip').addEventListener('click', () => runAction(async () => {
 /* ---------- importar .cmp (en ambos modos) ---------- */
 async function importCmp(file){
   if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para importar.'; return; }
+  // Importar sobre trabajo abierto (botón Abrir o drop) tiene que ser una
+  // decisión explícita: la pregunta vive aquí, en el único punto de entrada,
+  // y cancelar preserva el proyecto tal como estaba.
+  if (state.pairs.length || state.cells.size || state.unassigned.length){
+    if (!confirm('Abrir este archivo reemplaza el proyecto que tienes abierto. ¿Continuar?')){
+      $('builderStatus').textContent = 'No se importó nada: tu proyecto sigue como estaba.';
+      return;
+    }
+  }
   try {
     const pkg = JSON.parse(await readAsText(file));
     if (pkg.format !== FORMAT) { alert('No es un paquete '+FORMAT+'.'); return; }
@@ -1373,13 +1382,8 @@ window.addEventListener('drop', e => {
   const f = [...e.dataTransfer.files].find(f => /\.cmp$/i.test(f.name));
   if (!f) return;
   e.preventDefault();
-  // el drop en cualquier parte es el camino accidental: con trabajo abierto,
-  // reemplazar el proyecto tiene que ser una decisión explícita
-  if (state.cells.size || state.pairs.length){
-    if (confirm('Soltar este archivo reemplaza el proyecto que tienes abierto. ¿Continuar?')) importCmp(f);
-    else $('builderStatus').textContent = 'No se importó nada: tu proyecto sigue como estaba.';
-    return;
-  }
+  // el drop en cualquier parte es el camino accidental: importCmp hace la
+  // misma pregunta de confirmación que el botón Abrir
   importCmp(f);
 });
 

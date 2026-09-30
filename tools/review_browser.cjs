@@ -34,6 +34,17 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   page.on('pageerror',e=>{errors.push(e.message);console.error('BROWSER',e.message);});
   page.on('console',m=>{if(m.type()==='error')console.error('CONSOLE',m.text());});
   page.on('request',r=>{if(/^https?:/.test(r.url()))network.push(r.url());});
+  // gatos.pics#25: importCmp pregunta al importar sobre trabajo abierto. La
+  // suite responde los diálogos desde una cola (determinista); sin respuesta
+  // encolada, dismiss — el default de Playwright, como antes de este cambio.
+  // beforeunload va aparte: con listener registrado Playwright ya no lo
+  // auto-acepta, y dismiss abortaría toda navegación con trabajo abierto.
+  const dialogLog=[], dialogAnswers=[];
+  page.on('dialog',d=>{
+    if (d.type()==='beforeunload'){ d.accept(); return; }
+    dialogLog.push({type:d.type(),message:d.message()});
+    (dialogAnswers.shift()||(x=>x.dismiss()))(d);
+  });
   await page.goto('file://'+ROOT+'/dist/gatos.html');
   await page.screenshot({path:path.join(OUT,'onboarding-desktop.png')});
   await page.locator('#obStart').click();
@@ -65,6 +76,14 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   const draftDownload=page.waitForEvent('download');await page.locator('#btnSave').click();
   const draft=await draftDownload;const draftPath=path.join(OUT,'draft.cmp');await draft.saveAs(draftPath);
   ok('saving preserves an incomplete pair', Object.keys(JSON.parse(fs.readFileSync(draftPath)).images).length, 3);
+  // gatos.pics#25: importar sobre un borrador abierto pregunta una sola vez
+  // (confirm); cancelar preserva el proyecto tal como estaba
+  dialogAnswers.push(d=>d.dismiss());
+  await page.locator('#openFile').setInputFiles(fpath);
+  await page.waitForFunction(()=>document.getElementById('builderStatus').textContent.includes('No se importó nada'));
+  ok('import over an open project asks via confirm',dialogLog,[{type:'confirm',message:'Abrir este archivo reemplaza el proyecto que tienes abierto. ¿Continuar?'}]);
+  ok('cancelling the import preserves the open project',await page.evaluate(()=>({mode:BUILDER.state.mode,pairs:BUILDER.state.pairs.map(p=>p.map(f=>f?.name||null))})),{mode:'basic',pairs:[['a.png','b.png'],['c.png',null]]});
+  dialogAnswers.push(d=>d.accept());
   await page.locator('#openFile').setInputFiles(fpath);
   await page.waitForFunction(()=>BUILDER.state.mode==='advanced');
   const roundtrip=await page.evaluate(()=>BUILDER.currentPackage());
