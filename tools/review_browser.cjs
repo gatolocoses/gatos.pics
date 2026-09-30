@@ -1,6 +1,7 @@
 /* Regression checks for the review fixes. Playwright is a development tool only.
    GATOS_PLAYWRIGHT_MODULE=/path/to/playwright node tools/review_browser.cjs
-   Requires the sibling gatos-service checkout. All uploads use a temporary local server. */
+   Spins the service from the gatos-ops subtree (service/) — override with
+   GATOS_SERVICE for an external checkout. All uploads use a temporary local server. */
 const {chromium} = require(process.env.GATOS_PLAYWRIGHT_MODULE || 'playwright');
 const {spawn,spawnSync} = require('node:child_process');
 const fs = require('node:fs');
@@ -8,7 +9,7 @@ const path = require('node:path');
 const os = require('node:os');
 const assert = require('node:assert/strict');
 const ROOT = path.resolve(__dirname, '..');
-const SERVICE = path.resolve(ROOT, '../gatos-service');
+const SERVICE = process.env.GATOS_SERVICE || path.join(ROOT, '..', 'service');
 const OUT = process.env.GATOS_REVIEW_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'gatos-review-'));
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'gatos-review-server-'));
 const BASE = 'http://127.0.0.1:8987';
@@ -140,7 +141,8 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       });
       return {height:b.height,width:b.width,overlap,overflow:document.documentElement.scrollWidth>innerWidth};
     });
-    ok('brand fits without overlap at '+width,geometry,{height:16,width:72,overlap:false,overflow:false});
+    // marca final del dueno: 78x16 (la version de 72 quedo obsoleta tras la ronda de marca)
+    ok('brand fits without overlap at '+width,geometry,{height:16,width:78,overlap:false,overflow:false});
     if([390,1440].includes(width))await page.screenshot({path:path.join(OUT,'viewer-'+width+'.png')});
   }
   await page.setViewportSize({width:1000,height:1000});

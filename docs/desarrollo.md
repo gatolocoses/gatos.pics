@@ -86,8 +86,9 @@ hospedado busca `.webp` y da 404).
 ### Verificación de las correcciones de revisión
 
 `tools/review_browser.cjs` usa Playwright solo como herramienta de desarrollo;
-no agrega dependencias al producto. Requiere el repo hermano `gatos-service`
-y Chromium de Playwright. `GATOS_PLAYWRIGHT_MODULE` puede indicar una instalación
+no agrega dependencias al producto. Levanta el servicio del subárbol
+`service/` del master repo (o el que marque `GATOS_SERVICE`) y necesita
+Chromium de Playwright. `GATOS_PLAYWRIGHT_MODULE` puede indicar una instalación
 existente del módulo; `GATOS_REVIEW_OUT` el directorio de capturas y exports.
 La prueba abre `dist/gatos.html` desde `file://` y usa un servicio temporal en
 `127.0.0.1:8987`. Nunca publica en gatos.pics.
