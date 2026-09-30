@@ -1060,9 +1060,15 @@ function packageMode(){
 async function currentPackage({complete = false, cancelled = () => false} = {}){
   const mode = packageMode();
   if (complete){
-    const problems = mode === 'basic'
-      ? (!state.pairs.length || state.pairs.some(p => !p[0] || !p[1]) ? ['Agrega dos imágenes a cada par antes de compartir.'] : [])
-      : validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
+    let problems;
+    if (mode === 'basic'){
+      problems = !state.pairs.length || state.pairs.some(p => !p[0] || !p[1]) ? ['Agrega dos imágenes a cada par antes de compartir.'] : [];
+      // igual que avanzado: dimensiones mezcladas rompen el diff y los recortes 1:1
+      const dims = new Set(state.pairs.flat().filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
+      if (dims.size > 1) problems.push(`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`);
+    } else {
+      problems = validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
+    }
     if (problems.length) throw new Error(problems.join(' '));
     // límites de ley (GOALS.md): el servidor rechaza 25 MiB/imagen y 300 MiB/paquete;
     // avisar acá evita subir 200 MB para que fallen al final
