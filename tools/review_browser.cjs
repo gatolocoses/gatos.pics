@@ -113,6 +113,20 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   await page.goto(publication.url+'#f=cut_2&a=encode&b=third&d=0.37&diff=1&g=3&smooth=0');await loaded(page);
   ok('hash restores string frame ids and gain',await page.evaluate(()=>({frame,gainIdx,smoothScale})),{frame:'cut_2',gainIdx:3,smoothScale:false});
   ok('mixed image formats load on the hosted page',await page.locator('#imgB').evaluate(i=>i.naturalWidth),640);
+
+  // regresion ops#74: el creador HOSPEDADO carga con CSP real (hashes+script-src)
+  // y su vista previa (blob:) debe prender; file:// no ejercita la CSP
+  {
+    const creator = await browser.newPage({viewport:{width:1200,height:900}});
+    const viol=[]; creator.on('console',m=>{if(m.type()==='error'&&/Content Security Policy/.test(m.text()))viol.push(m.text());});
+    await creator.goto(BASE+'/crear/');
+    ok('hosted creator CSP allows blob scripts',/script-src 'self' blob:/.test((await (await creator.request.get(BASE+'/crear/')).headers())['content-security-policy']||''));
+    await creator.locator('#obDemo').click();
+    await creator.waitForFunction(()=>{const f=document.getElementById('pvBox');const d=f&&f.contentDocument;const i=d&&d.getElementById('imgA');return !!(i&&i.complete&&i.naturalWidth>0);},null,{timeout:20000});
+    ok('hosted creator demo preview loads under CSP',await creator.evaluate(()=>{const d=document.getElementById('pvBox').contentDocument;return {pkg:!!d.defaultView.GATOS_PACKAGE,natA:d.getElementById('imgA').naturalWidth};}),{pkg:true,natA:960});
+    ok('hosted creator preview has no CSP violations',viol,[]);
+    await creator.close();
+  }
   await page.waitForFunction(()=>document.getElementById('diffCanvas').width===640);
   ok('diff canvas covers the full source dimensions',await page.locator('#diffCanvas').evaluate(c=>[c.width,c.height]),[640,360]);
   await page.locator('#diffGain').selectOption('2');

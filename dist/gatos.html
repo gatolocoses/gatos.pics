@@ -910,7 +910,7 @@ $('obDemo').addEventListener('click', () => {
   btn.disabled = true; btn.textContent = 'Generando ejemplo…';
   setTimeout(async () => {
     const pkg = await makeDemoPackage();
-    $('pvBox').srcdoc = buildStandaloneHTML(pkg);
+    $('pvBox').srcdoc = buildStandaloneHTML(pkg, {blob:true});
     $('pvFrame').classList.add('show');
     $('onboard').hidden = true;
     btn.disabled = false; btn.textContent = 'Ver un ejemplo';
@@ -1958,22 +1958,34 @@ async function runAction(action){
     $('builderStatus').scrollIntoView({block:'nearest'});
   }
 }
-function buildStandaloneHTML(pkg){
+function buildStandaloneHTML(pkg, opts){
+  // export: inline (portatil, file:// sin CSP). preview: URLs blob: — el srcdoc
+  // hereda la CSP del creador hospedado y bloquea scripts inline generados en
+  // runtime; los blob: solo pueden mintearlos nuestros scripts (inadivinables)
   const json = JSON.stringify(pkg).replace(/</g, '\\u003c');
+  if (opts && opts.blob){
+    for (const u of previewUrls) URL.revokeObjectURL(u);
+    previewUrls.length = 0;
+    const blobSrc = (code) => { const u = URL.createObjectURL(new Blob([code], {type:'text/javascript'})); previewUrls.push(u); return u; };
+    return SHELL_HTML
+      .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobSrc(UPLOAD_SRC) + '"><\/script>')
+      .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobSrc('window.GATOS_PACKAGE = ' + json + ';') + '"><\/script>\n<script src="' + blobSrc(ENGINE_SRC) + '"><\/script>');
+  }
   const injection = '<script>window.GATOS_PACKAGE = ' + json + ';<\/script>\n';
   const engineTag = '<script>\n' + ENGINE_SRC + '\n<\/script>';
   return SHELL_HTML
     .replace('<script src="upload.js"><\/script>', () => '<script>\n'+UPLOAD_SRC+'\n<\/script>')
     .replace('<script src="compare.js"><\/script>', () => injection + engineTag);
 }
+const previewUrls = [];
 async function openPreviewOverlay(){
   if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para abrir la vista previa.'; return; }
   const pkg = await currentPackage({complete:true});
   $('pvFrame').classList.add('show');
   $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>Generando vista previa…</body></html>';
-  $('pvBox').srcdoc = buildStandaloneHTML(pkg);
+  $('pvBox').srcdoc = buildStandaloneHTML(pkg, {blob:true});
 }
-$('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; });
+$('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; for (const u of previewUrls) URL.revokeObjectURL(u); previewUrls.length = 0; });
 $('btnPreviewTop').addEventListener('click', () => runAction(openPreviewOverlay));
 $('btnPreview').addEventListener('click', () => runAction(openPreviewOverlay));
 
