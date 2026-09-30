@@ -1306,7 +1306,16 @@ async function importCmp(file){
 window.addEventListener('dragover', e => { if ([...e.dataTransfer.items].some(i => i.kind === 'file')) e.preventDefault(); });
 window.addEventListener('drop', e => {
   const f = [...e.dataTransfer.files].find(f => /\.cmp$/i.test(f.name));
-  if (f){ e.preventDefault(); importCmp(f); }
+  if (!f) return;
+  e.preventDefault();
+  // el drop en cualquier parte es el camino accidental: con trabajo abierto,
+  // reemplazar el proyecto tiene que ser una decisión explícita
+  if (state.cells.size || state.pairs.length){
+    if (confirm('Soltar este archivo reemplaza el proyecto que tienes abierto. ¿Continuar?')) importCmp(f);
+    else $('builderStatus').textContent = 'No se importó nada: tu proyecto sigue como estaba.';
+    return;
+  }
+  importCmp(f);
 });
 
 /* ============================================================
