@@ -3,6 +3,7 @@
 <title>Marca gatos.pics</title><style>
 *{box-sizing:border-box}body{background:#101014;color:#e8e8f0;font:14px/1.5 system-ui,sans-serif;padding:32px}
 h1{font-size:20px}section{display:flex;align-items:center;gap:24px;margin:24px 0;padding:24px;background:#1a1a22;border-radius:8px}
+section p{margin:0;color:#9a9aa8;font-size:12px}
   .brand{position:relative; display:inline-grid; grid-template-columns:44px 34px; width:78px; height:16px;
     flex:0 0 78px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
     font:700 9px/16px system-ui,sans-serif; color:#fff;
@@ -16,35 +17,48 @@ h1{font-size:20px}section{display:flex;align-items:center;gap:24px;margin:24px 0
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E");
     background-size:11px 6.6px; background-position:center; background-repeat:no-repeat;}
 
-</style><h1>Marca gatos.pics</h1><p>Una variante. 92 × 22 px. HTML y   .brand{position:relative; display:inline-grid; grid-template-columns:44px 34px; width:78px; height:16px;
-    flex:0 0 78px; align-items:stretch; pointer-events:none; user-select:none; opacity:.85;
-    font:700 9px/16px system-ui,sans-serif; color:#fff;
-    text-shadow:0 1px 2px #000d,0 0 1px #000;}
-  .brand-gato{background:#7bd389; border-radius:3px 0 0 3px; text-align:center;}
-  .brand-pics{background:#ffb454; border-radius:0 3px 3px 0; text-align:center;}
-  /* el track cubre TODO el ancho: el circulito cruza por encima de las palabras */
-  .brand-track{position:absolute; inset:0;}
-  .brand-dot{position:absolute; top:0; left:42px; transform:translateX(-50%);   /* en reposo, apenas antes de la costura: la s respira */ width:16px; height:16px; border-radius:50%;
-    background:#fff; box-shadow:0 1px 3px #000d;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E");
-    background-size:11px 6.6px; background-position:center; background-repeat:no-repeat;}
- con su equivalente en canvas.</p>
-<section aria-label="Marca en HTML"><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span></section>
-<section aria-label="Marca en canvas"><canvas id="watermark" width="184" height="44" style="width:92px;height:22px"></canvas></section>
+</style><h1>Marca gatos.pics</h1>
+<p>La marca final: 78 × 16 px. Bloques verde <b>gatos</b> (#7bd389) y ámbar <b>pics</b> (#ffb454)
+pegados (44 + 34 px), sin separación. Un círculo blanco de 16 px con dos flechas cruza las
+palabras siguiendo al divisor del visor; en reposo queda en la costura, apenas antes de la s.
+Opacidad .85 en los shells (la marca de canvas de las imágenes compartidas lleva su propio
+alfa .9). Definitiva desde 2026-09-28: rediseñar exige una issue aprobada.</p>
+<section aria-label="Marca en HTML (CSS de los shells)"><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span><p>HTML: el circulito reposa en la costura (left 42 px) y en el visor se mueve con el divisor.</p></section>
+<section aria-label="Marca en canvas (drawBrand de viewer/compare.js)">
+  <div><canvas id="wm-rest" width="156" height="32" style="width:78px;height:16px"></canvas><p>canvas en reposo</p></div>
+  <div><canvas id="wm-slide" width="156" height="32" style="width:78px;height:16px"></canvas><p>canvas siguiendo al divisor</p></div>
+</section>
 <script>
+// drawBrand copiado tal cual de viewer/compare.js: el sello de las imágenes
+// compartidas. Lee dividerPos y blinkMode del visor; aquí se fijan a mano.
+let dividerPos = 0, blinkMode = false;
 function drawBrand(ctx, x, y){
+  // espejo en miniatura: verde/amarillo fijos, el circulito cruza las palabras
+  const W = 78, H = 16, cy = y + H/2;
   ctx.save();
+  ctx.globalAlpha = .9;
   ctx.fillStyle = '#7bd389';
-  ctx.beginPath(); ctx.roundRect(x, y, 42, 22, [4,0,0,4]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x, y, 44, H, [3,0,0,3]); ctx.fill();
   ctx.fillStyle = '#ffb454';
-  ctx.beginPath(); ctx.roundRect(x+50, y, 42, 22, [0,4,4,0]); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+44, y, 34, H, [0,3,3,0]); ctx.fill();
+  const cx = x + 8 + (W - 16) * (blinkMode ? .5 : dividerPos);
   ctx.fillStyle = '#fff'; ctx.shadowColor = '#000c'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.arc(x+46, y+11, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.font = '700 12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right'; ctx.fillText('gato', x+36, y+11);
-  ctx.textAlign = 'left'; ctx.fillText('pics', x+56, y+11);
+  ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx-1.8, cy-3.2); ctx.lineTo(cx-4.4, cy); ctx.lineTo(cx-1.8, cy+3.2);
+  ctx.moveTo(cx+1.8, cy-3.2); ctx.lineTo(cx+4.4, cy); ctx.lineTo(cx+1.8, cy+3.2);
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 9px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText('gatos', x+22, cy);
+  ctx.fillText('pics', x+61, cy);
   ctx.restore();
 }
 
-const ctx=document.getElementById('watermark').getContext('2d');ctx.scale(2,2);drawBrand(ctx,0,0);
+const mk = (id) => { const c = document.getElementById(id); const ctx = c.getContext('2d'); ctx.scale(2,2); return ctx; };
+dividerPos = 34/62; drawBrand(mk('wm-rest'), 0, 0);   // reposo: el mismo left 42 px que el CSS
+dividerPos = 0.15; drawBrand(mk('wm-slide'), 0, 0);   // el divisor corre y el círculo cruza
 </script></html>
