@@ -1162,6 +1162,10 @@ function readState(){
 }
 
 /* ---------- UI ---------- */
+// metricas de un .cmp abierto a mano o exportado: el import del creador y el
+// servicio las sanean, pero el visor local no tiene a nadie detras (#103).
+// Solo se pinta un numero finito; objetos/cadenas hostiles se omiten sin tirar.
+function metricNum(v){ return typeof v === 'number' && isFinite(v) ? v : null; }
 function variantStats(id){
   if (blindMode) return '';
   const m = variant(id).metrics;
@@ -1170,18 +1174,21 @@ function variantStats(id){
   const pf = m.per_frame && m.per_frame[String(frame)];
   if (pf){
     const l = [];
-    if (pf.ssimulacra2 != null) l.push('S2 '+pf.ssimulacra2.toFixed(1));
-    if (pf.psnr_avg != null) l.push('PSNR '+pf.psnr_avg.toFixed(2)+' dB');
-    if (pf.ssim_all != null) l.push('SSIM '+pf.ssim_all.toFixed(4));
+    const pfS2 = metricNum(pf.ssimulacra2), pfPsnr = metricNum(pf.psnr_avg), pfSsim = metricNum(pf.ssim_all);
+    if (pfS2 != null) l.push('S2 '+pfS2.toFixed(1));
+    if (pfPsnr != null) l.push('PSNR '+pfPsnr.toFixed(2)+' dB');
+    if (pfSsim != null) l.push('SSIM '+pfSsim.toFixed(4));
     if (l.length) lines.push(l.join(' \u00B7 ')+' · '+(FRAME_LABELS[frame] || 'frame '+frame));
   }
   const l2 = [];
   if (m.custom_note) l2.push(m.custom_note);
-  if (m.ssimulacra2 != null) l2.push('S2 media '+m.ssimulacra2.toFixed(1));
-  if (m.psnr_avg != null) l2.push('clip PSNR '+m.psnr_avg.toFixed(2));
-  if (m.ssim_all != null) l2.push('SSIM '+m.ssim_all.toFixed(4));
-  if (m.size_bytes) l2.push((m.size_bytes/1048576).toFixed(1)+' MB');
-  if (m.kbps) l2.push(Math.round(m.kbps)+' kbps');
+  const mS2 = metricNum(m.ssimulacra2), mPsnr = metricNum(m.psnr_avg), mSsim = metricNum(m.ssim_all);
+  const mBytes = metricNum(m.size_bytes), mKbps = metricNum(m.kbps);
+  if (mS2 != null) l2.push('S2 media '+mS2.toFixed(1));
+  if (mPsnr != null) l2.push('clip PSNR '+mPsnr.toFixed(2));
+  if (mSsim != null) l2.push('SSIM '+mSsim.toFixed(4));
+  if (mBytes) l2.push((mBytes/1048576).toFixed(1)+' MB');
+  if (mKbps) l2.push(Math.round(mKbps)+' kbps');
   if (l2.length) lines.push(l2.join(' \u00B7 '));
   return lines.join('\n');
 }
@@ -1192,7 +1199,8 @@ function updateMeta(){
   }
   const lbl = FRAME_LABELS[frame] || String(frame);
   const m = FRAME_META[frame] || {};
-  const where = m.clip_s != null ? ` \u00B7 clip +${m.clip_s.toFixed(1)}s` : '';
+  const clipS = metricNum(m.clip_s);
+  const where = clipS != null ? ` \u00B7 clip +${clipS.toFixed(1)}s` : '';
   const origin = CLIP.start_label ? `Inicio del clip ${CLIP.start_label} \u00B7 ` : '';
   const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
