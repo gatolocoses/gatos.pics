@@ -425,7 +425,15 @@ function renderVidList(){
       </div>`;
     row.querySelector('[data-a=up]').onclick = () => { if (i>0){ [vidState.files[i-1], vidState.files[i]] = [vidState.files[i], vidState.files[i-1]]; renderVidList(); syncVideoToAdvanced(); } };
     row.querySelector('[data-a=dn]').onclick = () => { if (i<vidState.files.length-1){ [vidState.files[i+1], vidState.files[i]] = [vidState.files[i], vidState.files[i+1]]; renderVidList(); syncVideoToAdvanced(); } };
-    row.querySelector('[data-a=rm]').onclick = () => { vidState.files.splice(i,1); renderVidList(); syncVideoToAdvanced(); };
+    row.querySelector('[data-a=rm]').onclick = () => {
+      const f = vidState.files.splice(i,1)[0];
+      const u = vidURLs.get(f);
+      if (u){   // masters de GB no quedan anclados por un object URL vivo
+        if (vidPlayer.src === u){ vidPlayer.removeAttribute('src'); vidPlayer.load(); }
+        URL.revokeObjectURL(u); vidURLs.delete(f);
+      }
+      renderVidList(); syncVideoToAdvanced();
+    };
     host.appendChild(row);
   });
   $('vidStage').style.display = vidState.files.length ? '' : 'none';
@@ -1361,10 +1369,11 @@ setMode('basic');
 showOnboard(false);
 if (new URLSearchParams(location.search).get('demo') === '1') $('obDemo').click();
 window.addEventListener('beforeunload', e => {
-  const hasWork = state.pairs.some(p => p[0] || p[1]) || state.cells.size;
+  /* marcas y archivos sin asignar también son trabajo que se pierde */
+  const hasWork = state.pairs.some(p => p[0] || p[1]) || state.cells.size || state.unassigned.length || vidState.marks.length;
   if (hasWork){ e.preventDefault(); e.returnValue = ''; }
 });
-window.addEventListener('unload', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });
+window.addEventListener('pagehide', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });
 
 /* gancho de prueba/consola: permite manejar la página sin mouse (útil también para usuarios avanzados) */
 window.BUILDER = {state, currentPackage, buildStandaloneHTML, addBasicFiles, bulkAdd, importCmp, validateAdvanced, makeDemoPackage, setMode, renderSteps};
