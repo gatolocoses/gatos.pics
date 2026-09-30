@@ -20,7 +20,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
 (async () => {
   fs.mkdirSync(OUT, {recursive:true});
   server = spawn(process.execPath, [path.join(SERVICE,'server.mjs')], {
-    env:{...process.env, PORT:'8987', HOST:'127.0.0.1', BASE_URL:BASE, DATA_DIR:DATA}, stdio:['ignore','pipe','pipe']
+    env:{...process.env, PORT:'8987', HOST:'127.0.0.1', BASE_URL:BASE, DATA_DIR:DATA, GATOS_API_KEY:'test-key-123'}, stdio:['ignore','pipe','pipe']
   });
   await new Promise((resolve,reject)=>{
     const timeout=setTimeout(()=>reject(Error('Local service did not start')),10000);
@@ -108,7 +108,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   },fs.readFileSync(clipPath).toString('base64'));
   ok('video captures zero, repeated seeks, and rejects out-of-range time',capture,{size:[320,180],changes:true,repeat:true,rejects:true});
 
-  const response=await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(fixture)});
+  const response=await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify(fixture)});
   assert.equal(response.status,201);const publication=await response.json();
   await page.goto(publication.url+'#f=cut_2&a=encode&b=third&d=0.37&diff=1&g=3&smooth=0');await loaded(page);
   ok('hash restores string frame ids and gain',await page.evaluate(()=>({frame,gainIdx,smoothScale})),{frame:'cut_2',gainIdx:3,smoothScale:false});
