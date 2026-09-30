@@ -89,6 +89,13 @@ let drag = null, pinch = null;
 const pointers = new Map();
 const realB = new Image();          // offscreen holder for B's true pixels (diff)
 let diffData = null;                // cached abs-diff planes for current pair
+// Carrera de generaciones: al cambiar de par, .src ya apunta a lo NUEVO
+// mientras los pixeles siguen siendo los VIEJOS (complete=true), y el primer
+// load que llega difunde A_nuevo−B_viejo y lo cachea bajo la clave nueva.
+// La autoridad es la URL que cada lado TERMINO de cargar (la registra su
+// handler de load); el diff solo se calcula cuando ambos lados coinciden
+// con la URL actual del par.
+let loadedUrlA = null, loadedUrlB = null;
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -250,10 +257,13 @@ document.querySelectorAll('.vscroll').forEach(b => {
 
 /* ---------- diff mode: cached abs-diff planes, canvas overlay ---------- */
 function ensureDiffBase(){
-  if (!imgA.complete || !imgA.naturalWidth || !realB.complete || !realB.naturalWidth) return null;
+  const keyA = imgA.src, keyB = realB.src;
+  // pixeles asentados de ESTE par: el complete=true de pixeles previos no
+  // prueba nada mientras la URL actual no haya terminado de cargar
+  if (loadedUrlA !== keyA || loadedUrlB !== keyB) return null;
+  if (!imgA.naturalWidth || !realB.naturalWidth) return null;
   const w = imgA.naturalWidth, h = imgA.naturalHeight;
   if (realB.naturalWidth !== w || realB.naturalHeight !== h) return null;
-  const keyA = imgA.currentSrc || imgA.src, keyB = realB.currentSrc || realB.src;
   if (diffData && diffData.keyA === keyA && diffData.keyB === keyB) return diffData;
   const ca = document.createElement('canvas');
   ca.width = w; ca.height = h;
@@ -278,7 +288,8 @@ function renderDiff(){
   if (!d){
     diffCanvas.style.display = 'none';
     imgB.style.display = '';
-    const mismatch = imgA.naturalWidth && realB.naturalWidth &&
+    const mismatch = loadedUrlA === imgA.src && loadedUrlB === realB.src &&
+      imgA.naturalWidth && realB.naturalWidth &&
       (imgA.naturalWidth !== realB.naturalWidth || imgA.naturalHeight !== realB.naturalHeight);
     diffNote.textContent = mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
     return;
@@ -334,6 +345,7 @@ function setHeat(on){
   writeHash();
 }
 imgA.addEventListener('load', () => {
+  loadedUrlA = imgA.src;
   computeFit();
   if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); }
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
@@ -359,7 +371,7 @@ function setSmooth(on){
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
 imgB.addEventListener('load', updateBadge);
-realB.addEventListener('load', renderDiff);
+realB.addEventListener('load', () => { loadedUrlB = realB.src; renderDiff(); });
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
 $('diffGain').addEventListener('change', () => setGain(Number($('diffGain').value)));
 $('heatBtn').addEventListener('click', () => setHeat(!heat));
