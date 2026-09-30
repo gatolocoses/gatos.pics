@@ -96,6 +96,10 @@ let diffData = null;                // cached abs-diff planes for current pair
 // handler de load); el diff solo se calcula cuando ambos lados coinciden
 // con la URL actual del par.
 let loadedUrlA = null, loadedUrlB = null;
+// Fallo de carga del par actual (ops#2): el panel afectado se vacia con
+// estado de error visible y las etiquetas revierten al par asentado.
+let loadFailA = false, loadFailB = false;
+let shownA = null, shownB = null;   // ids del par cuyos pixeles hay en pantalla
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -131,6 +135,7 @@ function clampPan(){
   pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));
 }
 function updateBadge(){
+  if (loadFailA){ zoomBadge.textContent = 'la imagen no carg\u00f3'; return; }
   if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
   zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
@@ -261,6 +266,7 @@ function ensureDiffBase(){
   // pixeles asentados de ESTE par: el complete=true de pixeles previos no
   // prueba nada mientras la URL actual no haya terminado de cargar
   if (loadedUrlA !== keyA || loadedUrlB !== keyB) return null;
+  if (loadFailA || loadFailB) return null;
   if (!imgA.naturalWidth || !realB.naturalWidth) return null;
   const w = imgA.naturalWidth, h = imgA.naturalHeight;
   if (realB.naturalWidth !== w || realB.naturalHeight !== h) return null;
@@ -291,7 +297,9 @@ function renderDiff(){
     const mismatch = loadedUrlA === imgA.src && loadedUrlB === realB.src &&
       imgA.naturalWidth && realB.naturalWidth &&
       (imgA.naturalWidth !== realB.naturalWidth || imgA.naturalHeight !== realB.naturalHeight);
-    diffNote.textContent = mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
+    diffNote.textContent = loadFailA || loadFailB
+      ? 'Diff no disponible: una imagen no carg\u00f3.'
+      : mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
     return;
   }
   diffCanvas.width = d.w; diffCanvas.height = d.h;
@@ -345,7 +353,8 @@ function setHeat(on){
   writeHash();
 }
 imgA.addEventListener('load', () => {
-  loadedUrlA = imgA.src;
+  loadedUrlA = imgA.src; loadFailA = false;
+  imgA.style.visibility = ''; shownA = varA;
   computeFit();
   if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); }
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
@@ -355,7 +364,10 @@ imgA.addEventListener('load', () => {
   }
   applyTransform(); renderDiff(); updateBadge();
 });
-imgA.addEventListener('error', () => { zoomBadge.textContent = 'la imagen no carg\u00f3'; });
+imgA.addEventListener('error', () => {
+  loadFailA = true; imgA.style.visibility = 'hidden';
+  paintSide('A'); updateBadge(); renderDiff();
+});
 
 /* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
 let smoothScale = true;
@@ -370,8 +382,22 @@ function setSmooth(on){
 }
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
-imgB.addEventListener('load', updateBadge);
-realB.addEventListener('load', () => { loadedUrlB = realB.src; renderDiff(); });
+imgB.addEventListener('load', () => {
+  loadFailB = false; imgB.style.visibility = ''; shownB = varB;
+  if (!diffMode) diffNote.style.display = 'none';
+  updateBadge();
+});
+realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; shownB = varB; renderDiff(); });
+// el lado B no deja pixeles viejos bajo etiquetas nuevas: panel vacio y
+// etiquetas revertidas al par asentado hasta que un load exitoso las avance
+function onBError(){
+  loadFailB = true; imgB.style.visibility = 'hidden';
+  paintSide('B');
+  if (diffMode) renderDiff();
+  else { diffNote.style.display = 'block'; diffNote.textContent = 'la imagen derecha no carg\u00f3'; }
+}
+imgB.addEventListener('error', onBError);
+realB.addEventListener('error', onBError);
 diffBtn.addEventListener('click', () => setDiff(!diffMode));
 $('diffGain').addEventListener('change', () => setGain(Number($('diffGain').value)));
 $('heatBtn').addEventListener('click', () => setHeat(!heat));
@@ -636,7 +662,16 @@ function preload(){
     }
   });
 }
+// repinta la etiqueta de un lado desde el par asentado (reversion en error)
+function paintSide(side){
+  const id = side === 'A' ? shownA : shownB;
+  if (id == null) return;   // primer par sin carga exitosa: etiqueta inicial
+  $('label'+side+'Name').textContent = variantName(id);
+  $('stats'+side).textContent = variantStats(id);
+  $('label'+side).style.color = blindMode ? '#e8e8f0' : variant(id).color;
+}
 function loadImg(){
+  loadFailA = loadFailB = false;   // arranca un intento nuevo del par actual
   imgA.src = srcFor(varA, frame);
   if (diffMode){
     realB.src = srcFor(varB, frame);
@@ -885,6 +920,7 @@ function drawBrand(ctx, x, y){
 }
 
 function renderViewCanvas(){
+  if (loadFailA || loadFailB) throw new Error('No se puede compartir: una imagen no carg\u00f3.');
   if (!imgA.complete || !imgA.naturalWidth || !imgB.complete || !imgB.naturalWidth)
     throw new Error('Espera a que terminen de cargar las dos imágenes.');
   if (diffMode && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
