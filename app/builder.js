@@ -1138,85 +1138,9 @@ function fileBase(){
   return slug(state.title || 'comparacion') || 'comparacion';
 }
 
-/* dataURL -> bytes */
-function dataURLtoBytes(du){
-  const parts = du.split(',');
-  const mime = (parts[0].match(/^data:([^;]+)/) || [,'image/png'])[1];
-  const bin = atob(parts[1] || '');
-  const buf = new Uint8Array(bin.length);
-  for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
-  return {mime, buf};
-}
-const te = new TextEncoder();
-function strBytes(s){ return te.encode(s); }
-
-/* ---------- zip (sin compresión, sin dependencias) ---------- */
-let CRC_T = null;
-function crc32(buf){
-  if (!CRC_T){
-    CRC_T = new Uint32Array(256);
-    for (let n = 0; n < 256; n++){
-      let c = n;
-      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-      CRC_T[n] = c >>> 0;
-    }
-  }
-  let c = 0xFFFFFFFF;
-  for (let i = 0; i < buf.length; i++) c = CRC_T[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
-function makeZip(entries){
-  // entradas: [{name, data:Uint8Array}] · método STORE
-  // guardas del formato sin ZIP64: más de 65535 entradas o 4 GiB no se pueden
-  // codificar y setUint32 tiraría un RangeError crudo o un archivo corrupto
-  if (entries.length > 65535) throw new Error('Demasiadas entradas para un zip ('+entries.length+'): el formato admite 65535.');
-  const enc = new TextEncoder();
-  let projected = 22;
-  for (const e of entries){
-    if (e.data.length > 0xFFFFFFFF) throw new Error('«'+e.name+'» no cabe en un zip: el límite por entrada son 4 GiB.');
-    projected += 76 + 2*enc.encode(e.name).length + e.data.length;
-  }
-  if (projected > 0xFFFFFFFF) throw new Error('El zip proyectado pasa de 4 GiB ('+(projected/1073741824).toFixed(1)+'): el formato sin ZIP64 no lo admite. Exporta menos imágenes o más chicas.');
-  const chunks = [], central = [];
-  let offset = 0;
-  for (const e of entries){
-    const nameB = enc.encode(e.name);
-    const crc = crc32(e.data);
-    const lh = new DataView(new ArrayBuffer(30));
-    lh.setUint32(0, 0x04034b50, true);
-    lh.setUint16(4, 20, true);            // versión necesaria
-    lh.setUint16(6, 0x0800, true);        // nombres UTF-8
-    lh.setUint16(8, 0, true);             // store
-    lh.setUint16(10, 0, true); lh.setUint16(12, 0x2101, true);   // hora/fecha DOS fija (1996-08-01: el día 0 es ilegal)
-    lh.setUint32(14, crc, true);
-    lh.setUint32(18, e.data.length, true);
-    lh.setUint32(22, e.data.length, true);
-    lh.setUint16(26, nameB.length, true);
-    lh.setUint16(28, 0, true);
-    chunks.push(new Uint8Array(lh.buffer), nameB, e.data);
-    const cd = new DataView(new ArrayBuffer(46));
-    cd.setUint32(0, 0x02014b50, true);
-    cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
-    cd.setUint16(8, 0x0800, true); cd.setUint16(10, 0, true);
-    cd.setUint16(12, 0, true); cd.setUint16(14, 0x2101, true);
-    cd.setUint32(16, crc, true);
-    cd.setUint32(20, e.data.length, true); cd.setUint32(24, e.data.length, true);
-    cd.setUint16(28, nameB.length, true);
-    cd.setUint32(42, offset, true);
-    central.push(new Uint8Array(cd.buffer), nameB);
-    offset += 30 + nameB.length + e.data.length;
-  }
-  const cdStart = offset;
-  let cdLen = 0;
-  for (const c of central) cdLen += c.length;
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true);
-  end.setUint16(8, entries.length, true);
-  end.setUint16(10, entries.length, true);
-  end.setUint32(12, cdLen, true);
-  end.setUint32(16, cdStart, true);
-  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], {type:'application/zip'});
-}
+/* ---------- bytes y zip: ver app/zip.js (extraído, gatos.pics#26) ---------- */
+/* dataURLtoBytes, dataURLMime, strBytes, crc32 y makeZip (streaming por
+   entradas) se cargan desde zip.js, antes que este archivo. */
 
 /* ---------- export: HTML / .cmp / .zip ---------- */
 $('btnExpHtml').addEventListener('click', () => runAction(async () => {
@@ -1302,29 +1226,37 @@ window.addEventListener('keydown', e => {
 $('btnExpZip').addEventListener('click', () => runAction(async () => {
   const pkg = await currentPackage({complete:true});
   // el visor hospedado resuelve img/<id>_<frame>.<ext>: la extensión va en el
-  // manifest por variante, derivada de los archivos reales
+  // manifest por variante, derivada de los archivos reales (solo el mime del
+  // dataURL, sin decodificar el cuerpo completo por adelantado)
   const exts = {};
   for (const v of pkg.manifest.variants){
     v.image_exts = {};
     for (const f of pkg.manifest.frames){
       const key = v.id+'_'+f;
-      const ext = dataURLtoBytes(pkg.images[key]).mime.split('/')[1].replace('jpeg','jpg');
+      const ext = dataURLMime(pkg.images[key]).split('/')[1].replace('jpeg','jpg');
       exts[key] = ext; v.image_exts[f] = ext;
     }
     exts[v.id] = v.image_exts[pkg.manifest.frames[0]];
     v.ext = exts[v.id];
   }
-  const entries = [
-    {name:'index.html', data: strBytes(SHELL_HTML)},
-    {name:'compare.js', data: strBytes(ENGINE_SRC)},
-    {name:'upload.js', data: strBytes(UPLOAD_SRC)},
-    {name:'manifest.json', data: strBytes(JSON.stringify(pkg.manifest, null, 2))},
+  // entradas diferidas para makeZip: cada imagen se decodifica recién cuando
+  // entra al zip y su dataURL se suelta en ese momento (gatos.pics#26): nunca
+  // están a la vez el paquete completo y el zip completo en memoria
+  const makers = [
+    () => ({name:'index.html', data: strBytes(SHELL_HTML)}),
+    () => ({name:'compare.js', data: strBytes(ENGINE_SRC)}),
+    () => ({name:'upload.js', data: strBytes(UPLOAD_SRC)}),
+    () => ({name:'manifest.json', data: strBytes(JSON.stringify(pkg.manifest, null, 2))}),
   ];
-  for (const [key, du] of Object.entries(pkg.images)){
-    const {buf} = dataURLtoBytes(du);
-    entries.push({name:'img/'+key+'.'+exts[key], data: buf});
+  for (const key of Object.keys(pkg.images)){
+    makers.push(() => {
+      const data = dataURLtoBytes(pkg.images[key]).buf;
+      pkg.images[key] = null;   // el zip ya lleva estos bytes
+      return {name:'img/'+key+'.'+exts[key], data};
+    });
   }
-  download(fileBase()+'.zip', makeZip(entries));
+  let next = 0;
+  download(fileBase()+'.zip', await makeZip(async () => next < makers.length ? makers[next++]() : null));
 }));
 
 /* ---------- importar .cmp (en ambos modos) ---------- */
