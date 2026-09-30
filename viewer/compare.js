@@ -132,8 +132,11 @@ function zmax(){ return Math.max(1, 8/(fitScale*dpr())); }
 function zmin(){ return Math.min(1, 1/(fitScale*dpr())); }
 function clampPan(){
   const w = comp.clientWidth, h = comp.clientHeight;
-  pan.x = clamp(pan.x, Math.min(0, w-ox-rw*zoom), Math.max(0, -ox));
-  pan.y = clamp(pan.y, Math.min(0, h-oy-rh*zoom), Math.max(0, -oy));
+  // ramificar por cobertura: si el contenido cubre el eje, sus bordes deben
+  // poder llegar a 0 y al borde contrario (sin franjas muertas); si no cubre,
+  // no hay pan posible y queda centrado por ox/oy (contenido letterbox)
+  if (rw*zoom >= w) pan.x = clamp(pan.x, w-ox-rw*zoom, -ox); else pan.x = 0;
+  if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
 }
 function updateBadge(){
   if (loadFailA){ zoomBadge.textContent = 'la imagen no carg\u00f3'; return; }
