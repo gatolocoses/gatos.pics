@@ -1051,7 +1051,14 @@ function renderViewCanvas(){
   };
   if (vw >= 160 && vh >= 80){ pill(false, varA); pill(true, varB); }
   if (vw >= 108 && vh >= 60) drawBrand(x, ix+(vw-78)/2, ib-24);
-  const modes = [diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''}` : '', solarMode ? 'Solar' : '', blindMode ? 'Ciego' : ''].filter(Boolean).join(' · ');
+  // el chip resume los modos activos: sin las entradas de parpadeo y Δ media,
+  // un PNG congelado no indicaba su origen ni cuánto difiere el par
+  const modes = [
+    diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
+    blinkMode ? 'Parpadeo A/B' : '',
+    solarMode ? 'Solar' : '',
+    blindMode ? 'Ciego' : '',
+  ].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
     const mw = Math.min(vw-16, x.measureText(modes).width+16);
