@@ -1155,9 +1155,18 @@ function crc32(buf){
 }
 function makeZip(entries){
   // entradas: [{name, data:Uint8Array}] · método STORE
+  // guardas del formato sin ZIP64: más de 65535 entradas o 4 GiB no se pueden
+  // codificar y setUint32 tiraría un RangeError crudo o un archivo corrupto
+  if (entries.length > 65535) throw new Error('Demasiadas entradas para un zip ('+entries.length+'): el formato admite 65535.');
+  const enc = new TextEncoder();
+  let projected = 22;
+  for (const e of entries){
+    if (e.data.length > 0xFFFFFFFF) throw new Error('«'+e.name+'» no cabe en un zip: el límite por entrada son 4 GiB.');
+    projected += 76 + 2*enc.encode(e.name).length + e.data.length;
+  }
+  if (projected > 0xFFFFFFFF) throw new Error('El zip proyectado pasa de 4 GiB ('+(projected/1073741824).toFixed(1)+'): el formato sin ZIP64 no lo admite. Exporta menos imágenes o más chicas.');
   const chunks = [], central = [];
   let offset = 0;
-  const enc = new TextEncoder();
   for (const e of entries){
     const nameB = enc.encode(e.name);
     const crc = crc32(e.data);
@@ -1166,7 +1175,7 @@ function makeZip(entries){
     lh.setUint16(4, 20, true);            // versión necesaria
     lh.setUint16(6, 0x0800, true);        // nombres UTF-8
     lh.setUint16(8, 0, true);             // store
-    lh.setUint16(10, 0, true); lh.setUint16(12, 0x2100, true);   // hora/fecha DOS fija
+    lh.setUint16(10, 0, true); lh.setUint16(12, 0x2101, true);   // hora/fecha DOS fija (1996-08-01: el día 0 es ilegal)
     lh.setUint32(14, crc, true);
     lh.setUint32(18, e.data.length, true);
     lh.setUint32(22, e.data.length, true);
@@ -1177,7 +1186,7 @@ function makeZip(entries){
     cd.setUint32(0, 0x02014b50, true);
     cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
     cd.setUint16(8, 0x0800, true); cd.setUint16(10, 0, true);
-    cd.setUint16(12, 0, true); cd.setUint16(14, 0x2100, true);
+    cd.setUint16(12, 0, true); cd.setUint16(14, 0x2101, true);
     cd.setUint32(16, crc, true);
     cd.setUint32(20, e.data.length, true); cd.setUint32(24, e.data.length, true);
     cd.setUint16(28, nameB.length, true);
