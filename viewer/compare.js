@@ -619,7 +619,9 @@ function writeHash(){
 function readState(){
   let saved = {};
   const h = new URLSearchParams(location.hash.slice(1));
-  if (!h.size) try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
+  // .size llego en Safari 17.4: en navegadores viejos es undefined y el estado
+  // local siempre ganaba; la vacuidad se mide sin depender de esa propiedad
+  if (h.toString() === '') try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
   const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };
   const findFrame = value => value == null ? undefined : FRAMES.find(f => String(f) === String(value));
   frame = findFrame(h.get('f')) ?? findFrame(saved.f) ?? FRAMES[0];
