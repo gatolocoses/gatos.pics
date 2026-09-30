@@ -54,8 +54,9 @@ $('obDemo').addEventListener('click', () => {
     btn.disabled = false; btn.textContent = 'Ver un ejemplo';
   }, 30);
 });
-$('obLoad').addEventListener('click', async () => {
+$('obLoad').addEventListener('click', () => runAction(async () => {
   // cargar el ejemplo como proyecto básico para poder tocarlo
+  if (state.pairs.some(p => p[0] || p[1]) && !confirm('Cargar el ejemplo descarta tu proyecto actual. ¿Continuar?')) return;
   const pkg = await makeDemoPackage();
   setMode('basic');
   state.pairs = [];
@@ -72,7 +73,7 @@ $('obLoad').addEventListener('click', async () => {
   }
   renderPairs();
   $('onboard').hidden = true;
-});
+}));
 $('btnHelp').addEventListener('click', () => showOnboard(true));
 
 /* demo sintética: gradientes + figuras por canvas, sin archivos externos */
@@ -1193,10 +1194,10 @@ $('btnExpHtml').addEventListener('click', () => runAction(async () => {
   const pkg = await currentPackage({complete:true});
   download(fileBase()+'.html', new Blob([buildStandaloneHTML(pkg)], {type:'text/html'}));
 }));
-$('btnExpCmp').addEventListener('click', async () => {
+$('btnExpCmp').addEventListener('click', () => runAction(async () => {
   const pkg = await currentPackage();
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
-});
+}));
 
 /* ---------- publicar en gatos.pics ---------- */
 const serviceHere = location.hostname === 'gatos.pics' ||
@@ -1260,14 +1261,14 @@ async function saveProject(){
   const pkg = await currentPackage();
   download(fileBase()+'.cmp', new Blob([JSON.stringify(pkg)], {type:'application/json'}));
 }
-$('btnSave').addEventListener('click', saveProject);
+$('btnSave').addEventListener('click', () => runAction(saveProject));
 $('btnOpen').addEventListener('click', () => $('openFile').click());
 $('openFile').addEventListener('change', () => {
   if ($('openFile').files[0]) importCmp($('openFile').files[0]);
   $('openFile').value = '';
 });
 window.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); saveProject(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){ e.preventDefault(); runAction(saveProject); }
 });
 $('btnExpZip').addEventListener('click', () => runAction(async () => {
   const pkg = await currentPackage({complete:true});
