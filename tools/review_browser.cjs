@@ -125,6 +125,14 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await creator.waitForFunction(()=>{const f=document.getElementById('pvBox');const d=f&&f.contentDocument;const i=d&&d.getElementById('imgA');return !!(i&&i.complete&&i.naturalWidth>0);},null,{timeout:20000});
     ok('hosted creator demo preview loads under CSP',await creator.evaluate(()=>{const d=document.getElementById('pvBox').contentDocument;return {pkg:!!d.defaultView.GATOS_PACKAGE,natA:d.getElementById('imgA').naturalWidth};}),{pkg:true,natA:960});
     ok('hosted creator preview has no CSP violations',viol,[]);
+    // ops#76: Publicar SIN llave desde el creador hospedado (tier UI abierto)
+    await creator.locator('#pvClose').click();
+    await creator.evaluate(() => { localStorage.removeItem('gatosApiKey'); });
+    const png2 = Buffer.from(fixture.images.source_intro.split(',')[1],'base64');
+    await creator.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png2},{name:'a.png',mimeType:'image/png',buffer:png2}]);
+    await creator.locator('#btnPublish2, #btnPublish').first().click();
+    await creator.waitForFunction(() => { const u=document.getElementById('pubUrl'); return u && u.value && document.getElementById('pubFrame').style.display === 'flex'; }, null, {timeout:25000});
+    ok('hosted creator publishes keyless (UI tier)', /\/p\/[A-Za-z0-9_-]{10,}/.test(await creator.locator('#pubUrl').inputValue()));
     await creator.close();
   }
   await page.waitForFunction(()=>document.getElementById('diffCanvas').width===640);
