@@ -19,7 +19,7 @@ Todo lo que el creador y el visor saben hacer, explicado sin prisa.
 ## 1. Instalar
 
 No hay nada que instalar. Descarga **`dist/gatos.html`** (un solo archivo) y
-ábrelo con doble clic — se abre en tu navegador y ya es todo el programa:
+ábrelo con doble clic · se abre en tu navegador y ya es todo el programa:
 creador, visor, motor de captura y S2 incluidos. Funciona sin internet.
 
 Si prefieres la versión en carpeta (por ejemplo para desarrollo), clona el repo
@@ -33,13 +33,13 @@ Para cuando solo quieres comparar pares de imágenes y nada más.
 2. Cada **dos imágenes** forman un par: la primera queda a la izquierda, la
    segunda a la derecha. Se ordenan por nombre, así que llámalas
    `01-fuente.png`, `01-encode.png`, `02-fuente.png`… y los pares salen solos.
-3. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltela — completa
+3. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltela: completa
    el par cojo automáticamente.
 4. **Vista previa** arriba a la derecha, y exporta con los botones que aparecen
    cuando los pares están completos.
 
 Si dejas un par a medias, la página te avisa antes de exportar. Si mezclas
-tamaños de imagen, también — el diff y los recortes 1:1 necesitan dimensiones
+tamaños de imagen, también: el diff y los recortes 1:1 necesitan dimensiones
 idénticas.
 
 ## 3. Modo Video
@@ -49,7 +49,7 @@ De los archivos de video a la comparación, sin capturar nada a mano.
 1. Suelta el **máster** primero y los encodes después (el orden se ajusta con
    ↑↓; el primero siempre es la referencia).
 2. Reproduce el máster, pausa donde quieras comparar, y dale **Marcar aquí**.
-   Repite para cada momento — cada marca es un chip que puedes re-visitar con
+   Repite para cada momento: cada marca es un chip que puedes re-visitar con
    un clic o quitar con su ×.
 3. 4. **Capturar todo**: la herramienta hace una captura en el instante pedido
    de cada video. No garantiza que dos archivos estén alineados por frame.
@@ -62,11 +62,11 @@ Consejos:
 - Busca momentos difíciles: escenas oscuras, grano fino, degradados, acción.
 - Para que las capturas de dos videos con distinto corte coincidan, marca en el
   máster y verifica a ojo en los otros antes de capturar todo.
-- **Límites honestos**: se puede abrir lo que tu navegador decodifica — MP4 /
+- **Límites honestos**: se puede abrir lo que tu navegador decodifica (MP4 /
   WebM / MOV con H.264 / VP9 / AV1 van bien; HEVC depende de la plataforma;
-  MKV casi solo Firefox. El HDR pasa por la conversión del navegador:
+  MKV casi solo Firefox). El HDR pasa por la conversión del navegador:
   consistente entre variantes (todas ven lo mismo), pero no es un pipeline
-  controlado — para comparaciones exigentes de HDR usa capturas de tu propio
+  controlado: para comparaciones exigentes de HDR usa capturas de tu propio
   proceso.
 
 ## 4. Modo Avanzado
@@ -74,14 +74,14 @@ Consejos:
 Cinco pasos a la izquierda; puedes saltar entre ellos cuando quieras.
 
 ### Proyecto
-Título (opcional — pero la página se ve mejor con uno) y versión para romper
+Título (opcional: la página se ve mejor con uno) y versión para romper
 caché cuando hospedas la carpeta.
 
 ### Variantes
 Una por versión que comparas. La primera es la **referencia** (izquierda por
 defecto); la segunda va a la derecha. Campos: nombre, codec, CRF, bitrate y una
-nota libre — lo que llenes se muestra en el botón de la página final, unido con
-puntos medios (`AV1 · CRF 26 · 8.3 Mb/s`). El comando completo del encoder
+nota libre (lo que llenes se muestra en el botón de la página final, unido con
+puntos medios: `AV1 · CRF 26 · 8.3 Mb/s`). El comando completo del encoder
 aparece como tooltip al dejar el cursor sobre el botón. El punto de color se
 cicla con un clic.
 
@@ -94,7 +94,7 @@ bonito del botón (`escena oscura`).
 La tabla variantes × frames. Tres formas de llenarla:
 
 - **Volcado mágico**: suelta todos los archivos de golpe nombrados
-  `variante_numero.png` — lo que no exista (variante o frame) se crea solo del
+  `variante_numero.png`: lo que no exista (variante o frame) se crea solo del
   nombre. `blu-ray_1001.png` crea la variante "Blu Ray" y el frame 1001.
 - Clic en una casilla para elegir un archivo suelto, o arrastra uno encima.
 - Los que no se pudieron emparejar quedan en "Archivos sin asignar" con su
@@ -102,7 +102,7 @@ La tabla variantes × frames. Tres formas de llenarla:
 
 ### Final
 La lista de revisión: casillas vacías, tamaños mezclados, campos opcionales
-pendientes — en rojo lo que rompe, en ámbar lo que solo afeita. Abajo, las
+pendientes (en rojo lo que rompe, en ámbar lo que solo afeita). Abajo, las
 exportaciones y el toggle de S2.
 
 ## 5. El visor, tecla por tecla
@@ -115,11 +115,11 @@ La página que se lleva quien abre tu export.
 | `Espacio` | siguiente variante en el lado derecho |
 | `1`–`9` | saltar a la variante N (`Shift` = lado izquierdo) |
 | `S` | intercambiar izquierda y derecha |
-| `D` | **diff amplificado** — dónde golpea el encode |
+| `D` | **diff amplificado**: dónde golpea el encode |
 | `B` | **parpadeo** A/B a 2 Hz |
-| `G` | **modo ciego** — oculta qué variante es cuál |
-| `L` | **curva solar** — revela banding |
-| `C` | **recortes 1:1** — clic en un punto, todas las variantes píxel a píxel |
+| `G` | **modo ciego**: oculta qué variante es cuál |
+| `L` | **curva solar**: revela banding |
+| `C` | **recortes 1:1**: clic en un punto, todas las variantes píxel a píxel |
 | `O` / `F` | 1:1 real / ajustar a la ventana |
 | `N` | escala en píxeles nítidos (sin suavizado) |
 | `+` / `−` | ganancia del diff |
@@ -140,7 +140,7 @@ La página que se lleva quien abre tu export.
   anónimas; quien abra el enlace podrá ver las identidades. Las imágenes y el
   manifiesto siguen siendo inspeccionables: es una ayuda para juzgar sin sesgo.
 - **Solar**: curva no lineal que convierte degradados suaves en escalones
-  gigantes — el banding salta a la vista.
+  gigantes: el banding salta a la vista.
 - Fuera del modo ciego, el estado (frame, variantes, zoom, divisor, modo) vive
   en la URL: cópiala para compartir la vista.
 
@@ -175,10 +175,10 @@ De un vistazo:
 Matices que importan:
 
 - **El grano engaña al número**. El ruido fino mueve el puntaje hacia abajo más
-  de lo que molesta al ojo — un encode con síntesis de grano puede verse mejor
+  de lo que molesta al ojo: un encode con síntesis de grano puede verse mejor
   de lo que su S2 sugiere. Compara encodes entre sí con el mismo tratamiento.
 - **Compara manzanas con manzanas**. Los puntajes son comparables dentro de la
-  misma fuente y el mismo conjunto de frames; no crucés rungs de eras o
+  misma fuente y el mismo conjunto de frames; no cruces rungs de eras o
   pipelines distintos y saques conclusiones absolutas.
 - **Lo que ves vs lo que mides**. Un número nunca reemplaza tus ojos: usa S2
   para ordenar candidatos y el visor (diff, recortes, ciego) para decidir.
@@ -187,8 +187,8 @@ Matices que importan:
   por otras rutas de la métrica.
 
 Cómo se usa en el creador: marca **Calcular S2** en el paso Final, exporta, y
-cada variante lleva su puntaje por frame y su media — visibles en la página
-final bajo el nombre de cada variante.
+cada variante lleva su puntaje por frame y su media (visibles en la página
+final bajo el nombre de cada variante).
 
 ## 7. Exportaciones y proyectos
 
@@ -199,7 +199,7 @@ final bajo el nombre de cada variante.
 | **.cmp** | JSON: manifiesto + imágenes | Reabrir en el creador, o publicar en el servicio gatos.pics cuando abra |
 
 - **Guardar proyecto** (Ctrl+S) baja un `.cmp` con todo tu trabajo; **Abrir**
-  (o soltar el archivo en la ventana) lo restaura — incluidas las imágenes.
+  (o soltar el archivo en la ventana) lo restaura (incluidas las imágenes).
 - La versión del proyecto rompe la caché cuando hospedas la carpeta y subes
   una revisión: súbela con +1.
 - El peso del .html crece con las imágenes (van embebidas en base64). Para
@@ -211,7 +211,7 @@ No hay nada que contar porque no hay a quién: el programa es un archivo local
 sin red. Las imágenes se leen con las APIs de archivo del navegador, se
 procesan en memoria y se embeben en el HTML que tú descargas. Sin telemetría,
 sin analítica, sin llamadas a ningún servidor. Si quieres comprobarlo, abre el
-archivo y léelo — son unos miles de líneas de JS plano sin una sola dirección
+archivo y léelo: son unos miles de líneas de JS plano sin una sola dirección
 remota.
 
 ## 9. Preguntas frecuentes

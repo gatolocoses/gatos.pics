@@ -7,15 +7,15 @@ sabes leer JS, sabes leer todo el producto.
 ## Estructura
 
 ```
-viewer/            EL MOTOR — lo que ve quien abre una comparación
+viewer/            EL MOTOR: lo que ve quien abre una comparación
   index.html       shell: layout, estilos, SVG de la curva solar
   compare.js       DataSource (Embedded/Http), divisor, diff, recortes, S2 visible
   upload.js        progreso XHR, cancelación y reintento manual de subidas explícitas
-app/               EL CREADOR — lo que usa quien arma la comparación
+app/               EL CREADOR: lo que usa quien arma la comparación
   index.html       markup + estilos del creador
   builder.js       estados, tres modos, exportaciones, zip STORE+CRC32
   s2.js            SSIMULACRA2 en JS puro (puerto validado bit-exacto)
-  assets.js        GENERADO — no editar a mano
+  assets.js        GENERADO: no editar a mano
 tools/
   build_app.py     inyecta viewer/* en app/assets.js y arma dist/gatos.html
   make_demo.py     regenera demo/demo.cmp y demo/demo.html (sintético)
@@ -43,18 +43,18 @@ Los tres corren con Python 3 puro, sin dependencias.
 
 ## Contratos que no se deben romper
 
-- **`.cmp` = `gatos.pics/cmp@1`** — manifiesto + imágenes (`docs/formato-cmp.md`).
+- **`.cmp` = `gatos.pics/cmp@1`**: manifiesto + imágenes (`docs/formato-cmp.md`).
   Es el formato que el servicio hospedado va a aceptar como subida; cambios
   incompatibles suben el sufijo.
-- **`per_frame` con objetos** — los valores de `metrics.per_frame` son objetos
+- **`per_frame` con objetos**: los valores de `metrics.per_frame` son objetos
   (`{"ssimulacra2": 67.0}`), no números sueltos; el visor y el kit histórico
   lo esperan así.
 - **Local hasta publicar**: crear, editar, previsualizar y exportar funcionan
   sin llamadas de red. Ni CDN, fuentes remotas ni telemetría. Publicar y actualizar
   una imagen compartida requieren una acción explícita y son las únicas subidas.
-- **`file://` primero** — todo lo que entre al creador debe funcionar abierto
+- **`file://` primero**: todo lo que entre al creador debe funcionar abierto
   con doble clic, sin servidor.
-- **UI en español latino** — el producto habla es-LA; nada de tuteo cruzado ni
+- **UI en español latino**: el producto habla es-LA; nada de tuteo cruzado ni
   términos de España (`ordenador`, `fichero`, `vosotros`).
 
 ## El puerto de SSIMULACRA2
@@ -69,7 +69,7 @@ que ya costaron sudor y quedaron documentadas en el código:
 2. El vector de 108 pesos se copia de la fuente, nunca a mano.
 
 Validación: contra el paquete PyPI sobre los mismos PNG, el puntaje coincide a
-4 decimales. Si tocas `s2.js`, revalida — el caso de prueba del repo es la demo
+4 decimales. Si tocas `s2.js`, revalida: el caso de prueba del repo es la demo
 (`make_demo.py` recalcula sus S2 si exportas `GATOS_S2_PYTHON=/ruta/al/python`
 con el paquete instalado; sin la variable, la demo se regenera sin métricas).
 

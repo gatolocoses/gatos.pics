@@ -9,7 +9,7 @@ en tu computadora. Las imágenes solo se suben cuando eliges Publicar.
 
 - Sin cuentas ni registros: el creador corre completo en tu navegador.
 - Sin dependencias: un archivo HTML con JS puro, sin instalar nada.
-- **Linux · Windows · macOS** — cualquier navegador moderno.
+- **Linux · Windows · macOS**: cualquier navegador moderno.
 - **Conserva una copia**: el HTML exportado incluye las imágenes y se abre
   sin conexión en un navegador compatible.
 
@@ -32,19 +32,19 @@ Las capturas usan la demo sintética incluida en el repo.
 
 ## Empezar en 20 segundos
 
-1. Descarga **`dist/gatos.html`** — un solo archivo, ese es todo el programa.
+1. Descarga **`dist/gatos.html`** (un solo archivo, ese es todo el programa).
 2. Ábrelo con doble clic. Funciona sin internet y sin instalar nada.
 3. Suelta dos imágenes. Ya tienes una comparación.
 
-> Alternativa: clona el repo y abre `app/index.html` — misma cosa, en carpeta.
+> Alternativa: clona el repo y abre `app/index.html` (misma cosa, en carpeta).
 
 ## Los tres modos
 
-### Básico — pares, nada más
+### Básico: pares, nada más
 Suelta imágenes; cada dos forman un par (izquierda contra derecha). Sin títulos,
 sin configuración. Exporta HTML, carpeta .zip o .cmp cuando quieras.
 
-### Video — de los archivos a la comparación
+### Video: de los archivos a la comparación
 Suelta el máster y los encodes, marca momentos en la línea de tiempo y la
 herramienta captura cada variante en los tiempos marcados. Revisa la sincronía
 entre versiones antes de compartir. capturas en PNG sin pérdida, siempre.
@@ -54,7 +54,7 @@ HEVC depende de la plataforma). El HDR pasa por la conversión de color del
 navegador. Para controlar esa conversión y elegir frames exactos, usa capturas
 de tu propio proceso de extracción.
 
-### Avanzado — para comparaciones serias
+### Avanzado: para comparaciones serias
 - **Variantes** con codec / CRF / bitrate en el botón y el comando del encoder
   como tooltip.
 - **Frames** con número y etiqueta (`6052 · escena oscura`).
@@ -91,8 +91,8 @@ referencia y la página lo muestra bajo el nombre (`S2 67.0 @6052s · S2 media
 57.0`). Es el mismo algoritmo que la implementación de referencia en Python,
 corriendo localmente en tu navegador. La
 [guía](docs/guia.md#s2-ssimulacra2-en-lenguaje-claro) explica qué significan
-los números — el resumen de un vistazo: 100 es idéntico, más de ~85 suele ser
-imperceptible, debajo de ~60 ya se nota mirando de cerca.
+los números (el resumen de un vistazo: 100 es idéntico, más de ~85 suele ser
+imperceptible, debajo de ~60 ya se nota mirando de cerca).
 
 ## Las tres exportaciones
 
@@ -100,7 +100,7 @@ imperceptible, debajo de ~60 ya se nota mirando de cerca.
 |---|---|
 | **HTML de un solo archivo** | Se envía por chat, se abre con doble clic, vive sin servidor. |
 | **Carpeta .zip** (`index.html` + `img/`) | Cualquier hosting estático: GitHub Pages, nginx, lo que tengas. |
-| **Paquete .cmp** | El formato nativo de gatos.pics — súbelo directo al servicio cuando abra al público. |
+| **Paquete .cmp** | El formato nativo de gatos.pics: súbelo directo al servicio cuando abra al público. |
 
 Los proyectos se guardan y abren como `.cmp` (Ctrl+S / botón Abrir / o suelta
 el archivo en la ventana).
@@ -109,18 +109,18 @@ el archivo en la ventana).
 ## Repo
 
 ```
-viewer/   el motor (index.html + compare.js) — también sirve hospedado
+viewer/   el motor (index.html + compare.js): también sirve hospedado
 app/      el creador (index.html + builder.js + s2.js + assets.js generado)
-dist/     gatos.html — todo el creador en un solo archivo
+dist/     gatos.html: todo el creador en un solo archivo
 tools/    build_app.py (regenera assets.js y dist), make_demo.py
 demo/     demo sintética con S2 real, sin material ajeno
 docs/     guía de uso, formato .cmp, desarrollo
 ```
 
 Sin framework, sin build system en uso, sin CDN: HTML, CSS y JS planos.
-Después de tocar `viewer/` o `app/`: `python3 tools/build_app.py` — ver
-[desarrollo](docs/desarrollo.md).
+Después de tocar `viewer/` o `app/`: `python3 tools/build_app.py` (ver
+[desarrollo](docs/desarrollo.md)).
 
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE).
+MIT · ver [LICENSE](LICENSE).

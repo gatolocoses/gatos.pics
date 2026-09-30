@@ -1,4 +1,4 @@
-# Formato `.cmp` — especificación
+# Formato `.cmp` · especificación
 
 Un paquete `.cmp` es un archivo JSON que describe una comparación completa:
 metadatos + imágenes. Un solo formato con tres consumidores: el creador lo
@@ -46,8 +46,8 @@ gatos.pics lo acepta como contrato de publicación.
 | `version` | number | no | Entero creciente; en hospedaje se usa como `?v=` para romper caché. |
 | `frames` | array | sí | Identificadores de frame (número o string). Define el orden de los botones. |
 | `frame_labels` | objeto | no | `String(frame)` → etiqueta bonita. Sin etiqueta, el botón muestra el id. |
-| `frame_meta` | objeto | no | `String(frame)` → `{ "clip_s": 12.5 }` — metadato informativo por frame. |
-| `clip` | objeto | no | `{ "start_label": "minuto 21" }` — contexto del origen de las capturas. |
+| `frame_meta` | objeto | no | `String(frame)` → `{ "clip_s": 12.5 }`: metadato informativo por frame. |
+| `clip` | objeto | no | `{ "start_label": "minuto 21" }`: contexto del origen de las capturas. |
 | `variants` | array | sí | Mínimo 2 para una comparación. |
 
 ### `variants[]`
@@ -61,12 +61,12 @@ gatos.pics lo acepta como contrato de publicación.
 | `cmd` | string | no | Comando completo del encoder; se muestra como tooltip al mantener el botón. |
 | `ext` | string | no | Extensión de archivo SOLO para el despliegue en carpeta (`img/<id>_<frame>.<ext>`). Ignorada en el paquete embebido. |
 | `image_exts` | objeto | no | `String(frame)` → extensión real de esa imagen. Tiene prioridad sobre `ext`; permite mezclar PNG, JPEG y otros formatos dentro de una variante. Lo generan el export ZIP y el servicio a partir de los archivos. |
-| `metrics` | objeto | no | `ssimulacra2` (media), `per_frame: {frame: {ssimulacra2}}`, `psnr_avg`, `ssim_all`, `size_bytes`, `kbps` — se muestran bajo el nombre si existen. El creador puede calcular S2 (SSIMULACRA2) contra la primera variante con un toggle; es el mismo algoritmo que el paquete `ssimulacra2` de PyPI sobre RGB 8 bit (números comparables entre herramientas 8-bit, no contra salidas de otras rutas). |
+| `metrics` | objeto | no | `ssimulacra2` (media), `per_frame: {frame: {ssimulacra2}}`, `psnr_avg`, `ssim_all`, `size_bytes`, `kbps`: se muestran bajo el nombre si existen. El creador puede calcular S2 (SSIMULACRA2) contra la primera variante con un toggle; es el mismo algoritmo que el paquete `ssimulacra2` de PyPI sobre RGB 8 bit (números comparables entre herramientas 8-bit, no contra salidas de otras rutas). |
 
 ## Reglas
 
 1. **Dimensiones idénticas**: todas las imágenes de una comparación deben tener
-   el mismo ancho/alto — el diff y los recortes 1:1 lo exigen.
+   el mismo ancho/alto: el diff y los recortes 1:1 lo exigen.
 2. **Cada combinación presente al compartir**: el creador bloquea la vista previa,
    HTML, ZIP y publicación si faltan imágenes. Guardar `.cmp` sí permite proyectos
    incompletos para continuar después. El servicio rechaza matrices incompletas.
