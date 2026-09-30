@@ -1025,14 +1025,23 @@ function renderFinish(){
 /* ============================================================
    vista previa + exportaciones
    ============================================================ */
+function packageMode(){
+  /* Guardar/publicar el modo que TIENE trabajo: la pestaña activa es la última
+     tocada, no la del proyecto real (6 pares en Básico + toque en Video no debe
+     guardar el avanzado sembrado y vacío). */
+  const basicWork = state.pairs.some(p => p[0] || p[1]);
+  const advWork = state.cells.size > 0;
+  return basicWork === advWork ? state.mode : (basicWork ? 'basic' : 'advanced');
+}
 async function currentPackage({complete = false, cancelled = () => false} = {}){
+  const mode = packageMode();
   if (complete){
-    const problems = state.mode === 'basic'
+    const problems = mode === 'basic'
       ? (!state.pairs.length || state.pairs.some(p => !p[0] || !p[1]) ? ['Agrega dos imágenes a cada par antes de compartir.'] : [])
       : validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
     if (problems.length) throw new Error(problems.join(' '));
   }
-  return state.mode === 'basic' ? basicPackage(cancelled) : advancedPackage(cancelled);   // video también alimenta el estado avanzado
+  return mode === 'basic' ? basicPackage(cancelled) : advancedPackage(cancelled);   // video también alimenta el estado avanzado
 }
 async function runAction(action){
   $('builderStatus').textContent = '';
