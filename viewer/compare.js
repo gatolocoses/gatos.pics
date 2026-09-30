@@ -37,8 +37,11 @@ function makeHttpSource(){
   return {
     async init(){
       const r = await fetch('manifest.json?t='+Date.now(), {cache:'no-store'});
-      const m = await r.json();
-      VERSION = String(m.version || '');
+      if (!r.ok) throw new Error('manifest.json HTTP '+r.status);
+      let m;
+      try { m = await r.json(); }
+      catch(e){ throw Object.assign(new Error('manifest inv\u00e1lido: JSON truncado o malformado'), {manifestInvalid:true}); }
+      VERSION = String(m?.version || '');
       return m;
     },
     srcFor(id, f){
@@ -1233,6 +1236,11 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
 
 /* ---------- init ---------- */
 function applyManifest(m){
+  // un manifest truncado o mano-editado no es un fallo de transporte: sin
+  // esto, readState revienta en .find/.some y el init culpa al transportista
+  if (!m || !Array.isArray(m.frames) || !m.frames.length ||
+      !Array.isArray(m.variants) || m.variants.length < 2)
+    throw Object.assign(new Error('manifest inv\u00e1lido: faltan frames o hay menos de 2 variantes'), {manifestInvalid:true});
   FRAMES = m.frames;
   VARIANTS = m.variants;
   FRAME_LABELS = m.frame_labels || {};
@@ -1268,6 +1276,7 @@ function applyManifest(m){
     applyManifest(m);
   } catch (err) {
     console.error('comparison data unavailable', err);
-    metaLine.textContent = 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
+    metaLine.textContent = err?.manifestInvalid ? err.message
+      : 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
   }
 })();
