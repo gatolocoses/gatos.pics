@@ -44,6 +44,7 @@ const output = process.env.GATOS_PROFILE_OUT || path.join(os.tmpdir(),'gatos-pro
       for(const v of state.variants) if(v.metric===undefined)v.metric='';
       const t3=performance.now();const pkg=await currentPackage({complete:true});
       const package_ms=performance.now()-t3;
+      if(typeof VIEWER_ASSETS!=='undefined')await VIEWER_ASSETS;
       const t4=performance.now();const html=buildStandaloneHTML(pkg);
       const html_ms=performance.now()-t4;
       const t5=performance.now();const blob=new Blob([html],{type:'text/html'});

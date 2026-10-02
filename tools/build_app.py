@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 """Construye los artefactos del creador a partir de las fuentes.
 
-Fuentes de verdad: viewer/index.html + viewer/compare.js (el motor) y
+Fuentes de verdad: viewer/index.html + viewer/src/*.js (el motor, en partes) y
 app/index.html + app/builder.js (el creador).
 
 Salidas:
-  app/assets.js   — SHELL_HTML + ENGINE_SRC + UPLOAD_SRC como cadenas JS (el creador las
-                    necesita para generar vista previa y exportaciones sin
-                    fetch, que no funciona en file://)
+  viewer/compare.js — el motor: las partes de viewer/src/ en orden de nombre,
+                    unidas con una línea en blanco. Es lo único que leen el servicio,
+                    las exportaciones y las páginas; se edita en las partes,
+                    nunca aquí (el gate falla si no coincide)
+  app/assets.js   — la copia del visor que el creador necesita para generar
+                    vista previa y exportaciones sin fetch (no funciona en
+                    file://): shell + motor + upload en un JSON comprimido
+                    (gzip + base64) que el navegador descomprime al cargar
   dist/gatos.html — el creador completo en UN solo archivo (para compartir
                     o abrir con doble clic sin carpeta)
 
 Sin dependencias más allá de Python 3. Correr tras tocar viewer/ o app/.
 """
+import base64
+import gzip
 import json
 import pathlib
 
@@ -21,22 +28,54 @@ VIEWER = ROOT / "viewer"
 APP = ROOT / "app"
 DIST = ROOT / "dist"
 
-def js_str(s: str) -> str:
-    # </ -> <\/ evita que un "</script>" dentro de la cadena cierre el <script>
-    return json.dumps(s, ensure_ascii=False).replace("</", "<\\/")
+# La copia del visor viaja comprimida para que el creador de un solo archivo
+# quepa en el presupuesto de GOALS (< 200 KiB). base64 no lleva comillas ni
+# "</", así que va tal cual dentro de la cadena y del <script>.
+ASSETS_JS = """\
+/* Generado por tools/build_app.py — no editar a mano.
+   viewer/index.html, viewer/compare.js y viewer/upload.js viajan juntos en
+   VIEWER_GZ (JSON + gzip + base64). VIEWER_ASSETS los descomprime una vez con
+   DecompressionStream (nativo: sin red, sirve en file://) y llena SHELL_HTML,
+   ENGINE_SRC y UPLOAD_SRC; quien los use espera antes: await VIEWER_ASSETS. */
+const VIEWER_GZ = "@GZ@";
+let SHELL_HTML, ENGINE_SRC, UPLOAD_SRC;
+const VIEWER_ASSETS = (async () => {
+  if (typeof DecompressionStream === 'undefined')
+    throw new Error('Este navegador no puede armar la vista previa ni exportar: actualízalo.');
+  const bytes = Uint8Array.from(atob(VIEWER_GZ), c => c.charCodeAt(0));
+  const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  ({shell: SHELL_HTML, engine: ENGINE_SRC, upload: UPLOAD_SRC} = JSON.parse(text));
+})();
+VIEWER_ASSETS.catch(() => {});  // sin ruido al cargar: quien espera VIEWER_ASSETS recibe el error
+"""
+
+def viewer_gz(shell: str, engine: str, upload: str) -> str:
+    viewer = {"shell": shell, "engine": engine, "upload": upload}
+    raw = json.dumps(viewer, ensure_ascii=False).encode("utf-8")
+    gz = base64.b64encode(gzip.compress(raw, compresslevel=9, mtime=0)).decode("ascii")
+    assert json.loads(gzip.decompress(base64.b64decode(gz))) == viewer, "VIEWER_GZ no reproduce el visor"
+    return gz
+
+def build_engine() -> str:
+    parts = sorted((VIEWER / "src").glob("*.js"))
+    assert parts, "no hay partes del motor en viewer/src/"
+    # cada parte termina en su última línea de código; la línea en blanco que
+    # separa las secciones la pone la unión (git rechaza blancos al final)
+    engine = b"\n".join(p.read_bytes() for p in parts)
+    out = VIEWER / "compare.js"
+    if out.exists() and out.read_bytes() != engine:
+        # red de seguridad: un cambio hecho a mano en compare.js no se pierde
+        (VIEWER / "compare.js.prev").write_bytes(out.read_bytes())
+        print("viewer/compare.js regenerado desde viewer/src/ (el anterior quedó en viewer/compare.js.prev)")
+    out.write_bytes(engine)
+    return engine.decode("utf-8")
 
 def build():
+    engine = build_engine()
     shell = (VIEWER / "index.html").read_text(encoding="utf-8")
-    engine = (VIEWER / "compare.js").read_text(encoding="utf-8")
     upload = (VIEWER / "upload.js").read_text(encoding="utf-8")
 
-    assets = (
-        "/* Generado por tools/build_app.py — no editar a mano.\n"
-        "   SHELL_HTML: viewer/index.html · ENGINE_SRC: viewer/compare.js · UPLOAD_SRC: viewer/upload.js */\n"
-        f"const SHELL_HTML = {js_str(shell)};\n\n"
-        f"const ENGINE_SRC = {js_str(engine)};\n"
-        f"const UPLOAD_SRC = {js_str(upload)};\n"
-    )
+    assets = ASSETS_JS.replace("@GZ@", viewer_gz(shell, engine, upload))
     (APP / "assets.js").write_text(assets, encoding="utf-8")
 
     DIST.mkdir(exist_ok=True)
@@ -60,6 +99,7 @@ def build():
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 
+    print(f"viewer/compare.js {len(engine):>7,} chars")
     print(f"app/assets.js   {len(assets):>9,} bytes")
     print(f"dist/gatos.html {len(single):>9,} bytes")
 

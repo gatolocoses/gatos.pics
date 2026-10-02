@@ -56,7 +56,7 @@ const hash=buf=>createHash('sha256').update(buf).digest('hex');
         {id:'enc',name:'Encode secreto',color:'#ffb454',metrics:{ssimulacra2:83}},
         {id:'third',name:'Tercero secreto',color:'#7bb3ff'}]},images};
   });
-  viewerHTML=await page.evaluate(pkg=>buildStandaloneHTML(pkg),fixture);
+  viewerHTML=await page.evaluate(async pkg=>{if(typeof VIEWER_ASSETS!=='undefined')await VIEWER_ASSETS;return buildStandaloneHTML(pkg);},fixture);
   const a=Buffer.from(fixture.images.src_first.split(',')[1],'base64');
   const b=Buffer.from(fixture.images.enc_first.split(',')[1],'base64');
   await page.locator('#basicFile').setInputFiles([{name:'a.png',mimeType:'image/png',buffer:a},{name:'b.png',mimeType:'image/png',buffer:b}]);

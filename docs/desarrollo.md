@@ -9,7 +9,13 @@ sabes leer JS, sabes leer todo el producto.
 ```
 viewer/            EL MOTOR: lo que ve quien abre una comparación
   index.html       shell: layout, estilos, SVG de la curva solar
-  compare.js       DataSource (Embedded/Http), divisor, diff, recortes, S2 visible
+  src/             el motor en partes (aquí se edita):
+    10-core.js     fuentes de datos (Embedded/Http), estado, geometría, punteros
+    20-modes.js    diff, escala, parpadeo, ciego, curva solar, recortes
+    30-ui.js       estado en la URL, métricas, carga, botones, ayuda y teclado
+    40-share.js    PNG de la vista (renderViewCanvas, marca), imagen compartida, reporte
+    50-boot.js     manifest y arranque
+  compare.js       GENERADO: las partes de src/ concatenadas; es lo que se sirve y se exporta
   upload.js        progreso XHR, cancelación y reintento manual de subidas explícitas
 app/               EL CREADOR: lo que usa quien arma la comparación
   index.html       markup + estilos del creador
@@ -17,7 +23,7 @@ app/               EL CREADOR: lo que usa quien arma la comparación
   s2.js            SSIMULACRA2 en JS puro (puerto validado bit-exacto)
   assets.js        GENERADO: no editar a mano
 tools/
-  build_app.py     inyecta viewer/* en app/assets.js y arma dist/gatos.html
+  build_app.py     arma viewer/compare.js desde src/, inyecta viewer/* en app/assets.js y arma dist/gatos.html
   make_demo.py     regenera demo/demo.cmp y demo/demo.html (sintético)
   build_standalone.py  empaqueta un .cmp dentro del shell del visor
 dist/
@@ -28,13 +34,21 @@ docs/              guía, formato .cmp, este archivo
 
 ## Ley de la fuente única
 
-`viewer/` es el motor canónico. `app/assets.js` (que contiene el shell y el
-motor como cadenas JS, porque `fetch` no funciona en `file://` y el creador
-necesita generar la vista previa y los exports sin red) y `dist/gatos.html`
-se **generan**. Después de tocar cualquier cosa:
+`viewer/` es el motor canónico, y su JS se edita en `viewer/src/`.
+`viewer/compare.js` (las partes en orden de nombre, unidas con una línea en
+blanco), `app/assets.js` (la copia del shell y el motor que el creador
+necesita para generar la vista previa y los exports sin red, porque `fetch`
+no funciona en `file://`; viaja comprimida en gzip + base64 y el navegador
+la descomprime al cargar con `DecompressionStream`, así el creador de un
+solo archivo queda bajo los 200 KiB) y `dist/gatos.html` se **generan**.
+Quien use `SHELL_HTML`, `ENGINE_SRC` o `UPLOAD_SRC` espera antes
+`await VIEWER_ASSETS`.
+`compare.js` no se edita a mano: `build_app.py` lo reescribe desde `src/` (y
+si encuentra cambios hechos a mano, deja el anterior en
+`viewer/compare.js.prev`). Después de tocar cualquier cosa:
 
 ```sh
-python3 tools/build_app.py        # app/assets.js + dist/gatos.html
+python3 tools/build_app.py        # viewer/compare.js + app/assets.js + dist/gatos.html
 python3 tools/make_demo.py        # opcional: regenerar la demo
 python3 tools/build_standalone.py # opcional: demo.html
 ```

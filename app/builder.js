@@ -48,6 +48,7 @@ $('obDemo').addEventListener('click', () => {
   btn.disabled = true; btn.textContent = 'Generando ejemplo…';
   setTimeout(async () => {
     const pkg = await makeDemoPackage();
+    await VIEWER_ASSETS;
     $('pvBox').srcdoc = buildStandaloneHTML(pkg, {blob:true});
     $('pvFrame').classList.add('show');
     $('onboard').hidden = true;
@@ -900,9 +901,9 @@ async function runAction(action){
   }
 }
 function buildStandaloneHTML(pkg, opts){
-  // camino eager con el paquete YA armado (demo sintética y consola/pruebas):
-  // los botones de exportar usan standaloneParts y los dataURL nunca se
-  // sostienen todos a la vez (gatos.pics#29).
+  // camino eager con el paquete YA armado (demo sintética y consola/pruebas;
+  // quien llama espera antes VIEWER_ASSETS): los botones de exportar usan
+  // standaloneParts y los dataURL nunca se sostienen todos a la vez (gatos.pics#29).
   // export: inline (portatil, file:// sin CSP). preview: URLs blob: — el srcdoc
   // hereda la CSP del creador hospedado y bloquea scripts inline generados en
   // runtime; los blob: solo pueden mintearlos nuestros scripts (inadivinables)
@@ -930,6 +931,7 @@ async function buildPreviewSrcdoc(core){
   previewUrls.length = 0;
   const blobURL = blob => { const u = URL.createObjectURL(blob); previewUrls.push(u); return u; };
   const pkg = await packageJSONBlob(core, {htmlSafe:true});
+  await VIEWER_ASSETS;
   return SHELL_HTML
     .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobURL(new Blob([UPLOAD_SRC], {type:'text/javascript'})) + '"><\/script>')
     .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
@@ -969,6 +971,7 @@ const UP_TAG = '<script src="upload.js"><\/script>';
 const CMP_TAG = '<script src="compare.js"><\/script>';
 async function standaloneParts(core){
   const pkg = await packageJSONBlob(core, {htmlSafe:true});
+  await VIEWER_ASSETS;
   const shell = SHELL_HTML;
   const i1 = shell.indexOf(UP_TAG), i2 = shell.indexOf(CMP_TAG);
   if (i1 < 0 || i2 < 0 || i2 < i1) throw new Error('El shell del visor no tiene las etiquetas esperadas.');
@@ -1010,6 +1013,7 @@ window.addEventListener('keydown', e => {
 });
 $('btnExpZip').addEventListener('click', () => runAction(async () => {
   const core = await packageCore({complete:true});
+  await VIEWER_ASSETS;
   // el visor hospedado resuelve img/<id>_<frame>.<ext>: la extensión va en el
   // manifest por variante, derivada del tipo de los archivos reales
   const fileOf = new Map(core.entries);
