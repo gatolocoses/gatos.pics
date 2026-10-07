@@ -119,8 +119,10 @@ const MEAN = () => { const t=document.getElementById('diffNote').textContent.mat
   step('diff, tras cargar: el PNG sale', afterDiff === 'ok', 'resultado='+afterDiff);
   step('sin errores de página', !errors.length, errors.join(' | '));
   console.log(failed ? 'RACE REGRESSION ROJO' : 'RACE REGRESSION VERDE');
-  process.exit(failed);
-})().catch(e=>{ console.error('FATAL', e); process.exit(1); }).finally(async()=>{
+  // exitCode y no process.exit(): este ultimo saltaba el finally y dejaba el
+  // server huerfano en :8995, y la corrida siguiente moria con EADDRINUSE (ops#133)
+  process.exitCode = failed;
+})().catch(e=>{ console.error('FATAL', e); process.exitCode = 1; }).finally(async()=>{
   if(browser)await browser.close();
   if(server)server.kill();
   fs.rmSync(DATA,{recursive:true,force:true});

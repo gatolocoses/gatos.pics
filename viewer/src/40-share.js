@@ -48,10 +48,13 @@ function renderViewCanvas(){
   // autoridad de URL asentada (misma clase de carrera que el diff): complete
   // puede seguir en true con pixeles de la generacion anterior; el PNG exige
   // el par actual asentado en ambos lados (en diff realB es la autoridad)
-  const bSettled = diffMode ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
-  if (loadedUrlA !== imgA.src || !bSettled || !imgA.naturalWidth || !imgB.naturalWidth)
+  // variante parcial: un lado sin cuadro no carga nada; la pantalla muestra su aviso
+  // (y el diff no existe), así que el PNG dibuja lo mismo en vez de esperar o fallar
+  const diffLive = diffMode && !missA && !missB;
+  const bSettled = diffLive ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
+  if ((!missA && (loadedUrlA !== imgA.src || !imgA.naturalWidth)) || (!missB && (!bSettled || !imgB.naturalWidth)))
     throw new Error('Espera a que terminen de cargar las dos imágenes.');
-  if (diffMode && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
+  if (diffLive && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
   const comp2 = $('comp');
   const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
   // region visible del contenido, sin barras negras: el lienzo es exactamente
@@ -78,21 +81,30 @@ function renderViewCanvas(){
     x.drawImage(img, ox + pan.x, oy + pan.y, rw * zoom, rh * zoom);
     x.restore();
   };
-  drawImg(imgA);
+  // aviso neutro de "sin este cuadro", el mismo texto y tono que el panel de la pantalla
+  const drawMissing = (x0, x1) => {
+    x.save();
+    x.fillStyle = '#16161d'; x.fillRect(x0, iy, x1 - x0, vh);
+    x.fillStyle = '#b4b4c2'; x.font = '600 13px system-ui, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('Esta variante no tiene este cuadro', (x0 + x1) / 2, iy + vh / 2, Math.max(20, x1 - x0 - 24));
+    x.restore();
+  };
   const divX = dividerPos * w;
+  const split = clamp(divX, ix, ir);
+  if (missA) drawMissing(ix, blinkMode ? ir : split); else drawImg(imgA);
   if (!blinkMode){
     x.save();
     x.beginPath();
-    const split = clamp(divX, ix, ir);
     x.rect(split, iy, ir - split, vh);
     x.clip();
-    drawImg(diffMode ? diffCanvas : imgB);
+    if (missB) drawMissing(split, ir); else drawImg(diffLive ? diffCanvas : imgB);
     x.restore();
     // linea del divisor, solo dentro del contenido
     x.fillStyle = 'rgba(255,255,255,.92)';
     x.fillRect(divX - 1, iy, 2, vh);
   } else if (imgB.style.opacity !== '0') {
-    drawImg(imgB);
+    if (missB) drawMissing(ix, ir); else drawImg(imgB);
   }
   x.filter = 'none';
   // etiquetas DENTRO del area de contenido, pegadas a sus esquinas
@@ -129,7 +141,7 @@ function renderViewCanvas(){
   // el chip resume los modos activos: sin las entradas de parpadeo y Δ media,
   // un PNG congelado no indicaba su origen ni cuánto difiere el par
   const modes = [
-    diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
+    diffLive ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
     blinkMode ? 'Parpadeo A/B' : '',
     solarMode ? 'Solar' : '',
     blindMode ? 'Ciego' : '',

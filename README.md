@@ -72,7 +72,7 @@ de tu propio proceso de extracción.
 - **Recortes 1:1** de todas las variantes en el punto que elijas.
 - Zoom hasta 800 % anclado al cursor, arrastre, escala en píxeles nítidos.
 - Estado compartible por URL (`#f=6052&a=src&b=enc&diff=1`).
-- En el teléfono: menús desplegables y pellizco.
+- En el teléfono: herramientas y selectores abajo, al alcance del pulgar; desliza para cambiar de frame, pellizca para acercar, botón **cmd** para leer el comando de la variante.
 
 | Atajo | Acción | Atajo | Acción |
 |---|---|---|---|

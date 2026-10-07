@@ -91,7 +91,9 @@ los nombres de archivo (`variante_6052.png`); la **etiqueta** es el nombre
 bonito del botón (`escena oscura`).
 
 ### Imágenes
-La tabla variantes × frames. Tres formas de llenarla:
+La tabla variantes × frames (completa: cada variante necesita su imagen en
+cada frame; las variantes parciales existen solo en los `.cmp` que se suben con
+`frames`, ver más abajo). Tres formas de llenarla:
 
 - **Volcado mágico**: suelta todos los archivos de golpe nombrados
   `variante_numero.png`: lo que no exista (variante o frame) se crea solo del
@@ -128,6 +130,7 @@ La página que se lleva quien abre tu export.
 | `R` | revelar identidades en modo ciego |
 | `,` / `.` | mover el divisor (con `Shift` da saltos) |
 | rueda / pellizco | zoom anclado al cursor · arrastrar = mover · doble clic = ajustar |
+| deslizar (teléfono) | con la vista ajustada, cambia de frame; las flechas junto a la tira hacen lo mismo |
 
 - **Diff**: la diferencia entre las dos variantes amplificada ×5–×40; el color
   indica el canal que difiere. Con `H`, lo que supera cierto umbral se pinta
@@ -153,6 +156,38 @@ puede haber creado la página o actualizado la imagen. El mensaje lo indica.
 Los errores temporales permiten reintentar manualmente el mismo paquete o PNG.
 Reintentar una publicación puede crear otra página; una imagen compartida
 reemplaza la misma URL. Si la llave es incorrecta, corrígela antes de volver a subir.
+
+### Actualizar una página ya publicada
+
+Si publicaste una comparación y después cambia algo (terminó otra variante,
+corregiste un frame, calculaste S2), no hace falta un enlace nuevo: abre tu
+proyecto, pulsa **Actualizar página** (arriba, junto a Publicar; también en el
+último paso del asistente), pega el enlace de la página y confirma. El
+contenido se reemplaza entero, el enlace y la llave de borrado siguen siendo
+los mismos, y los foros que ya lo enlazaban muestran la versión nueva.
+
+- Se usa la llave de borrado que este navegador guardó al publicar esa página
+  (dura mientras la pestaña siga abierta) o tu llave API; si no hay ninguna, el
+  creador te la pide.
+- La versión del proyecto sube sola en el servicio: no hace falta tocarla.
+- Si falla (llave incorrecta, paquete inválido, se cortó la conexión), la
+  página anterior sigue publicada tal cual. Reintentar es seguro: vuelve a
+  reemplazar la misma página.
+- La imagen compartida (BBCode) se actualiza aparte, desde el botón Compartir
+  de la propia página, como antes.
+
+Si una variante solo tiene imágenes de algunos de los frames (el encode de otra
+persona salió de un clip más corto), se declara con `frames` en esa variante y
+la página la muestra solo donde tiene imagen: en los demás frames su panel dice
+"Esta variante no tiene este cuadro" y su botón se ve atenuado (se puede elegir
+igual). Lo declara el `.cmp` que subes con tu script; el creador no lo hace.
+Detalle en `formato-cmp.md`.
+
+Si lo que cambia es una sola variante (terminó otro encode de la escalera), un
+script tuyo puede mandar solo esas imágenes con `PATCH /api/page/<código>` en
+vez de reenviar todo: se suman, se reemplazan o se quitan variantes y el resto
+de la página queda como estaba. El detalle está en `formato-cmp.md`. El
+creador todavía no tiene un botón para esto.
 
 ## S2 (SSIMULACRA2) en lenguaje claro
 
@@ -220,8 +255,13 @@ remota.
 No. Ni para crear ni para ver las páginas exportadas.
 
 **¿Se puede usar en el teléfono?**
-Ver páginas: sí, con menús desplegables y gestos. Crear: mejor en computadora
-(arrastrear archivos es del ratón).
+Ver páginas: sí. En el teléfono las herramientas y los selectores de variante
+quedan abajo, al alcance del pulgar; desliza a los lados para cambiar de frame,
+pellizca para acercar, arrastra el divisor y usa el botón **cmd** para leer el
+comando de una variante. La página arranca ajustada a la pantalla; 1:1 queda a
+un toque. Crear: mejor en computadora (arrastrar archivos es del ratón), pero el
+creador también se acomoda al teléfono: pestañas y acciones grandes, pares en
+dos columnas y la tabla de imágenes con su quitar siempre visible.
 
 **¿Por qué mi video no abre?**
 Tu navegador no lo decodifica (códec o contenedor). Prueba en otro navegador o

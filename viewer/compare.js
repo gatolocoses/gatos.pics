@@ -96,7 +96,9 @@ const SOURCE = (typeof window !== 'undefined' && window.GATOS_PACKAGE)
 window.addEventListener('hashchange', () => location.reload());
 
 let frame = null, varA = null, varB = null;
-let mobileZoomPending = matchMedia('(pointer:coarse)').matches || innerWidth <= 820;
+// modo teléfono del shell (misma consulta que su CSS): decide dónde se abre el
+// panel de comando; la geometría no depende de esto
+const PHONE_MQ = matchMedia('(max-width:820px), (pointer:coarse) and (max-height:520px)');
 let diffMode = false, blinkMode = false, heat = false, gainIdx = AMPLIFY_DEFAULT_IDX;
 let cropMode = false, cropUV = null;
 let pendingCropFraction = null;
@@ -105,6 +107,7 @@ let zoom = 1;                       // 1 = fit
 let pan = {x:0, y:0};               // viewport-space px offset of the content rect
 let fitScale = 1, rw = 0, rh = 0, ox = 0, oy = 0;
 let drag = null, pinch = null;
+let swipe = null;   // un dedo sobre la vista ajustada: deslizar a los lados cambia de frame
 const pointers = new Map();
 const realB = new Image();          // offscreen holder for B's true pixels (diff)
 let diffData = null;                // cached abs-diff planes for current pair
@@ -120,6 +123,10 @@ let loadedUrlPaneB = null;                 // imgB carga sola fuera de diff: ase
 // estado de error visible y las etiquetas revierten al par asentado.
 let loadFailA = false, loadFailB = false;
 let shownA = null, shownB = null;   // ids del par cuyos pixeles hay en pantalla
+// Variante parcial (ops#149): `frames` en la variante lista
+// los cuadros que SÍ tiene. Si el lado no tiene el cuadro actual, no se pide
+// ninguna imagen y su panel muestra un aviso neutro (miss*): nunca una imagen rota.
+let missA = false, missB = false;
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -130,6 +137,19 @@ function variantName(id){
   return v.name;
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }
+// sin `frames` (todas las páginas anteriores) la variante tiene todos los cuadros
+function hasFrame(id, f){
+  const fr = variant(id).frames;
+  return !Array.isArray(fr) || fr.some(x => String(x) === String(f));
+}
+function setSideMissing(side, on){
+  if (side === 'A') missA = on; else missB = on;
+  $('miss'+side).hidden = !on;
+  if (on){
+    (side === 'A' ? imgA : imgB).style.visibility = 'hidden';
+    if (diffMode) renderDiff();   // sin cuadro no hay diff: nota corta en vez de calcular
+  }
+}
 // la fuente embebida convierte dataURLs de forma asíncrona (#7): se normaliza
 // a promesa para que ambas fuentes se consuman igual. Memoizada por clave:
 // la misma petición devuelve siempre el MISMO promesa (los consumidores
@@ -146,14 +166,26 @@ function srcFor(id, f){
 const sideReq = {A:0, B:0};
 function setSideSrc(side, id){
   const gen = ++sideReq[side];
+  const miss = !hasFrame(id, frame);
+  const was = side === 'A' ? missA : missB;
+  setSideMissing(side, miss);
+  if (miss) return;
   srcFor(id, frame).then(url => {
     if (gen !== sideReq[side]) return;
     if (side === 'A') imgA.src = url;
     else if (diffMode){ realB.src = url; imgB.src = url; }
     else imgB.src = url;
+    // la misma URL que ya estaba cargada: el load llega igual, pero no se espera
+    // a ver el cuadro de vuelta tras un aviso (un src nuevo deja complete=false)
+    const el = side === 'A' ? imgA : imgB;
+    if (was && el.complete && el.naturalWidth) el.style.visibility = '';
   });
 }
-function naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }
+function naturalDims(){
+  // el lado A sin cuadro todavía no cargó nada: las medidas son las del lado B (misma medida en toda la página)
+  if (missA && !imgA.naturalWidth && imgB.naturalWidth) return {nw: imgB.naturalWidth, nh: imgB.naturalHeight};
+  return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080};
+}
 function dpr(){ return window.devicePixelRatio || 1; }
 
 /* ---------- fit geometry: the content rect is sized/positioned explicitly,
@@ -202,6 +234,9 @@ function applyTransform(){
   paneB.style.clipPath = blinkMode ? 'inset(0 0 0 0)' : `inset(0 0 0 ${dividerPos*100}%)`;
   divider.style.display = blinkMode ? 'none' : '';
   divider.style.left = `${dividerPos*100}%`;
+  // los avisos de "sin este cuadro" se centran en la mitad visible de su lado
+  comp.style.setProperty('--da', (blinkMode ? 100 : dividerPos*100)+'%');
+  comp.style.setProperty('--db', (blinkMode ? 0 : dividerPos*100)+'%');
   syncBrandSlider();
   updateBadge();
 }
@@ -236,13 +271,17 @@ comp.addEventListener('pointerdown', e => {
     pinch = {d0: pdist(p1,p2) || 1, z0: zoom,
       u: ((p1.x+p2.x)/2-r.left-ox-pan.x)/zoom,
       v: ((p1.y+p2.y)/2-r.top-oy-pan.y)/zoom};
-    drag = null;
+    drag = null; swipe = null;
   } else if (pointers.size === 1){
     const r = comp.getBoundingClientRect();
     const x = e.clientX-r.left, w = comp.clientWidth;
     if (Math.abs(x - dividerPos*w) < (matchMedia('(pointer:coarse)').matches ? 34 : 18) && !blinkMode){ drag = {mode:'divider', sx:e.clientX, start:dividerPos}; }
     else if (cropMode){ pickCrop(e.clientX, e.clientY); }
     else if (zoom > 1){ drag = {mode:'pan', sx:e.clientX, sy:e.clientY, px:pan.x, py:pan.y}; }
+    // capa de gestos (gatolocoses/gatos.pics#31): con la vista ajustada no hay
+    // pan, así que un deslizamiento táctil franco queda libre para cambiar de
+    // frame; el divisor (zona de arriba) y el pellizco conservan su prioridad
+    if (!drag && !cropMode && zoom === 1 && e.pointerType === 'touch') swipe = {id:e.pointerId, sx:e.clientX, sy:e.clientY};
   }
   e.preventDefault();
 });
@@ -270,6 +309,11 @@ comp.addEventListener('pointermove', e => {
   }
 });
 function pointerEnd(e){
+  if (swipe && swipe.id === e.pointerId){
+    const dx = e.clientX-swipe.sx, dy = e.clientY-swipe.sy;
+    swipe = null;
+    if (e.type === 'pointerup' && pointers.size === 1 && Math.abs(dx) > 60 && Math.abs(dx) > 2*Math.abs(dy)) stepFrame(dx < 0 ? 1 : -1);
+  }
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinch = null;
   if (pointers.size === 0) drag = null;
@@ -335,6 +379,13 @@ function ensureDiffBase(){
 }
 function renderDiff(){
   if (!diffMode) return;
+  if (missA || missB){
+    diffCanvas.style.display = 'none';
+    imgB.style.display = '';
+    diffNote.style.display = 'block';
+    diffNote.textContent = 'Diff no disponible: una variante no tiene este cuadro.';
+    return;
+  }
   const d = ensureDiffBase();
   if (!d){
     diffCanvas.style.display = 'none';
@@ -398,9 +449,8 @@ function setHeat(on){
 }
 imgA.addEventListener('load', () => {
   loadedUrlA = imgA.src; loadFailA = false;
-  imgA.style.visibility = ''; shownA = varA;
+  imgA.style.visibility = missA ? 'hidden' : ''; if (!missA) shownA = varA;
   computeFit();
-  if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); }
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
   if (pendingCropFraction){
     cropUV = {u:Math.round(pendingCropFraction[0]*imgA.naturalWidth),v:Math.round(pendingCropFraction[1]*imgA.naturalHeight)};
@@ -409,6 +459,7 @@ imgA.addEventListener('load', () => {
   applyTransform(); renderDiff(); updateBadge();
 });
 imgA.addEventListener('error', () => {
+  if (missA) return;   // el error de una petición vieja no mancha un lado que ya no pide imagen
   loadFailA = true; imgA.style.visibility = 'hidden';
   paintSide('A'); updateBadge(); renderDiff();
 });
@@ -427,14 +478,16 @@ function setSmooth(on){
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
 imgB.addEventListener('load', () => {
-  loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = ''; shownB = varB;
+  loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = missB ? 'hidden' : ''; if (!missB) shownB = varB;
   if (!diffMode) diffNote.style.display = 'none';
+  if (missA && !imgA.naturalWidth){ computeFit(); clampPan(); applyTransform(); }   // A sin cuadro: B da la medida
   updateBadge();
 });
-realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; shownB = varB; renderDiff(); });
+realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; if (!missB) shownB = varB; renderDiff(); });
 // el lado B no deja pixeles viejos bajo etiquetas nuevas: panel vacio y
 // etiquetas revertidas al par asentado hasta que un load exitoso las avance
 function onBError(){
+  if (missB) return;
   loadFailB = true; imgB.style.visibility = 'hidden';
   paintSide('B');
   if (diffMode) renderDiff();
@@ -448,6 +501,8 @@ $('heatBtn').addEventListener('click', () => setHeat(!heat));
 
 /* ---------- blink mode ---------- */
 let blinkTimer = null;
+// el aviso de B parpadea con su imagen: si B no tiene el cuadro, A y el aviso se alternan
+const setBOpacity = v => { imgB.style.opacity = v; $('missB').style.opacity = v; };
 function setBlink(on, quiet){
   blinkMode = on;
   if (on) setDiff(false);
@@ -456,11 +511,11 @@ function setBlink(on, quiet){
   clearInterval(blinkTimer);
   modeBadge.style.display = on ? 'block' : 'none';
   if (on){
-    imgB.style.opacity = '1';
-    blinkTimer = setInterval(() => { imgB.style.opacity = imgB.style.opacity === '1' ? '0' : '1'; }, 500);
+    setBOpacity('1');
+    blinkTimer = setInterval(() => { setBOpacity(imgB.style.opacity === '1' ? '0' : '1'); }, 500);
   } else {
     clearInterval(blinkTimer);
-    imgB.style.opacity = '';
+    setBOpacity('');
   }
   if (!quiet){ applyTransform(); updateMeta(); writeHash(); }
 }
@@ -567,6 +622,7 @@ function moveCrop(dx, dy){
 }
 const cropSrcReq = new Map();       // variant id -> promesa src en curso (carrera de frame)
 function cropImg(id){
+  if (!hasFrame(id, frame)){ cropSrcReq.delete(id); cropImgs.delete(id); return null; }   // parcial: sin cuadro no hay recorte
   const p = srcFor(id, frame);
   if (cropSrcReq.get(id) !== p){
     cropSrcReq.set(id, p);
@@ -585,6 +641,11 @@ function cropImg(id){
 function drawCropRow(id, canvas){
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
+  if (!hasFrame(id, frame)){
+    ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText('sin este cuadro', 10, 20);
+    return;
+  }
   const im = cropImg(id);
   if (!im || !im.complete || !im.naturalWidth){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -603,7 +664,10 @@ function openCropPanel(){
   cropPanel.style.display = 'block';
   cropHint.style.display = 'none';
   const d = dpr();
-  const CW = Math.max(64, Math.min(480, comp.clientWidth - (innerWidth <= 820 ? 64 : 220))), CH = Math.round(CW*9/16);
+  let CW = Math.max(64, Math.min(480, comp.clientWidth - (innerWidth <= 820 ? 64 : 220))), CH = Math.round(CW*9/16);
+  // hoja inferior del teléfono (apaisado sobre todo): un recorte más alto que
+  // media vista taparía la comparación entera; se acota por alto
+  if (PHONE_MQ.matches && CH > comp.clientHeight*0.45){ CH = Math.round(comp.clientHeight*0.45); CW = Math.max(64, Math.round(CH*16/9)); }
   cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
   cropRows.innerHTML = '';
   orderedVariants().forEach(v => {
@@ -734,8 +798,11 @@ function variantStats(id){
   return lines.join('\n');
 }
 function updateMeta(){
+  // variante parcial: qué lado no tiene el cuadro (vacío en las páginas completas)
+  const gaps = [missA ? 'izq.' : '', missB ? 'der.' : ''].filter(Boolean);
+  const noFrame = gaps.length ? ' \u00B7 sin este cuadro: '+gaps.join(' y ') : '';
   if (blindMode){
-    metaLine.textContent = `Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO`;
+    metaLine.textContent = `Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
     return;
   }
   const lbl = FRAME_LABELS[frame] || String(frame);
@@ -745,14 +812,13 @@ function updateMeta(){
   const origin = CLIP.start_label ? `Inicio del clip ${CLIP.start_label} \u00B7 ` : '';
   const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}`;
+    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}${noFrame}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
   [i-1, i+1].forEach(j => {
     if (j >= 0 && j < FRAMES.length){
-      srcFor(varA, FRAMES[j]).then(u => { new Image().src = u; });
-      srcFor(varB, FRAMES[j]).then(u => { new Image().src = u; });
+      for (const id of [varA, varB]) if (hasFrame(id, FRAMES[j])) srcFor(id, FRAMES[j]).then(u => { new Image().src = u; });
     }
   });
 }
@@ -798,6 +864,8 @@ function makeButtons(containerId, items, activeId, onPick){
       b.textContent = item.label;
       b.className = item.id === activeId ? 'active' : '';
     }
+    // variante parcial sin este cuadro: atenuada pero elegible (verla es ver el aviso)
+    if (item.dim){ b.classList.add('nofr'); b.title = 'Esta variante no tiene este cuadro'; }
     b.addEventListener('click', () => onPick(item.id));
     b.setAttribute('aria-pressed', String(item.id === activeId));
     c.appendChild(b);
@@ -813,7 +881,8 @@ function cmdKey(t){
 function showTip(b){
   if (blindMode) return;
   cmdText = b.dataset.cmd;
-  const pane = b.closest('.variants') ? b.closest('.variants').id : null;
+  // el botón cmd del teléfono declara su lado; los vbtn lo heredan de su tira
+  const pane = b.dataset.pane || (b.closest('.variants') ? b.closest('.variants').id : null);
   const otherId = pane === 'varA' ? varB : (pane === 'varB' ? varA : null);
   const other = otherId ? variant(otherId) : null;
   const hlOk = {'--crf':1, '--preset':1, '--film-grain':1, '--film-grain-denoise':1};
@@ -843,12 +912,18 @@ function showTip(b){
     + '<button data-act="copy">Copiar</button><button data-act="close">\u00d7</button></div>'
     + '<div class="cmdtext">' + body + '</div>';
   cmdTip.style.display = 'block';
+  if (PHONE_MQ.matches){ cmdTip.style.left = ''; cmdTip.style.top = ''; return; }   // hoja desde abajo (CSS)
   const r = b.getBoundingClientRect();
   cmdTip.style.left = Math.min(window.innerWidth - cmdTip.offsetWidth - 8, Math.max(8, r.left)) + 'px';
   const below = r.bottom + 6;
   cmdTip.style.top = (below + cmdTip.offsetHeight > window.innerHeight - 8
     ? Math.max(8, r.top - cmdTip.offsetHeight - 6) : below) + 'px';
 }
+// teléfono: sin hover no hay tooltip; el botón cmd junto al selector lo fija
+document.querySelectorAll('.vcmd').forEach(b => b.addEventListener('click', () => {
+  if (cmdPinned && cmdFor === b){ hideTip(); return; }
+  showTip(b); cmdPinned = true; cmdFor = b;
+}));
 function hideTip(){
   cmdPinned = false; cmdFor = null; clearTimeout(cmdTimer);
   cmdTip.style.display = 'none';
@@ -877,7 +952,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (act && act.dataset.act === 'close'){ hideTip(); return; }
-  if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();
+  if (cmdPinned && !e.target.closest('#cmdTip') && !e.target.closest('.vcmd')) hideTip();
 });
 // Escape pertenece al modal abierto (compartir/reportar): no cierra a la vez
 // el tooltip de comandos fijado detras del overlay
@@ -888,18 +963,20 @@ function refreshFrameButtons(){
   makeButtons('frames', FRAMES.map((f,i)=>({id:f, label: blindMode ? 'Frame '+(i+1) : FRAME_LABELS[f] || String(f)})), frame, f => { frame = f; loadImg(); });
 }
 function variantButtonItems(){
-  return orderedVariants().map((v, vi) => {
-    if (blindMode) return {id: v.id, main: 'Variante '+(vi+1), sub: '', cmd: null};
-    const cmd = v.cmd || null;
-    if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
-    const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
-    if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};
-    const parts = (v.note || '').split(' \u00B7 ');
-    const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');
-    const s2 = (parts[2] || '');
-    const main = `CRF ${m[1]}` + (m[3] ? ` \u00B7 FG ${m[3]}` : '');
-    return {id: v.id, main: main, sub: `P${m[2]} \u00B7 ${mbps}${s2 ? ' \u00B7 ' + s2 : ''}`, cmd: cmd};
-  });
+  // en modo ciego no se atenúa: no delata qué variante es la parcial antes de elegirla
+  return orderedVariants().map((v, vi) => ({...variantItem(v, vi), dim: !blindMode && !hasFrame(v.id, frame)}));
+}
+function variantItem(v, vi){
+  if (blindMode) return {id: v.id, main: 'Variante '+(vi+1), sub: '', cmd: null};
+  const cmd = v.cmd || null;
+  if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
+  const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
+  if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};
+  const parts = (v.note || '').split(' \u00B7 ');
+  const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');
+  const s2 = (parts[2] || '');
+  const main = `CRF ${m[1]}` + (m[3] ? ` \u00B7 FG ${m[3]}` : '');
+  return {id: v.id, main: main, sub: `P${m[2]} \u00B7 ${mbps}${s2 ? ' \u00B7 ' + s2 : ''}`, cmd: cmd};
 }
 function fillSelect(selId, items, activeId, onPick){
   const s = $(selId);
@@ -907,7 +984,7 @@ function fillSelect(selId, items, activeId, onPick){
   items.forEach((it,i) => {
     const o = document.createElement('option');
     o.value = blindMode ? 'blind-'+i : it.id;
-    o.textContent = [it.main, it.sub].filter(Boolean).join(' · ');
+    o.textContent = [it.main, it.sub, it.dim ? 'sin este cuadro' : ''].filter(Boolean).join(' · ');
     s.appendChild(o);
   });
   s.selectedIndex = items.findIndex(it=>it.id === activeId);
@@ -919,7 +996,19 @@ function refreshVariantButtons(){
   makeButtons('varB', items, varB, v => { varB = v; loadImg(); });
   fillSelect('selA', items, varA, v => { varA = v; loadImg(); });
   fillSelect('selB', items, varB, v => { varB = v; loadImg(); });
+  [['varA', varA], ['varB', varB]].forEach(([pane, id]) => {
+    const b = document.querySelector('.vcmd[data-pane="'+pane+'"]');
+    const cmd = !blindMode && variant(id).cmd;
+    b.hidden = !cmd;
+    if (cmd) b.dataset.cmd = cmd; else delete b.dataset.cmd;
+  });
+  if (cmdPinned && cmdFor && cmdFor.classList.contains('vcmd')) hideTip();
 }
+function stepFrame(d){
+  const i = FRAMES.indexOf(frame)+d;
+  if (i >= 0 && i < FRAMES.length){ frame = FRAMES[i]; loadImg(); }
+}
+document.querySelectorAll('.fnav').forEach(b => b.addEventListener('click', () => stepFrame(Number(b.dataset.fdir))));
 function swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }
 function nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }
 
@@ -962,9 +1051,7 @@ window.addEventListener('keydown', e => {
     moveCrop(CROP_ARROWS[e.key][0]*s, CROP_ARROWS[e.key][1]*s);
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
     e.preventDefault();
-    const i = FRAMES.indexOf(frame);
-    const ni = e.key === 'ArrowRight' ? i+1 : i-1;
-    if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }
+    stepFrame(e.key === 'ArrowRight' ? 1 : -1);
   } else if (e.key === ' ' && !e.repeat && t?.tagName !== 'BUTTON'){
     e.preventDefault();   // no hacer scroll de página
     const ids = orderedVariants().map(v => v.id);
@@ -1043,10 +1130,13 @@ function renderViewCanvas(){
   // autoridad de URL asentada (misma clase de carrera que el diff): complete
   // puede seguir en true con pixeles de la generacion anterior; el PNG exige
   // el par actual asentado en ambos lados (en diff realB es la autoridad)
-  const bSettled = diffMode ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
-  if (loadedUrlA !== imgA.src || !bSettled || !imgA.naturalWidth || !imgB.naturalWidth)
+  // variante parcial: un lado sin cuadro no carga nada; la pantalla muestra su aviso
+  // (y el diff no existe), así que el PNG dibuja lo mismo en vez de esperar o fallar
+  const diffLive = diffMode && !missA && !missB;
+  const bSettled = diffLive ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
+  if ((!missA && (loadedUrlA !== imgA.src || !imgA.naturalWidth)) || (!missB && (!bSettled || !imgB.naturalWidth)))
     throw new Error('Espera a que terminen de cargar las dos imágenes.');
-  if (diffMode && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
+  if (diffLive && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
   const comp2 = $('comp');
   const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
   // region visible del contenido, sin barras negras: el lienzo es exactamente
@@ -1073,21 +1163,30 @@ function renderViewCanvas(){
     x.drawImage(img, ox + pan.x, oy + pan.y, rw * zoom, rh * zoom);
     x.restore();
   };
-  drawImg(imgA);
+  // aviso neutro de "sin este cuadro", el mismo texto y tono que el panel de la pantalla
+  const drawMissing = (x0, x1) => {
+    x.save();
+    x.fillStyle = '#16161d'; x.fillRect(x0, iy, x1 - x0, vh);
+    x.fillStyle = '#b4b4c2'; x.font = '600 13px system-ui, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('Esta variante no tiene este cuadro', (x0 + x1) / 2, iy + vh / 2, Math.max(20, x1 - x0 - 24));
+    x.restore();
+  };
   const divX = dividerPos * w;
+  const split = clamp(divX, ix, ir);
+  if (missA) drawMissing(ix, blinkMode ? ir : split); else drawImg(imgA);
   if (!blinkMode){
     x.save();
     x.beginPath();
-    const split = clamp(divX, ix, ir);
     x.rect(split, iy, ir - split, vh);
     x.clip();
-    drawImg(diffMode ? diffCanvas : imgB);
+    if (missB) drawMissing(split, ir); else drawImg(diffLive ? diffCanvas : imgB);
     x.restore();
     // linea del divisor, solo dentro del contenido
     x.fillStyle = 'rgba(255,255,255,.92)';
     x.fillRect(divX - 1, iy, 2, vh);
   } else if (imgB.style.opacity !== '0') {
-    drawImg(imgB);
+    if (missB) drawMissing(ix, ir); else drawImg(imgB);
   }
   x.filter = 'none';
   // etiquetas DENTRO del area de contenido, pegadas a sus esquinas
@@ -1124,7 +1223,7 @@ function renderViewCanvas(){
   // el chip resume los modos activos: sin las entradas de parpadeo y Δ media,
   // un PNG congelado no indicaba su origen ni cuánto difiere el par
   const modes = [
-    diffMode ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
+    diffLive ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
     blinkMode ? 'Parpadeo A/B' : '',
     solarMode ? 'Solar' : '',
     blindMode ? 'Ciego' : '',
@@ -1342,13 +1441,12 @@ function applyManifest(m){
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
-  if (h.get('z') != null) mobileZoomPending = false;
   computeFit();
   loadImg();
   applyTransform();
-  // el 1:1 movil espera al load (mobileZoomPending): contra las dimensiones
-  // de respaldo 1920x1080 escribe zoom/pan incorrecto en el hash y queda
-  // como estado final si imgA falla (ops#8)
+  // arranca ajustada en todas las pantallas (gatolocoses/gatos.pics#31): el
+  // salto a 1:1 en móvil dejaba la imagen más chica que la pantalla con
+  // dpr ≥ 2 y recortada con capturas 1080p; 1:1 queda a un toque
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);

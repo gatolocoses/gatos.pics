@@ -35,13 +35,14 @@ class GatosUpload {
     this.busy = true; this.onBusy(true);
     this.retryButton.hidden = true; this.cancelButton.hidden = false;
     this.progress.max = 1; this.progress.value = 0;
-    this.status.textContent = 'Iniciando el envío…';
+    const pre = this.request.label ? this.request.label+' · ' : '';   // "Parte 2 de 5" en envíos por partes
+    this.status.textContent = pre+'Iniciando el envío…';
     const xhr = this.xhr = new XMLHttpRequest();
     const request = this.request;
     let sent = 0, total = this.request.body.size || 0;
-    const uncertain = 'No se pudo confirmar el resultado. '+this.retryCaution;
+    const uncertain = 'No se pudo confirmar el resultado. '+(request.retryCaution || this.retryCaution);
     try {
-    xhr.open('POST', this.request.url);
+    xhr.open(this.request.method || 'POST', this.request.url);   // PUT para actualizar una página (#145)
     // Large packages on slow connections need no arbitrary total deadline.
     // The visible cancel button remains available while awaiting the server.
     xhr.timeout = 0;
@@ -53,14 +54,14 @@ class GatosUpload {
       if (total) this.progress.value = Math.min(1, sent/total);
       else this.progress.removeAttribute('value');
       const size = bytes => (bytes/1048576).toFixed(2)+' MiB';
-      this.status.textContent = total
+      this.status.textContent = pre + (total
         ? `Enviando: ${size(sent)} de ${size(total)} (${Math.floor(Math.min(1,sent/total)*100)} %).`
-        : `Enviando: ${size(sent)}.`;
+        : `Enviando: ${size(sent)}.`);
     };
     xhr.upload.onload = () => {
       if (this.xhr !== xhr) return;
       this.progress.value = 1;
-      this.status.textContent = 'Envío completo. Esperando confirmación del servidor…';
+      this.status.textContent = pre+'Envío completo. Esperando confirmación del servidor…';
     };
     const fail = message => { if (this.xhr === xhr) this.finish(message, true); };
     xhr.onabort = () => fail('Envío cancelado. '+this.retryCaution);

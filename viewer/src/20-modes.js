@@ -28,6 +28,13 @@ function ensureDiffBase(){
 }
 function renderDiff(){
   if (!diffMode) return;
+  if (missA || missB){
+    diffCanvas.style.display = 'none';
+    imgB.style.display = '';
+    diffNote.style.display = 'block';
+    diffNote.textContent = 'Diff no disponible: una variante no tiene este cuadro.';
+    return;
+  }
   const d = ensureDiffBase();
   if (!d){
     diffCanvas.style.display = 'none';
@@ -91,9 +98,8 @@ function setHeat(on){
 }
 imgA.addEventListener('load', () => {
   loadedUrlA = imgA.src; loadFailA = false;
-  imgA.style.visibility = ''; shownA = varA;
+  imgA.style.visibility = missA ? 'hidden' : ''; if (!missA) shownA = varA;
   computeFit();
-  if (mobileZoomPending){ mobileZoomPending = false; oneToOne(); }
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
   if (pendingCropFraction){
     cropUV = {u:Math.round(pendingCropFraction[0]*imgA.naturalWidth),v:Math.round(pendingCropFraction[1]*imgA.naturalHeight)};
@@ -102,6 +108,7 @@ imgA.addEventListener('load', () => {
   applyTransform(); renderDiff(); updateBadge();
 });
 imgA.addEventListener('error', () => {
+  if (missA) return;   // el error de una petición vieja no mancha un lado que ya no pide imagen
   loadFailA = true; imgA.style.visibility = 'hidden';
   paintSide('A'); updateBadge(); renderDiff();
 });
@@ -120,14 +127,16 @@ function setSmooth(on){
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
 setSmooth(smoothScale);
 imgB.addEventListener('load', () => {
-  loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = ''; shownB = varB;
+  loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = missB ? 'hidden' : ''; if (!missB) shownB = varB;
   if (!diffMode) diffNote.style.display = 'none';
+  if (missA && !imgA.naturalWidth){ computeFit(); clampPan(); applyTransform(); }   // A sin cuadro: B da la medida
   updateBadge();
 });
-realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; shownB = varB; renderDiff(); });
+realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; if (!missB) shownB = varB; renderDiff(); });
 // el lado B no deja pixeles viejos bajo etiquetas nuevas: panel vacio y
 // etiquetas revertidas al par asentado hasta que un load exitoso las avance
 function onBError(){
+  if (missB) return;
   loadFailB = true; imgB.style.visibility = 'hidden';
   paintSide('B');
   if (diffMode) renderDiff();
@@ -141,6 +150,8 @@ $('heatBtn').addEventListener('click', () => setHeat(!heat));
 
 /* ---------- blink mode ---------- */
 let blinkTimer = null;
+// el aviso de B parpadea con su imagen: si B no tiene el cuadro, A y el aviso se alternan
+const setBOpacity = v => { imgB.style.opacity = v; $('missB').style.opacity = v; };
 function setBlink(on, quiet){
   blinkMode = on;
   if (on) setDiff(false);
@@ -149,11 +160,11 @@ function setBlink(on, quiet){
   clearInterval(blinkTimer);
   modeBadge.style.display = on ? 'block' : 'none';
   if (on){
-    imgB.style.opacity = '1';
-    blinkTimer = setInterval(() => { imgB.style.opacity = imgB.style.opacity === '1' ? '0' : '1'; }, 500);
+    setBOpacity('1');
+    blinkTimer = setInterval(() => { setBOpacity(imgB.style.opacity === '1' ? '0' : '1'); }, 500);
   } else {
     clearInterval(blinkTimer);
-    imgB.style.opacity = '';
+    setBOpacity('');
   }
   if (!quiet){ applyTransform(); updateMeta(); writeHash(); }
 }
@@ -260,6 +271,7 @@ function moveCrop(dx, dy){
 }
 const cropSrcReq = new Map();       // variant id -> promesa src en curso (carrera de frame)
 function cropImg(id){
+  if (!hasFrame(id, frame)){ cropSrcReq.delete(id); cropImgs.delete(id); return null; }   // parcial: sin cuadro no hay recorte
   const p = srcFor(id, frame);
   if (cropSrcReq.get(id) !== p){
     cropSrcReq.set(id, p);
@@ -278,6 +290,11 @@ function cropImg(id){
 function drawCropRow(id, canvas){
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
+  if (!hasFrame(id, frame)){
+    ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText('sin este cuadro', 10, 20);
+    return;
+  }
   const im = cropImg(id);
   if (!im || !im.complete || !im.naturalWidth){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -296,7 +313,10 @@ function openCropPanel(){
   cropPanel.style.display = 'block';
   cropHint.style.display = 'none';
   const d = dpr();
-  const CW = Math.max(64, Math.min(480, comp.clientWidth - (innerWidth <= 820 ? 64 : 220))), CH = Math.round(CW*9/16);
+  let CW = Math.max(64, Math.min(480, comp.clientWidth - (innerWidth <= 820 ? 64 : 220))), CH = Math.round(CW*9/16);
+  // hoja inferior del teléfono (apaisado sobre todo): un recorte más alto que
+  // media vista taparía la comparación entera; se acota por alto
+  if (PHONE_MQ.matches && CH > comp.clientHeight*0.45){ CH = Math.round(comp.clientHeight*0.45); CW = Math.max(64, Math.round(CH*16/9)); }
   cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
   cropRows.innerHTML = '';
   orderedVariants().forEach(v => {

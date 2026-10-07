@@ -87,8 +87,11 @@ function variantStats(id){
   return lines.join('\n');
 }
 function updateMeta(){
+  // variante parcial: qué lado no tiene el cuadro (vacío en las páginas completas)
+  const gaps = [missA ? 'izq.' : '', missB ? 'der.' : ''].filter(Boolean);
+  const noFrame = gaps.length ? ' \u00B7 sin este cuadro: '+gaps.join(' y ') : '';
   if (blindMode){
-    metaLine.textContent = `Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO`;
+    metaLine.textContent = `Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
     return;
   }
   const lbl = FRAME_LABELS[frame] || String(frame);
@@ -98,14 +101,13 @@ function updateMeta(){
   const origin = CLIP.start_label ? `Inicio del clip ${CLIP.start_label} \u00B7 ` : '';
   const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}`;
+    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}${noFrame}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
   [i-1, i+1].forEach(j => {
     if (j >= 0 && j < FRAMES.length){
-      srcFor(varA, FRAMES[j]).then(u => { new Image().src = u; });
-      srcFor(varB, FRAMES[j]).then(u => { new Image().src = u; });
+      for (const id of [varA, varB]) if (hasFrame(id, FRAMES[j])) srcFor(id, FRAMES[j]).then(u => { new Image().src = u; });
     }
   });
 }
@@ -151,6 +153,8 @@ function makeButtons(containerId, items, activeId, onPick){
       b.textContent = item.label;
       b.className = item.id === activeId ? 'active' : '';
     }
+    // variante parcial sin este cuadro: atenuada pero elegible (verla es ver el aviso)
+    if (item.dim){ b.classList.add('nofr'); b.title = 'Esta variante no tiene este cuadro'; }
     b.addEventListener('click', () => onPick(item.id));
     b.setAttribute('aria-pressed', String(item.id === activeId));
     c.appendChild(b);
@@ -166,7 +170,8 @@ function cmdKey(t){
 function showTip(b){
   if (blindMode) return;
   cmdText = b.dataset.cmd;
-  const pane = b.closest('.variants') ? b.closest('.variants').id : null;
+  // el botón cmd del teléfono declara su lado; los vbtn lo heredan de su tira
+  const pane = b.dataset.pane || (b.closest('.variants') ? b.closest('.variants').id : null);
   const otherId = pane === 'varA' ? varB : (pane === 'varB' ? varA : null);
   const other = otherId ? variant(otherId) : null;
   const hlOk = {'--crf':1, '--preset':1, '--film-grain':1, '--film-grain-denoise':1};
@@ -196,12 +201,18 @@ function showTip(b){
     + '<button data-act="copy">Copiar</button><button data-act="close">\u00d7</button></div>'
     + '<div class="cmdtext">' + body + '</div>';
   cmdTip.style.display = 'block';
+  if (PHONE_MQ.matches){ cmdTip.style.left = ''; cmdTip.style.top = ''; return; }   // hoja desde abajo (CSS)
   const r = b.getBoundingClientRect();
   cmdTip.style.left = Math.min(window.innerWidth - cmdTip.offsetWidth - 8, Math.max(8, r.left)) + 'px';
   const below = r.bottom + 6;
   cmdTip.style.top = (below + cmdTip.offsetHeight > window.innerHeight - 8
     ? Math.max(8, r.top - cmdTip.offsetHeight - 6) : below) + 'px';
 }
+// teléfono: sin hover no hay tooltip; el botón cmd junto al selector lo fija
+document.querySelectorAll('.vcmd').forEach(b => b.addEventListener('click', () => {
+  if (cmdPinned && cmdFor === b){ hideTip(); return; }
+  showTip(b); cmdPinned = true; cmdFor = b;
+}));
 function hideTip(){
   cmdPinned = false; cmdFor = null; clearTimeout(cmdTimer);
   cmdTip.style.display = 'none';
@@ -230,7 +241,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (act && act.dataset.act === 'close'){ hideTip(); return; }
-  if (cmdPinned && !e.target.closest('#cmdTip')) hideTip();
+  if (cmdPinned && !e.target.closest('#cmdTip') && !e.target.closest('.vcmd')) hideTip();
 });
 // Escape pertenece al modal abierto (compartir/reportar): no cierra a la vez
 // el tooltip de comandos fijado detras del overlay
@@ -241,18 +252,20 @@ function refreshFrameButtons(){
   makeButtons('frames', FRAMES.map((f,i)=>({id:f, label: blindMode ? 'Frame '+(i+1) : FRAME_LABELS[f] || String(f)})), frame, f => { frame = f; loadImg(); });
 }
 function variantButtonItems(){
-  return orderedVariants().map((v, vi) => {
-    if (blindMode) return {id: v.id, main: 'Variante '+(vi+1), sub: '', cmd: null};
-    const cmd = v.cmd || null;
-    if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
-    const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
-    if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};
-    const parts = (v.note || '').split(' \u00B7 ');
-    const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');
-    const s2 = (parts[2] || '');
-    const main = `CRF ${m[1]}` + (m[3] ? ` \u00B7 FG ${m[3]}` : '');
-    return {id: v.id, main: main, sub: `P${m[2]} \u00B7 ${mbps}${s2 ? ' \u00B7 ' + s2 : ''}`, cmd: cmd};
-  });
+  // en modo ciego no se atenúa: no delata qué variante es la parcial antes de elegirla
+  return orderedVariants().map((v, vi) => ({...variantItem(v, vi), dim: !blindMode && !hasFrame(v.id, frame)}));
+}
+function variantItem(v, vi){
+  if (blindMode) return {id: v.id, main: 'Variante '+(vi+1), sub: '', cmd: null};
+  const cmd = v.cmd || null;
+  if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
+  const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
+  if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};
+  const parts = (v.note || '').split(' \u00B7 ');
+  const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');
+  const s2 = (parts[2] || '');
+  const main = `CRF ${m[1]}` + (m[3] ? ` \u00B7 FG ${m[3]}` : '');
+  return {id: v.id, main: main, sub: `P${m[2]} \u00B7 ${mbps}${s2 ? ' \u00B7 ' + s2 : ''}`, cmd: cmd};
 }
 function fillSelect(selId, items, activeId, onPick){
   const s = $(selId);
@@ -260,7 +273,7 @@ function fillSelect(selId, items, activeId, onPick){
   items.forEach((it,i) => {
     const o = document.createElement('option');
     o.value = blindMode ? 'blind-'+i : it.id;
-    o.textContent = [it.main, it.sub].filter(Boolean).join(' · ');
+    o.textContent = [it.main, it.sub, it.dim ? 'sin este cuadro' : ''].filter(Boolean).join(' · ');
     s.appendChild(o);
   });
   s.selectedIndex = items.findIndex(it=>it.id === activeId);
@@ -272,7 +285,19 @@ function refreshVariantButtons(){
   makeButtons('varB', items, varB, v => { varB = v; loadImg(); });
   fillSelect('selA', items, varA, v => { varA = v; loadImg(); });
   fillSelect('selB', items, varB, v => { varB = v; loadImg(); });
+  [['varA', varA], ['varB', varB]].forEach(([pane, id]) => {
+    const b = document.querySelector('.vcmd[data-pane="'+pane+'"]');
+    const cmd = !blindMode && variant(id).cmd;
+    b.hidden = !cmd;
+    if (cmd) b.dataset.cmd = cmd; else delete b.dataset.cmd;
+  });
+  if (cmdPinned && cmdFor && cmdFor.classList.contains('vcmd')) hideTip();
 }
+function stepFrame(d){
+  const i = FRAMES.indexOf(frame)+d;
+  if (i >= 0 && i < FRAMES.length){ frame = FRAMES[i]; loadImg(); }
+}
+document.querySelectorAll('.fnav').forEach(b => b.addEventListener('click', () => stepFrame(Number(b.dataset.fdir))));
 function swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }
 function nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }
 
@@ -315,9 +340,7 @@ window.addEventListener('keydown', e => {
     moveCrop(CROP_ARROWS[e.key][0]*s, CROP_ARROWS[e.key][1]*s);
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
     e.preventDefault();
-    const i = FRAMES.indexOf(frame);
-    const ni = e.key === 'ArrowRight' ? i+1 : i-1;
-    if (ni >= 0 && ni < FRAMES.length){ frame = FRAMES[ni]; loadImg(); }
+    stepFrame(e.key === 'ArrowRight' ? 1 : -1);
   } else if (e.key === ' ' && !e.repeat && t?.tagName !== 'BUTTON'){
     e.preventDefault();   // no hacer scroll de página
     const ids = orderedVariants().map(v => v.id);

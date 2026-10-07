@@ -844,13 +844,13 @@ async function packageCore({complete = false, cancelled = () => false} = {}){
       problems = validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
     }
     if (problems.length) throw new Error(problems.join(' '));
-    // límites de ley (GOALS.md): el servidor rechaza 25 MiB/imagen y 300 MiB/paquete;
-    // avisar acá evita subir 200 MB para que fallen al final
+    // límites de ley (GOALS.md): 25 MiB por imagen y 1 GiB por página (publicar
+    // reparte lo que pase de un pedido en varias partes: publish.js)
     const files = mode === 'basic' ? state.pairs.flat().filter(Boolean) : [...state.cells.values()];
     const big = files.find(f => f.size > 25*1048576);
     if (big) throw new Error(`«${big.name}» pesa ${(big.size/1048576).toFixed(1)} MB: el límite por imagen es 25 MiB.`);
     let total = 0; for (const f of files) total += f.size;
-    if (total*1.34 > 300*1048576) throw new Error(`El paquete proyectado pasa de 300 MiB (${(total*1.34/1048576).toFixed(1)} MB en base64): reduce frames o imágenes.`);
+    if (total > 1024*1048576) throw new Error(`Las imágenes suman ${(total/1048576).toFixed(0)} MiB: el límite por página es 1 GiB. Reduce frames o variantes.`);
   }
   return mode === 'basic' ? basicCore(cancelled) : advancedCore(cancelled);   // video también alimenta el estado avanzado
 }

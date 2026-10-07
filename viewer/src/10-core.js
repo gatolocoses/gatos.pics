@@ -96,7 +96,9 @@ const SOURCE = (typeof window !== 'undefined' && window.GATOS_PACKAGE)
 window.addEventListener('hashchange', () => location.reload());
 
 let frame = null, varA = null, varB = null;
-let mobileZoomPending = matchMedia('(pointer:coarse)').matches || innerWidth <= 820;
+// modo teléfono del shell (misma consulta que su CSS): decide dónde se abre el
+// panel de comando; la geometría no depende de esto
+const PHONE_MQ = matchMedia('(max-width:820px), (pointer:coarse) and (max-height:520px)');
 let diffMode = false, blinkMode = false, heat = false, gainIdx = AMPLIFY_DEFAULT_IDX;
 let cropMode = false, cropUV = null;
 let pendingCropFraction = null;
@@ -105,6 +107,7 @@ let zoom = 1;                       // 1 = fit
 let pan = {x:0, y:0};               // viewport-space px offset of the content rect
 let fitScale = 1, rw = 0, rh = 0, ox = 0, oy = 0;
 let drag = null, pinch = null;
+let swipe = null;   // un dedo sobre la vista ajustada: deslizar a los lados cambia de frame
 const pointers = new Map();
 const realB = new Image();          // offscreen holder for B's true pixels (diff)
 let diffData = null;                // cached abs-diff planes for current pair
@@ -120,6 +123,10 @@ let loadedUrlPaneB = null;                 // imgB carga sola fuera de diff: ase
 // estado de error visible y las etiquetas revierten al par asentado.
 let loadFailA = false, loadFailB = false;
 let shownA = null, shownB = null;   // ids del par cuyos pixeles hay en pantalla
+// Variante parcial (ops#149): `frames` en la variante lista
+// los cuadros que SÍ tiene. Si el lado no tiene el cuadro actual, no se pide
+// ninguna imagen y su panel muestra un aviso neutro (miss*): nunca una imagen rota.
+let missA = false, missB = false;
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -130,6 +137,19 @@ function variantName(id){
   return v.name;
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }
+// sin `frames` (todas las páginas anteriores) la variante tiene todos los cuadros
+function hasFrame(id, f){
+  const fr = variant(id).frames;
+  return !Array.isArray(fr) || fr.some(x => String(x) === String(f));
+}
+function setSideMissing(side, on){
+  if (side === 'A') missA = on; else missB = on;
+  $('miss'+side).hidden = !on;
+  if (on){
+    (side === 'A' ? imgA : imgB).style.visibility = 'hidden';
+    if (diffMode) renderDiff();   // sin cuadro no hay diff: nota corta en vez de calcular
+  }
+}
 // la fuente embebida convierte dataURLs de forma asíncrona (#7): se normaliza
 // a promesa para que ambas fuentes se consuman igual. Memoizada por clave:
 // la misma petición devuelve siempre el MISMO promesa (los consumidores
@@ -146,14 +166,26 @@ function srcFor(id, f){
 const sideReq = {A:0, B:0};
 function setSideSrc(side, id){
   const gen = ++sideReq[side];
+  const miss = !hasFrame(id, frame);
+  const was = side === 'A' ? missA : missB;
+  setSideMissing(side, miss);
+  if (miss) return;
   srcFor(id, frame).then(url => {
     if (gen !== sideReq[side]) return;
     if (side === 'A') imgA.src = url;
     else if (diffMode){ realB.src = url; imgB.src = url; }
     else imgB.src = url;
+    // la misma URL que ya estaba cargada: el load llega igual, pero no se espera
+    // a ver el cuadro de vuelta tras un aviso (un src nuevo deja complete=false)
+    const el = side === 'A' ? imgA : imgB;
+    if (was && el.complete && el.naturalWidth) el.style.visibility = '';
   });
 }
-function naturalDims(){ return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080}; }
+function naturalDims(){
+  // el lado A sin cuadro todavía no cargó nada: las medidas son las del lado B (misma medida en toda la página)
+  if (missA && !imgA.naturalWidth && imgB.naturalWidth) return {nw: imgB.naturalWidth, nh: imgB.naturalHeight};
+  return {nw: imgA.naturalWidth || 1920, nh: imgA.naturalHeight || 1080};
+}
 function dpr(){ return window.devicePixelRatio || 1; }
 
 /* ---------- fit geometry: the content rect is sized/positioned explicitly,
@@ -202,6 +234,9 @@ function applyTransform(){
   paneB.style.clipPath = blinkMode ? 'inset(0 0 0 0)' : `inset(0 0 0 ${dividerPos*100}%)`;
   divider.style.display = blinkMode ? 'none' : '';
   divider.style.left = `${dividerPos*100}%`;
+  // los avisos de "sin este cuadro" se centran en la mitad visible de su lado
+  comp.style.setProperty('--da', (blinkMode ? 100 : dividerPos*100)+'%');
+  comp.style.setProperty('--db', (blinkMode ? 0 : dividerPos*100)+'%');
   syncBrandSlider();
   updateBadge();
 }
@@ -236,13 +271,17 @@ comp.addEventListener('pointerdown', e => {
     pinch = {d0: pdist(p1,p2) || 1, z0: zoom,
       u: ((p1.x+p2.x)/2-r.left-ox-pan.x)/zoom,
       v: ((p1.y+p2.y)/2-r.top-oy-pan.y)/zoom};
-    drag = null;
+    drag = null; swipe = null;
   } else if (pointers.size === 1){
     const r = comp.getBoundingClientRect();
     const x = e.clientX-r.left, w = comp.clientWidth;
     if (Math.abs(x - dividerPos*w) < (matchMedia('(pointer:coarse)').matches ? 34 : 18) && !blinkMode){ drag = {mode:'divider', sx:e.clientX, start:dividerPos}; }
     else if (cropMode){ pickCrop(e.clientX, e.clientY); }
     else if (zoom > 1){ drag = {mode:'pan', sx:e.clientX, sy:e.clientY, px:pan.x, py:pan.y}; }
+    // capa de gestos (gatolocoses/gatos.pics#31): con la vista ajustada no hay
+    // pan, así que un deslizamiento táctil franco queda libre para cambiar de
+    // frame; el divisor (zona de arriba) y el pellizco conservan su prioridad
+    if (!drag && !cropMode && zoom === 1 && e.pointerType === 'touch') swipe = {id:e.pointerId, sx:e.clientX, sy:e.clientY};
   }
   e.preventDefault();
 });
@@ -270,6 +309,11 @@ comp.addEventListener('pointermove', e => {
   }
 });
 function pointerEnd(e){
+  if (swipe && swipe.id === e.pointerId){
+    const dx = e.clientX-swipe.sx, dy = e.clientY-swipe.sy;
+    swipe = null;
+    if (e.type === 'pointerup' && pointers.size === 1 && Math.abs(dx) > 60 && Math.abs(dx) > 2*Math.abs(dy)) stepFrame(dx < 0 ? 1 : -1);
+  }
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinch = null;
   if (pointers.size === 0) drag = null;

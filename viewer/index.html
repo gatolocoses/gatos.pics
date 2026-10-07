@@ -2,7 +2,7 @@
 <html lang="es-419">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>gatos.pics</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231a1a22'/%3E%3Crect x='2' y='3' width='5' height='10' fill='%237bd389'/%3E%3Crect x='9' y='3' width='5' height='10' fill='%23ffb454'/%3E%3C/svg%3E">
 <style>
@@ -115,6 +115,15 @@
     width:20px; height:12px; z-index:1;
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E") center/contain no-repeat;
   }
+  /* variante parcial (ops#149): aviso neutro del lado sin este cuadro; --da/--db
+     (los fija applyTransform) centran el texto en la mitad visible de cada lado */
+  .pane-miss{position:absolute; top:0; bottom:0; z-index:2; display:flex; align-items:center; justify-content:center;
+    padding:0 16px; text-align:center; font-size:13px; color:#b4b4c2; pointer-events:none;
+    background:repeating-linear-gradient(135deg,#16161d 0 14px,#1a1a22 14px 28px);}
+  #missA{left:0; width:var(--da,100%);}
+  #missB{left:0; right:0; padding-left:calc(var(--db,0%) + 16px);}
+  button.vbtn.nofr{opacity:.45;}
+  button.vbtn.nofr.active{opacity:.8;}
   #zoomBadge{
     position:absolute; left:12px; bottom:10px; z-index:6; font-size:12px; color:#ddd;
     background:rgba(0,0,0,.65); padding:3px 9px; border-radius:6px; pointer-events:none;
@@ -173,36 +182,82 @@
   .vsel{display:none;}
   .kh{display:contents;}
   .group{flex-wrap:wrap; min-width:0;}
+  .fnav,.vcmd{display:none;}
+  /* diálogos: en escritorio como siempre; en teléfono, hojas desde abajo */
+  .modal{position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;}
+  .modal-box{background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; width:100%;}
+  #reportPanel .modal-box{max-width:440px;}
+  #sharePanel .modal-box{max-width:560px; max-height:86%; overflow:auto;}
+  @media (prefers-reduced-motion:reduce){ .hrow-panes .variants{scroll-behavior:auto;} }
   @media (pointer:coarse){
     button{padding:8px 12px; font-size:13px;}
     button.vbtn{padding:6px 10px;}
     button.vbtn .main{font-size:13px;}
     button.vbtn .sub{font-size:10px;}
   }
-  @media (max-width:820px){
-    header{gap:8px; padding:6px 8px;}
-    header h1{font-size:13px;}
-    .hrow.hrow-main{display:grid; grid-template-columns:minmax(0,1fr) 78px; gap:8px;}
-    .frame-tools{flex-wrap:wrap; gap:4px;}
-    .frame-tools h1{max-width:100%; width:100%;}
-    .view-tools{grid-column:1 / -1; justify-content:flex-start;}
-    .view-tools button{padding:7px 9px;}
-    .hrow-panes{gap:6px;}
-    .hrow-panes > .group{flex-wrap:wrap; gap:3px;}
-    .hrow-panes .variants,.hrow-panes .vscroll{display:none !important;}
-    .hrow-panes .vsel{width:100%; min-width:0; flex-basis:100%;}
-    .glabel{width:auto; margin-right:4px;}
-    .variants{display:none;}
-    .vsel{display:block; flex:1; min-width:46%; background:var(--panel2); color:var(--text);
-          border:1px solid #333; border-radius:6px; padding:9px 8px; font-size:13px;}
-    footer .kh{display:none;}
-    #metaLine{font-size:11px;}
-    footer{gap:8px; padding:4px 8px; font-size:11px;}
-    #cropPanel{max-width:94vw;}
-    .cropRow{flex-direction:column; align-items:flex-start;}
-    .cropRow .cname{width:auto; text-align:left;}
-    #labelA{left:6px; top:6px;} #labelB{right:6px; top:6px;}
-    #diffNote{max-width:92vw;}
+  /* Modo teléfono (≤ 820 px, o táctil apaisado ≤ 520 de alto): la cabecera pasa a
+     display:contents y sus piezas se ordenan en el body: título + tira arriba,
+     herramientas y selectores abajo (pulgar). 44 px, campos de 16 px, zonas seguras. */
+  @media (max-width:820px), (pointer:coarse) and (max-height:520px){
+    header,.hrow.hrow-main{display:contents}
+    .frame-tools{order:0; flex:none; display:flex; flex-direction:column; align-items:stretch; gap:4px;
+      padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left));
+      background:var(--panel); border-bottom:1px solid #000;}
+    .frame-tools h1{max-width:none;width:auto;font-size:13px;line-height:20px;margin-right:90px}
+    .frame-tools .group{flex:none;flex-wrap:nowrap;gap:4px;align-items:center}
+    .frame-tools .glabel{display:none}
+    #frames{flex:1;gap:6px;padding:2px 0;scroll-snap-type:x proximity;scrollbar-width:none}
+    #frames::-webkit-scrollbar{display:none}
+    #frames button{min-height:44px;scroll-snap-align:center;border-radius:8px}
+    .fnav{display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;min-height:44px;padding:0;font-size:22px;line-height:1;border-radius:8px}
+    #brand{position:absolute;top:8px;right:max(8px,env(safe-area-inset-right));z-index:9}
+    #comp{order:1}
+    .view-tools{order:2; flex:none; display:flex; flex-wrap:nowrap; justify-content:flex-start; gap:6px; overflow-x:auto; scrollbar-width:none;
+      padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left)); background:var(--panel); border-top:1px solid #000;}
+    .view-tools::-webkit-scrollbar{display:none}
+    .view-tools button{flex:none;min-height:44px;min-width:44px;padding:0 14px;font-size:14px;border-radius:8px}
+    #diffTools{flex:none;gap:6px}
+    #diffGain{min-height:44px;font-size:16px;padding:0 8px;border-radius:8px}
+    .hrow.hrow-panes{order:3; flex:none; display:flex; flex-wrap:nowrap; gap:6px; margin:0;
+      padding:0 max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); background:var(--panel);}
+    .hrow-panes>.group{flex:1 1 0;min-width:0;flex-wrap:nowrap;gap:4px}
+    .hrow-panes .glabel,.hrow-panes .variants,.hrow-panes .vscroll{display:none !important}
+    .vsel{display:block; flex:1; min-width:0; min-height:44px; background:var(--panel2); color:var(--text);
+          border:1px solid #333; border-radius:8px; padding:0 8px; font-size:16px;}
+    .vcmd{display:inline-flex;flex:none;align-items:center;justify-content:center;width:44px;min-height:44px;padding:0;font-size:12px;border-radius:8px}
+    #swapBtn{flex:none;min-height:44px;width:44px;padding:0;font-size:18px;border-radius:8px}
+    footer{display:none}
+    #labelA{left:6px;top:6px;} #labelB{right:6px;top:6px}
+    .lstats{font-size:11px}
+    #diffNote{max-width:92vw;top:40px;left:6px}
+    #zoomBadge{left:6px;bottom:6px}
+    #cropPanel{left:0; right:0; bottom:0; transform:none; max-width:none; border-radius:12px 12px 0 0; border-width:1px 0 0; max-height:70%;
+      padding:10px 12px max(10px,env(safe-area-inset-bottom));}
+    .cropRow{flex-direction:column;align-items:flex-start}
+    .cropRow .cname{width:auto;text-align:left}
+    #cmdTip{left:0 !important;right:0;top:auto !important;bottom:0;max-width:none;max-height:60vh;border-radius:12px 12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+    .modal{align-items:flex-end;padding:0}
+    .modal-box{max-width:none;border-radius:14px 14px 0 0;padding:14px 16px max(14px,env(safe-area-inset-bottom))}
+    #sharePanel .modal-box{max-width:none;max-height:88%}
+    #reportPanel .modal-box{max-width:none}
+    .modal button{min-height:44px;padding:0 16px;font-size:15px;border-radius:8px}
+    #shareDl,#shareUp{flex:1 1 auto}
+    #pageDelete{min-height:44px;font-size:13px}
+    #shareKey,#reportReason,#reportNote,#shareRows textarea,#shareCodes textarea{font-size:16px !important}
+    #shareRows textarea,#shareCodes textarea{height:auto !important;min-height:64px}
+    #shareKey,#reportReason,#reportNote{padding:10px 12px;min-height:44px}
+    #helpDialog{width:100vw;max-width:none;margin:auto 0 0;max-height:88dvh;border-radius:14px 14px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom))}
+  }
+  /* apaisado táctil: título y tira en una fila */
+  @media (pointer:coarse) and (max-height:520px){
+    .frame-tools{flex-direction:row;align-items:center;gap:8px;padding-top:4px;padding-bottom:4px}
+    .frame-tools h1{flex:0 1 30%;margin-right:0}
+    .frame-tools .group{flex:1;min-width:0;margin-right:88px}
+    #frames button,.fnav{min-height:36px}
+    .fnav{width:36px}
+    .view-tools{padding-top:4px;padding-bottom:4px}
+    .view-tools button,#diffGain,.vsel,.vcmd,#swapBtn{min-height:40px}
+    .hrow.hrow-panes{padding-bottom:max(4px,env(safe-area-inset-bottom))}
   }
 </style>
 </head>
@@ -211,7 +266,7 @@
   <div class="hrow hrow-main">
     <div class="frame-tools">
     <h1 id="pageTitle">gatos.pics</h1>
-    <div class="group"><span class="glabel">Frame</span><div class="frames" id="frames"></div></div>
+    <div class="group"><span class="glabel">Frame</span><button class="fnav" data-fdir="-1" aria-label="Frame anterior">&lsaquo;</button><div class="frames" id="frames"></div><button class="fnav" data-fdir="1" aria-label="Frame siguiente">&rsaquo;</button></div>
     </div>
     <span id="brand" class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span>
     <div class="view-tools" role="group" aria-label="Herramientas de comparación">
@@ -231,9 +286,9 @@
     </div>
   </div>
   <div class="hrow hrow-panes">
-    <div class="group"><span class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA"></select></div>
+    <div class="group"><span class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA" aria-label="Variante izquierda"></select><button class="vcmd" data-pane="varA" hidden title="Comando del encoder" aria-label="Ver el comando de la variante izquierda">cmd</button></div>
     <button id="swapBtn" title="Intercambiar izquierda y derecha (S)">&harr;</button>
-    <div class="group r"><span class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selB"></select></div>
+    <div class="group r"><span class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><button class="vcmd" data-pane="varB" hidden title="Comando del encoder" aria-label="Ver el comando de la variante derecha">cmd</button><select class="vsel" id="selB" aria-label="Variante derecha"></select></div>
   </div>
 </header>
 
@@ -249,11 +304,13 @@
 <div id="comp">
   <div class="pane" id="paneA">
     <img id="imgA" alt="A" decoding="async">
+    <div class="pane-miss" id="missA" role="status" hidden>Esta variante no tiene este cuadro</div>
     <div class="label" id="labelA"><span id="labelAName">Izquierda</span><span class="lstats" id="statsA"></span></div>
   </div>
   <div class="pane" id="paneB">
     <img id="imgB" alt="B" decoding="async">
     <canvas id="diffCanvas"></canvas>
+    <div class="pane-miss" id="missB" role="status" hidden>Esta variante no tiene este cuadro</div>
     <div class="label" id="labelB"><span id="labelBName">Derecha</span><span class="lstats" id="statsB"></span></div>
   </div>
   <div id="divider"></div>
@@ -313,11 +370,12 @@
     <dt><kbd>Esc</kbd></dt><dd>Cerrar ayuda, Compartir, comandos o recortes.</dd>
   </dl>
   <p>Rueda o pellizco: zoom. Arrastra la imagen ampliada para moverla. Doble clic: ajustar. Mantén el cursor sobre una variante para consultar su comando, si tiene uno.</p>
+  <p style="margin-top:10px;">Teléfono: desliza para cambiar de frame, pellizca para acercar, <b>cmd</b> muestra el comando.</p>
   <p style="margin-top:10px;">Los atajos no cambian la comparación mientras escribes en un campo.</p>
 </dialog>
 
-<div id="reportPanel" role="dialog" aria-modal="true" aria-label="Reportar página" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
-  <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:440px; width:100%;">
+<div id="reportPanel" class="modal" role="dialog" aria-modal="true" aria-label="Reportar página" style="display:none;">
+  <div class="modal-box">
     <h2 style="font-size:14px; margin-bottom:8px;">Reportar esta página</h2>
     <select id="reportReason" style="width:100%; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:6px 8px; font-size:13px;">
       <option value="contenido inapropiado">Contenido inapropiado</option>
@@ -333,8 +391,8 @@
     <div id="reportStatus" class="hint" style="margin-top:8px; min-height:14px;"></div>
   </div>
 </div>
-<div id="sharePanel" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none; position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;">
-  <div style="background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; max-width:560px; width:100%; max-height:86%; overflow:auto;">
+<div id="sharePanel" class="modal" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none;">
+  <div class="modal-box">
     <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">Compartir
       <span id="shareHint" style="font-size:11px; color:var(--ok); font-weight:400;"></span>
       <button id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>

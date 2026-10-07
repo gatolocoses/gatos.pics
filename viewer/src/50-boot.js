@@ -15,13 +15,12 @@ function applyManifest(m){
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
-  if (h.get('z') != null) mobileZoomPending = false;
   computeFit();
   loadImg();
   applyTransform();
-  // el 1:1 movil espera al load (mobileZoomPending): contra las dimensiones
-  // de respaldo 1920x1080 escribe zoom/pan incorrecto en el hash y queda
-  // como estado final si imgA falla (ops#8)
+  // arranca ajustada en todas las pantallas (gatolocoses/gatos.pics#31): el
+  // salto a 1:1 en móvil dejaba la imagen más chica que la pantalla con
+  // dpr ≥ 2 y recortada con capturas 1080p; 1:1 queda a un toque
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);
