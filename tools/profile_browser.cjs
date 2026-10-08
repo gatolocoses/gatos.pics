@@ -10,7 +10,7 @@ const output = process.env.GATOS_PROFILE_OUT || path.join(os.tmpdir(),'gatos-pro
 (async () => {
   const browser = await chromium.launch({headless:true});
   try {
-    const page = await browser.newPage({viewport:{width:1440,height:1000}});
+    const page = await browser.newPage({locale:'es-MX',viewport:{width:1440,height:1000}});
     const errors=[], network=[];
     page.on('pageerror',e=>errors.push(e.message));
     page.on('request',r=>{if(/^https?:/.test(r.url())) network.push(r.url());});

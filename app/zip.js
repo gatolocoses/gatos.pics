@@ -54,11 +54,11 @@ async function makeZip(fetchEntry){
     const e = await fetchEntry();
     if (!e) break;
     count++;
-    if (count > 65535) throw new Error('Demasiadas entradas para un zip ('+count+'): el formato admite 65535.');
+    if (count > 65535) throw new Error(T`Demasiadas entradas para un zip (${count}): el formato admite 65535.`);
     const nameB = te.encode(e.name);
-    if (e.data.length > 0xFFFFFFFF) throw new Error('«'+e.name+'» no cabe en un zip: el límite por entrada son 4 GiB.');
+    if (e.data.length > 0xFFFFFFFF) throw new Error(T`«${e.name}» no cabe en un zip: el límite por entrada son 4 GiB.`);
     projected += 76 + 2*nameB.length + e.data.length;
-    if (projected > 0xFFFFFFFF) throw new Error('El zip proyectado pasa de 4 GiB ('+(projected/1073741824).toFixed(1)+'): el formato sin ZIP64 no lo admite. Exporta menos imágenes o más chicas.');
+    if (projected > 0xFFFFFFFF) throw new Error(T`El zip proyectado pasa de 4 GiB (${(projected/1073741824).toFixed(1)}): el formato sin ZIP64 no lo admite. Exporta menos imágenes o más chicas.`);
     const crc = crc32(e.data);
     const lh = new DataView(new ArrayBuffer(30));
     lh.setUint32(0, 0x04034b50, true);

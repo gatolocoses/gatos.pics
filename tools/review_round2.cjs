@@ -36,7 +36,7 @@ const hash=buf=>createHash('sha256').update(buf).digest('hex');
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   base='http://127.0.0.1:'+server.address().port;
   browser=await chromium.launch({headless:true});
-  const page=await browser.newPage({viewport:{width:1200,height:900}});
+  const page=await browser.newPage({locale:'es-MX',viewport:{width:1200,height:900}});
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/crear/');await page.locator('#obStart').click();
   const fixture=await page.evaluate(()=>{

@@ -33,13 +33,13 @@ function renderVidList(){
     const row = document.createElement('div');
     row.className = 'pair';
     const url = vidURL(f);
-    row.innerHTML = `<span class="no">${i === 0 ? 'máster' : 'var '+(i)}</span>
+    row.innerHTML = `<span class="no">${i === 0 ? T('máster') : 'var '+(i)}</span>
       <span class="mono" style="min-width:0; overflow:hidden; text-overflow:ellipsis; max-width:420px;">${esc(f.name)}</span>
       <span class="hint">${(f.size/1048576).toFixed(1)} MB</span>
       <div class="tools">
-        <button data-a="up" title="subir">↑</button>
-        <button data-a="dn" title="bajar">↓</button>
-        <button data-a="rm" title="quitar">×</button>
+        <button data-a="up" title="${T('subir')}">↑</button>
+        <button data-a="dn" title="${T('bajar')}">↓</button>
+        <button data-a="rm" title="${T('quitar')}">×</button>
       </div>`;
     row.querySelector('[data-a=up]').onclick = () => { if (i>0){ [vidState.files[i-1], vidState.files[i]] = [vidState.files[i], vidState.files[i-1]]; renderVidList(); syncVideoToAdvanced(); } };
     row.querySelector('[data-a=dn]').onclick = () => { if (i<vidState.files.length-1){ [vidState.files[i+1], vidState.files[i]] = [vidState.files[i], vidState.files[i+1]]; renderVidList(); syncVideoToAdvanced(); } };
@@ -61,12 +61,12 @@ function showVid(i){
   const f = vidState.files[vidState.cur];
   if (!f) return;
   vidPlayer.src = vidURL(f);
-  $('vidWho').textContent = (vidState.cur === 0 ? 'máster · ' : 'variante '+vidState.cur+' · ') + f.name;
+  $('vidWho').textContent = (vidState.cur === 0 ? T('máster') : T`variante ${vidState.cur}`) + ' · ' + f.name;
   vidPlayer.onloadedmetadata = () => {
     $('vidDur').textContent = `${vidPlayer.videoWidth}×${vidPlayer.videoHeight} · ${fmtT(vidPlayer.duration)}`;
   };
   vidPlayer.onerror = () => {
-    $('vidDur').textContent = 'este navegador no puede abrir este archivo (¿códec o contenedor?) · pruébalo en otro navegador o usa capturas';
+    $('vidDur').textContent = T('este navegador no puede abrir este archivo (¿códec o contenedor?) · pruébalo en otro navegador o usa capturas');
   };
 }
 const clampV = i => Math.max(0, Math.min(vidState.files.length-1, i));
@@ -82,9 +82,9 @@ $('vidMark').addEventListener('click', () => {
 });
 function renderVidMarks(){
   const host = $('vidMarks');
-  if (!vidState.marks.length){ host.innerHTML = '<span class="hint">sin marcas · reproduce, pausa donde quieras comparar, y marca</span>'; return; }
+  if (!vidState.marks.length){ host.innerHTML = '<span class="hint">' + T('sin marcas · reproduce, pausa donde quieras comparar, y marca') + '</span>'; return; }
   host.innerHTML = vidState.marks.map((t, i) =>
-    `<span class="markchip" data-i="${i}" title="clic para saltar ahí">${fmtT(t)} <b data-rm="${i}" title="quitar">×</b></span>`
+    `<span class="markchip" data-i="${i}" title="${T('clic para saltar ahí')}">${fmtT(t)} <b data-rm="${i}" title="${T('quitar')}">×</b></span>`
   ).join(' ');
   host.querySelectorAll('.markchip').forEach(chip => {
     chip.addEventListener('click', e => {
@@ -107,7 +107,7 @@ function syncVideoToAdvanced(){
     const o = old.get(id);
     // fusión por id: si la variante ya existe se conserva entera (nombres,
     // notas, colores), no solo los campos técnicos
-    return o || {id, name: i === 0 ? 'Máster' : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[i % PALETTE.length]};
+    return o || {id, name: i === 0 ? T('Máster') : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[i % PALETTE.length]};
   });
   // las variantes que desaparecen llevan sus celdas: sin esto quedan huérfanas
   const live = new Set(state.variants.map(v => v.id));
@@ -130,21 +130,21 @@ function captureFrame(video, t){
       finished = true; cleanup();
       if (error){ rej(error); return; }
       try {
-        if (!video.videoWidth || video.readyState < 2) throw new Error('El video no tiene una imagen decodificada.');
+        if (!video.videoWidth || video.readyState < 2) throw new Error(T('El video no tiene una imagen decodificada.'));
         const c = document.createElement('canvas');
         c.width = video.videoWidth; c.height = video.videoHeight;
         c.getContext('2d').drawImage(video, 0, 0);
         res(c);
       } catch(e){ rej(e); }
     };
-    const failed = () => finish(new Error('Error al decodificar el video.'));
+    const failed = () => finish(new Error(T('Error al decodificar el video.')));
     const seeked = () => {
       // Paused, detached videos may not submit another frame to the compositor.
       fallback = setTimeout(() => finish(), 120);
     };
-    const timeout = setTimeout(() => finish(new Error('Se agotó el tiempo para buscar la captura.')), 15000);
+    const timeout = setTimeout(() => finish(new Error(T('Se agotó el tiempo para buscar la captura.'))), 15000);
     if (!Number.isFinite(t) || t < 0 || (Number.isFinite(video.duration) && t >= video.duration)){
-      finish(new Error('El tiempo marcado queda fuera de este video.')); return;
+      finish(new Error(T('El tiempo marcado queda fuera de este video.'))); return;
     }
     video.addEventListener('error', failed);
     if (!video.seeking && Math.abs(video.currentTime-t) < 0.000001 && video.readyState >= 2){ finish(); return; }
@@ -165,8 +165,8 @@ function canvasToBlob(c, fmt){
 }
 
 $('vidGo').addEventListener('click', async () => {
-  if (!vidState.files.length){ $('vidProg').textContent = 'primero suelta los videos'; return; }
-  if (!vidState.marks.length){ $('vidProg').textContent = 'primero marca al menos un momento'; return; }
+  if (!vidState.files.length){ $('vidProg').textContent = T('primero suelta los videos'); return; }
+  if (!vidState.marks.length){ $('vidProg').textContent = T('primero marca al menos un momento'); return; }
   const fmt = 'png';   // evidencia sin pérdida, siempre
   syncVideoToAdvanced();
   const files = [...vidState.files], variants = [...state.variants];
@@ -190,8 +190,8 @@ $('vidGo').addEventListener('click', async () => {
   host.replaceChildren(); $('vidDone').replaceChildren();
   const rows = files.map((file,vi)=>marks.map(({t},mi)=>{
     const row=document.createElement('li');
-    row.textContent=`Marca ${mi+1} · ${t.toFixed(3)} s · ${variants[vi].name} (${file.name}): pendiente`;
-    const prefix=row.textContent.replace(/pendiente$/,'');
+    const prefix=T`Marca ${mi+1} · ${t.toFixed(3)} s · ${variants[vi].name} (${file.name}): `;
+    row.textContent=prefix+T('pendiente');
     host.appendChild(row);
     return (message,status) => { row.textContent=prefix+message; row.dataset.status=status; };
   }));
@@ -200,38 +200,38 @@ $('vidGo').addEventListener('click', async () => {
     const v = document.createElement('video');
     v.muted = true; v.preload = 'auto';
     let loadError;
-    $('vidProg').textContent = `Abriendo ${f.name}…`;
+    $('vidProg').textContent = T`Abriendo ${f.name}…`;
     try {
       await new Promise((resolve,reject) => {
         const finish = error => {
           clearTimeout(timer); v.onloadeddata=v.onerror=null;
           error ? reject(error) : resolve();
         };
-        const timer=setTimeout(()=>finish(new Error('Se agotó el tiempo al abrir el video.')),15000);
+        const timer=setTimeout(()=>finish(new Error(T('Se agotó el tiempo al abrir el video.'))),15000);
         v.onloadeddata=()=>finish();
-        v.onerror=()=>finish(new Error('El navegador no pudo abrir o decodificar este archivo (código '+(v.error?.code || 'desconocido')+').'));
+        v.onerror=()=>finish(new Error(T`El navegador no pudo abrir o decodificar este archivo (código ${v.error?.code || T('desconocido')}).`));
         v.src=vidURL(f);
       });
     } catch(e){ loadError=e; }
     for (let mi=0;mi<marks.length;mi++){
       const {t,key}=marks[mi], result=rows[vi][mi];
-      result('buscando el instante pedido…','working');
+      result(T('buscando el instante pedido…'),'working');
       try {
         if (loadError) throw loadError;
         const c = await captureFrame(v, t);
         const b = await canvasToBlob(c, fmt);
-        if (!b) throw new Error('El navegador no pudo generar la imagen.');
+        if (!b) throw new Error(T('El navegador no pudo generar la imagen.'));
         const ext = fmt === 'jpeg' ? 'jpg' : 'png';
         state.cells.set(vid.id+'|'+key, new File([b], `${vid.id}_${key}.${ext}`, {type: b.type}));
         probeDims(state.cells.get(vid.id+'|'+key));
-        result('captura lista','ok');
+        result(T('captura lista'),'ok');
       } catch (err) {
         failures++;
-        const previous = state.cells.has(vid.id+'|'+key) ? ' Se conservó la captura anterior.' : '';
-        result('Falló: '+err.message+previous,'error');
+        const previous = state.cells.has(vid.id+'|'+key) ? ' '+T('Se conservó la captura anterior.') : '';
+        result(T`Falló: ${err.message}`+previous,'error');
       }
       n++;
-      $('vidProg').textContent = `Capturas procesadas: ${n}/${total}. Fallas: ${failures}.`;
+      $('vidProg').textContent = T`Capturas procesadas: ${n}/${total}. Fallas: ${failures}.`;
       // Paint each result before proceeding, including consecutive decode errors.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
@@ -241,9 +241,9 @@ $('vidGo').addEventListener('click', async () => {
   $('vidDrop').style.pointerEvents=''; $('vidMarks').style.pointerEvents='';
   renderFrames(); renderMatrix(); renderVariants();
   $('vidProg').textContent = failures
-    ? `${n-failures}/${total} capturas listas. Revisa las ${failures} fallas indicadas abajo.`
-    : `✓ ${total} capturas listas`;
-  $('vidDone').innerHTML = `<button class="primary" id="vidToMatrix">Seguir en Avanzado → revisar imágenes</button>`;
+    ? T`${n-failures}/${total} capturas listas. Revisa las ${failures} fallas indicadas abajo.`
+    : T`✓ ${total} capturas listas`;
+  $('vidDone').innerHTML = `<button class="primary" id="vidToMatrix">${T('Seguir en Avanzado → revisar imágenes')}</button>`;
   $('vidToMatrix').onclick = () => { setMode('advanced'); window.BUILDER.renderSteps(); [...document.querySelectorAll('#stepNav button')][3].click(); };
 });
 

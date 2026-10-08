@@ -41,7 +41,7 @@ const VIEWER_GZ = "@GZ@";
 let SHELL_HTML, ENGINE_SRC, UPLOAD_SRC;
 const VIEWER_ASSETS = (async () => {
   if (typeof DecompressionStream === 'undefined')
-    throw new Error('Este navegador no puede armar la vista previa ni exportar: actualízalo.');
+    throw new Error(T('Este navegador no puede armar la vista previa ni exportar: actualízalo.'));
   const bytes = Uint8Array.from(atob(VIEWER_GZ), c => c.charCodeAt(0));
   const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
   ({shell: SHELL_HTML, engine: ENGINE_SRC, upload: UPLOAD_SRC} = JSON.parse(text));
@@ -86,7 +86,13 @@ def build():
     capture_js = (APP / "capture.js").read_text(encoding="utf-8")
     publish_js = (APP / "publish.js").read_text(encoding="utf-8")
     guide_js = (APP / "guide.js").read_text(encoding="utf-8")
-    tags = ('<script src="assets.js"></script>\n'
+    i18n_js = (VIEWER / "src" / "05-i18n.js").read_text(encoding="utf-8")
+    lang_upload_js = (VIEWER / "src" / "06-lang-upload.js").read_text(encoding="utf-8")
+    lang_js = (APP / "lang.js").read_text(encoding="utf-8")
+    tags = ('<script src="../viewer/src/05-i18n.js"></script>\n'
+            '<script src="../viewer/src/06-lang-upload.js"></script>\n'
+            '<script src="lang.js"></script>\n'
+            '<script src="assets.js"></script>\n'
             '<script src="../viewer/upload.js"></script>\n'
             '<script src="s2.js"></script>\n'
             '<script src="zip.js"></script>\n'
@@ -97,7 +103,7 @@ def build():
     assert tags in idx, "no se encontraron las etiquetas <script> esperadas en app/index.html"
     single = idx.replace(
         tags,
-        "<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
+        "<script>\n" + i18n_js + lang_upload_js + lang_js + "</script>\n<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 

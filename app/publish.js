@@ -23,13 +23,13 @@ function splitParts(core){
   for (const f of m.frames){
     let b = 0;
     for (const v of m.variants) b += size.get(v.id+'_'+f) || 0;
-    if (b > PART_MAX) throw new Error(`El frame ${f} pesa ${(b/1048576).toFixed(0)} MiB entre todas sus variantes: el límite por frame es 280 MiB.`);
+    if (b > PART_MAX) throw new Error(T`El frame ${f} pesa ${(b/1048576).toFixed(0)} MiB entre todas sus variantes: el límite por frame es 280 MiB.`);
     if (cur.length && bytes + b > PART_BYTES){ parts.push(cur); cur = []; bytes = 0; }
     cur.push(f); bytes += b; total += b;
   }
   parts.push(cur);
   // las variantes parciales no se reparten: van en un solo pedido o no van
-  if (parts.length > 1 && m.variants.some(v => v.frames)) throw new Error('Esta página pesa demasiado para un solo envío y tiene variantes parciales: reduce frames o imágenes.');
+  if (parts.length > 1 && m.variants.some(v => v.frames)) throw new Error(T('Esta página pesa demasiado para un solo envío y tiene variantes parciales: reduce frames o imágenes.'));
   return parts;
 }
 function partCore(core, parts, i){
@@ -45,9 +45,9 @@ function partCore(core, parts, i){
 async function partRequest(core, parts, i, first, meta, cancelled){
   const many = parts.length > 1;
   const req = i === 0 ? first : {method:'PATCH', url:UPDATE_URL(meta.page.token), headers:{'content-type':'application/json', ...meta.keys},
-    retryCaution:'El servidor pudo recibir esta parte. Reintentar la vuelve a mandar; no crea otra página.'};
+    retryCaution:T('El servidor pudo recibir esta parte. Reintentar la vuelve a mandar; no crea otra página.')};
   return {...req, body: await packageJSONBlob(many ? partCore(core, parts, i) : core, {cancelled}),
-    label: many ? `Parte ${i+1} de ${parts.length}` + (i ? ` (la página ya existe, incompleta: ${meta.page.url})` : '') : '',
+    label: many ? T`Parte ${i+1} de ${parts.length}` + (i ? T` (la página ya existe, incompleta: ${meta.page.url})` : '') : '',
     meta:{...meta, core, parts, i}};
 }
 /* Imagen compartida al publicar (ops#162). La página nace sin /s/<token>.png y
@@ -72,21 +72,21 @@ async function renderShareImage(core){
   document.body.appendChild(box);
   try {
     await new Promise((resolve, reject) => {
-      box.onload = resolve; setTimeout(() => reject(new Error('el visor no cargó')), 30000);
+      box.onload = resolve; setTimeout(() => reject(new Error(T('el visor no cargó'))), 30000);
       box.srcdoc = SHELL_HTML
         .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobURL(new Blob([UPLOAD_SRC], {type:'text/javascript'})) + '"><\/script>')
-        .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
+        .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_LANG = "' + I18N.lang + '";window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
     });
     const until = Date.now() + 60000;
     for (;;){
       try {
         const c = box.contentWindow.renderViewCanvas();
-        if (c.width < 320) throw new Error('Espera a que el visor se acomode.');
+        if (c.width < 320) throw Object.assign(new Error(T('Espera a que el visor se acomode.')), {wait:true});
         const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-        if (!blob || blob.size > 16*1048576) throw new Error('imagen fuera de tamaño');
+        if (!blob || blob.size > 16*1048576) throw new Error(T('imagen fuera de tamaño'));
         return blob;
       } catch(e){
-        if (!/^Espera/.test(e.message) || Date.now() > until) throw e;
+        if (!e.wait || Date.now() > until) throw e;
         await new Promise(r => setTimeout(r, 200));
       }
     }
@@ -94,14 +94,14 @@ async function renderShareImage(core){
 }
 async function shareAfterPublish(core, j){
   const blob = await renderShareImage(core);
-  const r = await fetch(SHOT_URL(j.token), {method:'POST', headers:{'content-type':'image/png', 'x-delete-key':j.delete_key}, body:blob});
+  const r = await fetch(SHOT_URL(j.token), {method:'POST', headers:{'content-type':'image/png', 'x-delete-key':j.delete_key, 'accept-language':I18N.lang}, body:blob});
   if (r.status !== 201) throw new Error('HTTP ' + r.status);
   return (await r.json()).url;
 }
 const publisher = new GatosUpload({
   panel:$('publishUpload'), progress:$('publishProgress'), status:$('publishStatus'),
   cancel:$('publishCancel'), retry:$('publishRetry'),
-  retryCaution:'El servidor pudo recibir el paquete. Reintentar puede crear otra página.',
+  retryCaution:T('El servidor pudo recibir el paquete. Reintentar puede crear otra página.'),
   onApiKeyRequired: () => { setTimeout(publisher.request?.meta?.update ? askUpdateKeyAndRetry : askApiKeyAndRetry, 400); },
   onBusy:busy => { for (const id of ['btnPublish','btnPublish2','btnUpdate','btnUpdate2']) $(id).disabled = busy; },
   onSuccess:(j, meta) => {
@@ -114,7 +114,7 @@ const publisher = new GatosUpload({
     }
     if (meta.page) j = {...meta.page, ...j, delete_key: meta.page.delete_key, delete_url: meta.page.delete_url};
     if (meta.update){   // actualización: mismo enlace y misma llave, no hay recibo nuevo
-      $('publishStatus').textContent = 'Página actualizada. El enlace sigue siendo el mismo: ' + j.url + ' (si no ves el cambio, recarga la página).';
+      $('publishStatus').textContent = T`Página actualizada. El enlace sigue siendo el mismo: ${j.url} (si no ves el cambio, recarga la página).`;
       return;
     }
     $('pubUrl').value = j.url;
@@ -133,20 +133,20 @@ const publisher = new GatosUpload({
     $('pubFrame').style.display = 'flex';
     // la imagen de "Compartir" se crea sola; mientras tanto (o si falla) los códigos usan la primera imagen
     const note = $('pubShare'), mine = j.url;
-    note.textContent = 'Creando la imagen para compartir…';
+    note.textContent = T('Creando la imagen para compartir…');
     shareAfterPublish(meta.core, j).then(url => {
       if ($('pubUrl').value !== mine) return;   // ya se publicó otra página
       codes(url);
-      note.textContent = 'Imagen para compartir lista: los códigos de abajo ya la usan.';
+      note.textContent = T('Imagen para compartir lista: los códigos de abajo ya la usan.');
     }, () => {
-      if ($('pubUrl').value === mine) note.textContent = 'No se pudo crear la imagen para compartir: los códigos usan la primera imagen. Puedes crearla desde la página, con «Compartir».';
+      if ($('pubUrl').value === mine) note.textContent = T('No se pudo crear la imagen para compartir: los códigos usan la primera imagen. Puedes crearla desde la página, con «Compartir».');
     });
   }
 });
 function askApiKeyAndRetry(){
   // camino 403 (tier sin llave cerrado o agotado): pedir la llave una vez,
   // recordarla y reintentar el MISMO envio con el header puesto
-  const k = (prompt('Publicar sin límite necesita tu llave API. Pégala aquí (el creador la recuerda para la próxima):') || '').trim();
+  const k = (prompt(T('Publicar sin límite necesita tu llave API. Pégala aquí (el creador la recuerda para la próxima):')) || '').trim();
   if (!k) return;
   try { localStorage.setItem('gatosApiKey', k); } catch(e){}
   const req = publisher.request;
@@ -157,7 +157,7 @@ function askApiKeyAndRetry(){
 }
 function askUpdateKeyAndRetry(){
   // 403 al actualizar: esa llave (o ninguna) no sirvió para ESA página
-  const k = (prompt('Esa llave no sirvió para esta página. Pega la llave de borrado de la página o tu llave API:') || '').trim();
+  const k = (prompt(T('Esa llave no sirvió para esta página. Pega la llave de borrado de la página o tu llave API:')) || '').trim();
   const req = publisher.request;
   if (!k || !req) return;
   req.headers['x-delete-key'] = k;
@@ -169,32 +169,32 @@ function askUpdateKeyAndRetry(){
 // llave de borrado que este navegador guardó al publicar esa página, o la llave
 // API recordada; si no hay ninguna, la pide.
 function updatePage(){
-  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para actualizar.'; return; }
-  const link = (prompt('Enlace de la página que quieres actualizar (el enlace no cambia):', publicationReceipt ? publicationReceipt.url : '') || '').trim();
+  if (busy){ $('builderStatus').textContent = T('La captura de video está en curso; espera a que termine para actualizar.'); return; }
+  const link = (prompt(T('Enlace de la página que quieres actualizar (el enlace no cambia):'), publicationReceipt ? publicationReceipt.url : '') || '').trim();
   if (!link) return;
   const m = link.match(/\/p\/([A-Za-z0-9_-]{10,64})/) || link.match(/^([A-Za-z0-9_-]{10,64})$/);
-  if (!m){ $('builderStatus').textContent = 'Ese enlace no es de una página de gatos.pics (debe contener /p/ y su código).'; return; }
+  if (!m){ $('builderStatus').textContent = T('Ese enlace no es de una página de gatos.pics (debe contener /p/ y su código).'); return; }
   const token = m[1];
   let ownerKey = '', apiKey = '';
   try { ownerKey = sessionStorage.getItem('gatosOwner:'+token) || ''; } catch(e){}
   try { apiKey = localStorage.getItem('gatosApiKey') || ''; } catch(e){}
   if (!ownerKey && !apiKey){
-    ownerKey = apiKey = (prompt('Pega la llave de borrado de esa página (o tu llave API):') || '').trim();
+    ownerKey = apiKey = (prompt(T('Pega la llave de borrado de esa página (o tu llave API):')) || '').trim();
     if (!ownerKey) return;
   }
-  if (!confirm('Esto reemplaza TODO el contenido de esa página con el proyecto abierto. El enlace y la llave siguen igual. ¿Continuar?')) return;
+  if (!confirm(T('Esto reemplaza TODO el contenido de esa página con el proyecto abierto. El enlace y la llave siguen igual. ¿Continuar?'))) return;
   publisher.start(async cancelled => {
     const core = await packageCore({complete:true, cancelled});
     if (cancelled()) return;
     const keys = {...(ownerKey ? {'x-delete-key':ownerKey} : {}), ...(apiKey ? {'x-api-key':apiKey} : {})};
     return partRequest(core, splitParts(core), 0, {method:'PUT', url:UPDATE_URL(token), headers:{'content-type':'application/json', ...keys},
-      retryCaution:'El servidor pudo recibir el paquete. Reintentar vuelve a reemplazar la misma página, sin cambiar su enlace.'},
+      retryCaution:T('El servidor pudo recibir el paquete. Reintentar vuelve a reemplazar la misma página, sin cambiar su enlace.')},
       {update:true, keys, page:{token, url:link}}, cancelled);
   });
   $('publishUpload').scrollIntoView({block:'nearest'});
 }
 function publishPage(){
-  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para publicar.'; return; }
+  if (busy){ $('builderStatus').textContent = T('La captura de video está en curso; espera a que termine para publicar.'); return; }
   publisher.start(async cancelled => {
     const core = await packageCore({complete:true, cancelled});
     if (cancelled()) return;
@@ -206,7 +206,7 @@ function publishPage(){
     // cuerpo por partes (gatos.pics#29): un dataURL a la vez dentro de
     // packageJSONBlob; publicar ya no sostiene el paquete Y su JSON a la vez
     return partRequest(core, splitParts(core), 0, {url:PUBLISH_URL, headers:{'content-type':'application/json', ...(apiKey ? { 'x-api-key': apiKey } : {})}},
-      {title:core.manifest.title || 'Comparación', image:'img/'+v.id+'_'+f+'.'+ext}, cancelled);
+      {title:core.manifest.title || T('Comparación'), image:'img/'+v.id+'_'+f+'.'+ext}, cancelled);
   });
   $('publishUpload').scrollIntoView({block:'nearest'});
 }
@@ -223,6 +223,6 @@ $('pubCopy').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText($('pubUrl').value);
     $('pubCopy').textContent = '✓';
-    setTimeout(() => { $('pubCopy').textContent = 'Copiar'; }, 1200);
+    setTimeout(() => { $('pubCopy').textContent = T('Copiar'); }, 1200);
   } catch(e){}
 });

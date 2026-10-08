@@ -259,36 +259,37 @@
     .view-tools button,#diffGain,.vsel,.vcmd,#swapBtn{min-height:40px}
     .hrow.hrow-panes{padding-bottom:max(4px,env(safe-area-inset-bottom))}
   }
+  .langs a{color:inherit;} .langs a[aria-current]{font-weight:600; text-decoration:none;}
 </style>
 </head>
 <body>
 <header>
   <div class="hrow hrow-main">
     <div class="frame-tools">
-    <h1 id="pageTitle">gatos.pics</h1>
-    <div class="group"><span class="glabel">Frame</span><button class="fnav" data-fdir="-1" aria-label="Frame anterior">&lsaquo;</button><div class="frames" id="frames"></div><button class="fnav" data-fdir="1" aria-label="Frame siguiente">&rsaquo;</button></div>
+    <h1 id="pageTitle" data-nt>gatos.pics</h1>
+    <div class="group"><span class="glabel" data-nt>Frame</span><button class="fnav" data-fdir="-1" aria-label="Frame anterior">&lsaquo;</button><div class="frames" id="frames"></div><button class="fnav" data-fdir="1" aria-label="Frame siguiente">&rsaquo;</button></div>
     </div>
-    <span id="brand" class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span>
+    <span id="brand" class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true" data-nt>gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true" data-nt>pics</span></span>
     <div class="view-tools" role="group" aria-label="Herramientas de comparación">
-  <button id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
-  <span id="diffTools" hidden><label for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
-  <button id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
-  <button id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
-  <button id="revealBtn" hidden title="Mostrar las identidades de esta asignación (R)">Revelar</button>
-  <button id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
-  <button id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
+  <button data-nt id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
+  <span id="diffTools" hidden><label data-t for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button data-t id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
+  <button data-t id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
+  <button data-t id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
+  <button data-t id="revealBtn" hidden title="Mostrar las identidades de esta asignación (R)">Revelar</button>
+  <button data-nt id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
+  <button data-t id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
-  <button id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
-    <button id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
-  <button id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
+  <button data-t id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
+    <button data-t id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
+  <button data-t id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
-  <button id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
+  <button data-t id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
     </div>
   </div>
   <div class="hrow hrow-panes">
-    <div class="group"><span class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA" aria-label="Variante izquierda"></select><button class="vcmd" data-pane="varA" hidden title="Comando del encoder" aria-label="Ver el comando de la variante izquierda">cmd</button></div>
+    <div class="group"><span data-t class="glabel">Izquierda</span><button class="vscroll" data-scroll="varA" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varA"></div><button class="vscroll" data-scroll="varA" data-dir="1" title="Desplazar la lista">&rsaquo;</button><select class="vsel" id="selA" aria-label="Variante izquierda"></select><button class="vcmd" data-nt data-pane="varA" hidden title="Comando del encoder" aria-label="Ver el comando de la variante izquierda">cmd</button></div>
     <button id="swapBtn" title="Intercambiar izquierda y derecha (S)">&harr;</button>
-    <div class="group r"><span class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><button class="vcmd" data-pane="varB" hidden title="Comando del encoder" aria-label="Ver el comando de la variante derecha">cmd</button><select class="vsel" id="selB" aria-label="Variante derecha"></select></div>
+    <div class="group r"><span data-t class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><button class="vcmd" data-nt data-pane="varB" hidden title="Comando del encoder" aria-label="Ver el comando de la variante derecha">cmd</button><select class="vsel" id="selB" aria-label="Variante derecha"></select></div>
   </div>
 </header>
 
@@ -304,122 +305,123 @@
 <div id="comp">
   <div class="pane" id="paneA">
     <img id="imgA" alt="A" decoding="async">
-    <div class="pane-miss" id="missA" role="status" hidden>Esta variante no tiene este cuadro</div>
-    <div class="label" id="labelA"><span id="labelAName">Izquierda</span><span class="lstats" id="statsA"></span></div>
+    <div data-t class="pane-miss" id="missA" role="status" hidden>Esta variante no tiene este cuadro</div>
+    <div class="label" id="labelA"><span data-t id="labelAName">Izquierda</span><span class="lstats" id="statsA"></span></div>
   </div>
   <div class="pane" id="paneB">
     <img id="imgB" alt="B" decoding="async">
     <canvas id="diffCanvas"></canvas>
-    <div class="pane-miss" id="missB" role="status" hidden>Esta variante no tiene este cuadro</div>
-    <div class="label" id="labelB"><span id="labelBName">Derecha</span><span class="lstats" id="statsB"></span></div>
+    <div data-t class="pane-miss" id="missB" role="status" hidden>Esta variante no tiene este cuadro</div>
+    <div class="label" id="labelB"><span data-t id="labelBName">Derecha</span><span class="lstats" id="statsB"></span></div>
   </div>
   <div id="divider"></div>
-  <div id="zoomBadge">ajustar</div>
+  <div data-t id="zoomBadge">ajustar</div>
   <div id="diffNote"></div>
-  <div id="modeBadge">PARPADEO A/B</div>
-  <div id="cropHint">haz clic en un punto (o muévelo con las flechas) para ver recortes 1:1</div>
+  <div data-t id="modeBadge">PARPADEO A/B</div>
+  <div data-t id="cropHint">haz clic en un punto (o muévelo con las flechas) para ver recortes 1:1</div>
   <div id="cropPanel">
-    <h2><span id="cropTitle">Recortes 1:1</span><button id="cropClose">cerrar (Esc)</button></h2>
+    <h2><span data-t id="cropTitle">Recortes 1:1</span><button data-t id="cropClose">cerrar (Esc)</button></h2>
     <div id="cropRows"></div>
   </div>
 </div>
 
 <footer>
   <div class="kh">
-  <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> frame</span>
-  <span><kbd>1</kbd>&ndash;<kbd>9</kbd> variante (<kbd>Shift</kbd> = izquierda)</span>
-  <span><kbd>S</kbd> intercambiar</span>
-  <span><kbd>D</kbd> diff</span>
-  <span><kbd>B</kbd> parpadeo</span>
-  <span><kbd>C</kbd> recortes</span>
+  <span data-t><kbd>&larr;</kbd><kbd>&rarr;</kbd> frame</span>
+  <span data-t><kbd>1</kbd>&ndash;<kbd>9</kbd> variante (<kbd>Shift</kbd> = izquierda)</span>
+  <span data-t><kbd>S</kbd> intercambiar</span>
+  <span data-t><kbd>D</kbd> diff</span>
+  <span data-t><kbd>B</kbd> parpadeo</span>
+  <span data-t><kbd>C</kbd> recortes</span>
   <span><kbd>O</kbd> 1:1</span>
-  <span><kbd>F</kbd> ajustar</span>
-  <span><kbd>+</kbd>/<kbd>-</kbd> ganancia</span>
-  <span><kbd>H</kbd> calor</span>
-  <span><kbd>Espacio</kbd> siguiente variante</span>
-  <span><kbd>N</kbd> nítido</span>
-  <span><kbd>G</kbd> ciego</span>
-  <span><kbd>L</kbd> solar</span>
-  <span><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
-  <span>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
+  <span data-t><kbd>F</kbd> ajustar</span>
+  <span data-t><kbd>+</kbd>/<kbd>-</kbd> ganancia</span>
+  <span data-t><kbd>H</kbd> calor</span>
+  <span data-t><kbd>Espacio</kbd> siguiente variante</span>
+  <span data-t><kbd>N</kbd> nítido</span>
+  <span data-t><kbd>G</kbd> ciego</span>
+  <span data-t><kbd>L</kbd> solar</span>
+  <span data-t><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
+  <span data-t>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
   </div>
   <span class="spacer"></span>
   <span id="metaLine"></span>
 </footer>
 
 <dialog id="helpDialog" aria-labelledby="helpTitle">
-  <h2 id="helpTitle">Atajos y controles <button id="helpClose">Cerrar (Esc)</button></h2>
+  <h2 id="helpTitle"><span data-t>Atajos y controles</span> <button data-t id="helpClose">Cerrar (Esc)</button></h2>
   <dl>
-    <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Frame anterior o siguiente.</dd>
-    <dt><kbd>Espacio</kbd></dt><dd>Siguiente variante a la derecha.</dd>
-    <dt><kbd>1</kbd> a <kbd>9</kbd></dt><dd>Elegir variante a la derecha. Con Shift, a la izquierda.</dd>
-    <dt><kbd>S</kbd></dt><dd>Intercambiar izquierda y derecha.</dd>
-    <dt><kbd>D</kbd></dt><dd>Activar o desactivar la diferencia amplificada.</dd>
-    <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Aumentar o reducir la intensidad del diff.</dd>
-    <dt><kbd>H</kbd></dt><dd>Activar o desactivar el mapa de calor del diff.</dd>
-    <dt><kbd>B</kbd></dt><dd>Activar o desactivar el parpadeo A/B.</dd>
-    <dt><kbd>G</kbd></dt><dd>Entrar al modo ciego o revelar las identidades.</dd>
-    <dt><kbd>R</kbd></dt><dd>Revelar las identidades en modo ciego.</dd>
-    <dt><kbd>L</kbd></dt><dd>Activar o desactivar la curva solar.</dd>
-    <dt><kbd>C</kbd></dt><dd>Elegir un punto para ver recortes 1:1. Con el modo activo, las flechas siembran y mueven el punto; con Shift, en pasos de 10 px.</dd>
-    <dt><kbd>O</kbd></dt><dd>Ver un píxel de imagen por píxel del dispositivo.</dd>
-    <dt><kbd>F</kbd></dt><dd>Ajustar la imagen al área disponible.</dd>
-    <dt><kbd>N</kbd></dt><dd>Alternar escala suave y píxeles nítidos.</dd>
-    <dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Mover el divisor. Con Shift, moverlo en pasos mayores.</dd>
-    <dt><kbd>?</kbd></dt><dd>Abrir esta ayuda.</dd>
-    <dt><kbd>Esc</kbd></dt><dd>Cerrar ayuda, Compartir, comandos o recortes.</dd>
+    <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd data-t>Frame anterior o siguiente.</dd>
+    <dt><kbd data-t>Espacio</kbd></dt><dd data-t>Siguiente variante a la derecha.</dd>
+    <dt data-t><kbd>1</kbd> a <kbd>9</kbd></dt><dd data-t>Elegir variante a la derecha. Con Shift, a la izquierda.</dd>
+    <dt><kbd>S</kbd></dt><dd data-t>Intercambiar izquierda y derecha.</dd>
+    <dt><kbd>D</kbd></dt><dd data-t>Activar o desactivar la diferencia amplificada.</dd>
+    <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd data-t>Aumentar o reducir la intensidad del diff.</dd>
+    <dt><kbd>H</kbd></dt><dd data-t>Activar o desactivar el mapa de calor del diff.</dd>
+    <dt><kbd>B</kbd></dt><dd data-t>Activar o desactivar el parpadeo A/B.</dd>
+    <dt><kbd>G</kbd></dt><dd data-t>Entrar al modo ciego o revelar las identidades.</dd>
+    <dt><kbd>R</kbd></dt><dd data-t>Revelar las identidades en modo ciego.</dd>
+    <dt><kbd>L</kbd></dt><dd data-t>Activar o desactivar la curva solar.</dd>
+    <dt><kbd>C</kbd></dt><dd data-t>Elegir un punto para ver recortes 1:1. Con el modo activo, las flechas siembran y mueven el punto; con Shift, en pasos de 10 px.</dd>
+    <dt><kbd>O</kbd></dt><dd data-t>Ver un píxel de imagen por píxel del dispositivo.</dd>
+    <dt><kbd>F</kbd></dt><dd data-t>Ajustar la imagen al área disponible.</dd>
+    <dt><kbd>N</kbd></dt><dd data-t>Alternar escala suave y píxeles nítidos.</dd>
+    <dt><kbd>,</kbd> <kbd>.</kbd></dt><dd data-t>Mover el divisor. Con Shift, moverlo en pasos mayores.</dd>
+    <dt><kbd>?</kbd></dt><dd data-t>Abrir esta ayuda.</dd>
+    <dt><kbd data-nt>Esc</kbd></dt><dd data-t>Cerrar ayuda, Compartir, comandos o recortes.</dd>
   </dl>
-  <p>Rueda o pellizco: zoom. Arrastra la imagen ampliada para moverla. Doble clic: ajustar. Mantén el cursor sobre una variante para consultar su comando, si tiene uno.</p>
-  <p style="margin-top:10px;">Teléfono: desliza para cambiar de frame, pellizca para acercar, <b>cmd</b> muestra el comando.</p>
-  <p style="margin-top:10px;">Los atajos no cambian la comparación mientras escribes en un campo.</p>
+  <p data-t>Rueda o pellizco: zoom. Arrastra la imagen ampliada para moverla. Doble clic: ajustar. Mantén el cursor sobre una variante para consultar su comando, si tiene uno.</p>
+  <p data-t style="margin-top:10px;">Teléfono: desliza para cambiar de frame, pellizca para acercar, <b>cmd</b> muestra el comando.</p>
+  <p data-t style="margin-top:10px;">Los atajos no cambian la comparación mientras escribes en un campo.</p>
+  <p class="langs" data-nt style="margin-top:10px;">Idioma · Language: <a href="#" data-lang="es">Español</a> · <a href="#" data-lang="en">English</a></p>
 </dialog>
 
 <div id="reportPanel" class="modal" role="dialog" aria-modal="true" aria-label="Reportar página" style="display:none;">
   <div class="modal-box">
-    <h2 style="font-size:14px; margin-bottom:8px;">Reportar esta página</h2>
+    <h2 data-t style="font-size:14px; margin-bottom:8px;">Reportar esta página</h2>
     <select id="reportReason" style="width:100%; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:6px 8px; font-size:13px;">
-      <option value="contenido inapropiado">Contenido inapropiado</option>
-      <option value="material ajeno / derechos">Material ajeno / derechos</option>
-      <option value="spam o engaño">Spam o engaño</option>
-      <option value="otro">Otro</option>
+      <option data-t value="contenido inapropiado">Contenido inapropiado</option>
+      <option data-t value="material ajeno / derechos">Material ajeno / derechos</option>
+      <option data-t value="spam o engaño">Spam o engaño</option>
+      <option data-t value="otro">Otro</option>
     </select>
     <textarea id="reportNote" rows="3" placeholder="detalle (opcional)" style="width:100%; margin-top:8px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px; padding:6px 8px; font-size:12px; resize:none;"></textarea>
     <div style="display:flex; gap:8px; margin-top:12px;">
-      <button id="reportSend" class="xbtn">Enviar reporte</button>
-      <button id="reportClose">Cerrar</button>
+      <button data-t id="reportSend" class="xbtn">Enviar reporte</button>
+      <button data-t id="reportClose">Cerrar</button>
     </div>
     <div id="reportStatus" class="hint" style="margin-top:8px; min-height:14px;"></div>
   </div>
 </div>
 <div id="sharePanel" class="modal" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none;">
   <div class="modal-box">
-    <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">Compartir
+    <h2 style="font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;"><span data-t>Compartir</span>
       <span id="shareHint" style="font-size:11px; color:var(--ok); font-weight:400;"></span>
-      <button id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>
+      <button data-t id="shareClose" style="margin-left:auto;">cerrar (Esc)</button>
     </h2>
-    <p style="font-size:12px; color:var(--dim); margin-bottom:8px;">Guarda la comparación visible como PNG sin pérdida. El enlace conserva el frame, las variantes y los ajustes.</p>
-    <p id="shareBlindNote" hidden style="font-size:12px; color:var(--accent); margin-bottom:8px;">La imagen conserva el modo ciego. El enlace abre la comparación sin la asignación privada de esta sesión.</p>
+    <p data-t style="font-size:12px; color:var(--dim); margin-bottom:8px;">Guarda la comparación visible como PNG sin pérdida. El enlace conserva el frame, las variantes y los ajustes.</p>
+    <p data-t id="shareBlindNote" hidden style="font-size:12px; color:var(--accent); margin-bottom:8px;">La imagen conserva el modo ciego. El enlace abre la comparación sin la asignación privada de esta sesión.</p>
     <div id="shareRows"></div>
     <img id="sharePreview" alt="vista a compartir" style="width:100%; border:1px solid #333; border-radius:8px; background:#000; margin-top:8px; display:none;">
     <div id="shareOwner" hidden style="margin-top:12px;">
-      <label for="shareKey" style="display:block; font-size:12px;">Llave de borrado del autor</label>
+      <label data-t for="shareKey" style="display:block; font-size:12px;">Llave de borrado del autor</label>
       <input id="shareKey" type="password" autocomplete="off" placeholder="La recibiste al publicar" style="width:100%; margin-top:4px; padding:8px; background:var(--panel2); color:var(--text); border:1px solid #363642; border-radius:6px;">
-      <button id="shareUseKey" type="button" hidden style="margin-top:6px; font-size:12px; background:none; border:none; color:var(--accent2); cursor:pointer; padding:0;">usar la llave guardada (esta sesión)</button>
-      <p style="font-size:12px; color:var(--dim); margin-top:6px;">Solo el autor puede reemplazar la imagen compartida. La nueva imagen aparecerá también en los enlaces que ya publicaste.</p>
+      <button data-t id="shareUseKey" type="button" hidden style="margin-top:6px; font-size:12px; background:none; border:none; color:var(--accent2); cursor:pointer; padding:0;">usar la llave guardada (esta sesión)</button>
+      <p data-t style="font-size:12px; color:var(--dim); margin-top:6px;">Solo el autor puede reemplazar la imagen compartida. La nueva imagen aparecerá también en los enlaces que ya publicaste.</p>
     </div>
     <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-      <button id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>
-      <button id="shareUp" style="display:none;" title="sube esta imagen exacta a gatos.pics y arma el BBCode para foros">Subir y obtener BBCode</button>
+      <button data-t id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>
+      <button data-t id="shareUp" style="display:none;" title="sube esta imagen exacta a gatos.pics y arma el BBCode para foros">Subir y obtener BBCode</button>
     </div>
     <div id="shotUpload" class="upload-status" hidden>
       <progress id="shotProgress" max="1" value="0" aria-label="Progreso del envío de la imagen"></progress>
       <p id="shotStatus" role="status" aria-live="polite"></p>
-      <button id="shotCancel" hidden>Cancelar envío</button>
-      <button id="shotRetry" hidden>Reintentar esta imagen</button>
+      <button data-t id="shotCancel" hidden>Cancelar envío</button>
+      <button data-t id="shotRetry" hidden>Reintentar esta imagen</button>
     </div>
     <div id="shareCodes" style="display:none;"></div>
     <div id="shareDel" style="display:none; margin-top:14px; border-top:1px solid #33333a; padding-top:10px;">
-      <button id="pageDelete" style="background:none; border:none; color:#9a9aa8; font-size:11px; text-decoration:underline; padding:0; cursor:pointer;">Borrar esta página…</button>
+      <button data-t id="pageDelete" style="background:none; border:none; color:#9a9aa8; font-size:11px; text-decoration:underline; padding:0; cursor:pointer;">Borrar esta página…</button>
     </div>
   </div>
 </div>

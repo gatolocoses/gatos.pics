@@ -279,6 +279,7 @@
     background:#fff; box-shadow:0 1px 3px #000d;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M7 1 L1 6 L7 11 Z' fill='%23111111'/%3E%3Cpath d='M13 1 L19 6 L13 11 Z' fill='%23111111'/%3E%3C/svg%3E");
     background-size:11px 6.6px; background-position:center; background-repeat:no-repeat;}
+  .langs a{color:inherit;} .langs a[aria-current]{font-weight:600; text-decoration:none;}
 </style>
 </head>
 <body>
@@ -286,38 +287,38 @@
 <!-- ===================== ONBOARDING ===================== -->
 <div id="onboard" hidden>
   <div class="obcard">
-    <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span></h1>
-    <p class="tag">Compara dos capturas y comparte el resultado.</p>
+    <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true" data-nt>gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true" data-nt>pics</span></span></h1>
+    <p data-t class="tag">Compara dos capturas y comparte el resultado.</p>
     <div class="obsteps">
-      <div class="obstep"><b>1 · Agrega dos imágenes</b><span>Elige capturas del mismo momento. Una va a la izquierda y otra a la derecha.</span></div>
-      <div class="obstep"><b>2 · Revisa la comparación</b><span>Abre la vista previa. Mueve el divisor o amplía un detalle.</span></div>
-      <div class="obstep"><b>3 · Guarda o publica</b><span>Descarga un archivo para abrirlo sin internet, o publica para obtener un enlace.</span></div>
+      <div class="obstep"><b data-t>1 · Agrega dos imágenes</b><span data-t>Elige capturas del mismo momento. Una va a la izquierda y otra a la derecha.</span></div>
+      <div class="obstep"><b data-t>2 · Revisa la comparación</b><span data-t>Abre la vista previa. Mueve el divisor o amplía un detalle.</span></div>
+      <div class="obstep"><b data-t>3 · Guarda o publica</b><span data-t>Descarga un archivo para abrirlo sin internet, o publica para obtener un enlace.</span></div>
     </div>
-    <div class="obpriv">Tus imágenes se quedan en este navegador hasta que eliges Publicar.</div>
+    <div data-t class="obpriv">Tus imágenes se quedan en este navegador hasta que eliges Publicar.</div>
     <div class="obrow">
-      <button id="obStart" class="primary">Crear comparación</button>
-      <button id="obDemo">Ver un ejemplo</button>
-      <button id="obLoad" title="Abre el ejemplo como proyecto para editarlo">Editar el ejemplo</button>
-      <button id="obGuide" title="Guías paso a paso sobre la pantalla">Guíame paso a paso</button>
-      <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
+      <button data-t id="obStart" class="primary">Crear comparación</button>
+      <button data-t id="obDemo">Ver un ejemplo</button>
+      <button data-t id="obLoad" title="Abre el ejemplo como proyecto para editarlo">Editar el ejemplo</button>
+      <button data-t id="obGuide" title="Guías paso a paso sobre la pantalla">Guíame paso a paso</button>
+      <label class="obskip"><input type="checkbox" id="obDontShow"> <span data-t>no mostrar de nuevo</span></label>
     </div>
   </div>
 </div>
 
 <header>
-  <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span> <span class="dim">creador</span></h1>
+  <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true" data-nt>gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true" data-nt>pics</span></span> <span data-t class="dim">creador</span></h1>
   <nav class="tabs">
-    <button id="tabBasic" data-guide="tab-basic">Básico</button>
-    <button id="tabVideo">Video</button>
-    <button id="tabAdv">Avanzado</button>
+    <button data-t id="tabBasic" data-guide="tab-basic">Básico</button>
+    <button data-nt id="tabVideo">Video</button>
+    <button data-t id="tabAdv">Avanzado</button>
   </nav>
   <span class="spacer"></span>
-  <button id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
-  <button id="btnPublish" data-guide="publish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
-  <button id="btnUpdate" title="Reemplazar el contenido de una página ya publicada con este proyecto, sin cambiar su enlace">Actualizar página</button>
-  <button id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
-  <button id="btnHelp" aria-label="Ayuda">Ayuda</button>
-  <button id="btnPreviewTop" data-guide="preview" class="primary">Vista previa</button>
+  <button data-t id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
+  <button data-t id="btnPublish" data-guide="publish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
+  <button data-t id="btnUpdate" title="Reemplazar el contenido de una página ya publicada con este proyecto, sin cambiar su enlace">Actualizar página</button>
+  <button data-t id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
+  <button data-t id="btnHelp" aria-label="Ayuda">Ayuda</button>
+  <button data-t id="btnPreviewTop" data-guide="preview" class="primary">Vista previa</button>
   <input type="file" id="openFile" accept=".cmp,application/json" style="display:none">
 </header>
 
@@ -326,21 +327,21 @@
   <div id="publishUpload" class="upload-status" hidden>
     <progress id="publishProgress" max="1" value="0" aria-label="Progreso de la publicación"></progress>
     <p id="publishStatus" role="status" aria-live="polite"></p>
-    <button id="publishCancel" hidden>Cancelar envío</button>
-    <button id="publishRetry" hidden>Reintentar el mismo paquete</button>
+    <button data-t id="publishCancel" hidden>Cancelar envío</button>
+    <button data-t id="publishRetry" hidden>Reintentar el mismo paquete</button>
   </div>
   <!-- ======================= BÁSICO ======================= -->
   <section id="basicView">
-    <h2 style="font-size:20px;">Compara imágenes</h2>
-    <p class="hint" style="margin:4px 0 14px;">
+    <h2 data-t style="font-size:20px;">Compara imágenes</h2>
+    <p data-t class="hint" style="margin:4px 0 14px;">
       Suelta todas las capturas de una vez. Si los nombres dicen la versión y el cuadro, se agrupan solas: cada cuadro con todas sus versiones.
       Si no, llena cada versión por separado: «Elegir sus imágenes» (o suéltalas sobre su nombre) las pone en fila, en orden de nombre.
       Datos por versión (códec, comando, métricas): usa Avanzado.
     </p>
     <div class="drop" id="basicDrop" data-guide="drop" role="button" tabindex="0" aria-label="Elegir imágenes">
-      <div class="big">Suelta imágenes aquí</div>
-      <div class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
-      <div class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
+      <div data-t class="big">Suelta imágenes aquí</div>
+      <div data-t class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
+      <div data-t class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
     </div>
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
     <div id="pairList" data-guide="rows"></div>
@@ -349,14 +350,14 @@
 
   <!-- ======================= VIDEO ======================= -->
   <section id="videoView" style="display:none;">
-    <h2 style="font-size:16px;">De videos a comparación</h2>
-    <p class="hint" style="margin:4px 0 14px;">
+    <h2 data-t style="font-size:16px;">De videos a comparación</h2>
+    <p data-t class="hint" style="margin:4px 0 14px;">
       Suelta el máster y los encodes. Marcas momentos en la línea de tiempo y la
       herramienta hace una captura en el instante pedido de cada video. Revisa que las capturas correspondan al mismo momento.
     </p>
     <div class="drop" id="vidDrop" role="button" tabindex="0" aria-label="Elegir videos">
-      <div class="big">Suelta los videos aquí</div>
-      <div class="hint">MP4 / WebM / MOV que tu navegador sepa abrir · el máster y cada encode</div>
+      <div data-t class="big">Suelta los videos aquí</div>
+      <div data-t class="hint">MP4 / WebM / MOV que tu navegador sepa abrir · el máster y cada encode</div>
     </div>
     <input type="file" id="vidFile" accept="video/*" multiple style="display:none">
     <div id="vidList" style="margin-top:10px;"></div>
@@ -365,20 +366,20 @@
         <b id="vidWho">·</b>
         <span class="hint" id="vidDur"></span>
         <span class="spacer"></span>
-        <button id="vidPrev">← anterior</button>
-        <button id="vidNext">siguiente →</button>
+        <button data-t id="vidPrev">← anterior</button>
+        <button data-t id="vidNext">siguiente →</button>
       </div>
       <video id="vidPlayer" controls style="width:100%; max-height:44vh; background:#000; border-radius:8px;"></video>
       <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-        <button id="vidMark" class="primary">Marcar aquí</button>
-        <span class="hint">capturas en PNG sin pérdida</span>
+        <button data-t id="vidMark" class="primary">Marcar aquí</button>
+        <span data-t class="hint">capturas en PNG sin pérdida</span>
         <span class="spacer"></span>
-        <button id="vidGo" class="primary">Capturar todo</button>
+        <button data-t id="vidGo" class="primary">Capturar todo</button>
       </div>
       <div id="vidMarks" style="margin-top:10px;"></div>
       <div id="vidProg" class="okline" role="status" aria-live="polite" style="margin-top:8px; min-height:16px;"></div>
       <ul id="vidResults" aria-label="Resultado por marca y variante" style="max-height:240px;overflow:auto;padding-left:20px;font-size:12px;"></ul>
-      <div class="hint" style="margin-top:8px;">
+      <div data-t class="hint" style="margin-top:8px;">
         La captura depende del decodificador y de la conversión de color del navegador.
         Para evaluar HDR o sincronía exacta entre frames, usa capturas de tu propio proceso de extracción.
       </div>
@@ -393,14 +394,14 @@
       <div class="stepbody">
 
         <div class="step" data-step="0">
-          <h2>Proyecto</h2>
-          <p class="sub">El título ayuda a identificar la comparación. Puedes dejarlo vacío.</p>
+          <h2 data-t>Proyecto</h2>
+          <p data-t class="sub">El título ayuda a identificar la comparación. Puedes dejarlo vacío.</p>
           <div class="card">
-            <label class="f">Título</label>
+            <label data-t class="f">Título</label>
             <input type="text" id="pjTitle" placeholder="p. ej. Comparación de encodes">
-            <div class="hint" id="pjTitleWarn" style="margin-top:4px;">Sin título, la página se llamará «Comparación».</div>
-            <details style="margin-top:14px;"><summary class="hint">Opciones para hosting estático</summary>
-            <label class="f">Versión del archivo</label>
+            <div data-t class="hint" id="pjTitleWarn" style="margin-top:4px;">Sin título, la página se llamará «Comparación».</div>
+            <details style="margin-top:14px;"><summary data-t class="hint">Opciones para hosting estático</summary>
+            <label data-t class="f">Versión del archivo</label>
             <div style="display:flex; gap:8px; align-items:center;">
               <input type="number" id="pjVersion" value="1" min="1" style="width:90px;">
               <button id="pjBump" class="iconbtn">+1</button>
@@ -410,32 +411,32 @@
         </div>
 
         <div class="step" data-step="1">
-          <h2>Variantes</h2>
-          <p class="sub">Cada variante es una versión de la imagen, como la fuente o un encode.
+          <h2 data-t>Variantes</h2>
+          <p data-t class="sub">Cada variante es una versión de la imagen, como la fuente o un encode.
              La primera es la referencia para S2. Codec, CRF, bitrate y comandos son opcionales.</p>
           <div id="varList"></div>
-          <button id="varAdd">+ Agregar variante</button>
+          <button data-t id="varAdd">+ Agregar variante</button>
           <div id="varWarns" style="margin-top:8px;"></div>
         </div>
 
         <div class="step" data-step="2">
-          <h2>Frames</h2>
-          <p class="sub">Un frame es un momento que quieres comparar. El identificador debe coincidir con el nombre de
+          <h2 data-nt>Frames</h2>
+          <p data-t class="sub">Un frame es un momento que quieres comparar. El identificador debe coincidir con el nombre de
              archivo (<span class="mono">variante_1001.png</span>). La etiqueta opcional describe la escena.</p>
           <div id="frameList"></div>
-          <button id="frameAdd">+ Agregar frame</button>
+          <button data-t id="frameAdd">+ Agregar frame</button>
           <div id="frameWarns" style="margin-top:8px;"></div>
         </div>
 
         <div class="step" data-step="3">
-          <h2>Imágenes</h2>
-          <p class="sub">Llena la tabla. Suelta archivos llamados
+          <h2 data-t>Imágenes</h2>
+          <p data-t class="sub">Llena la tabla. Suelta archivos llamados
              <span class="mono">&lt;variante&gt;_&lt;frame&gt;.png</span> y caen solos en su casilla.
              O llena una variante entera: clic en su nombre en la tabla (o suelta ahí sus imágenes) y van a sus frames en orden de nombre.</p>
           <div class="drop" id="bulkDrop" role="button" tabindex="0" aria-label="Elegir imágenes para la tabla" style="padding:14px;">
-            <div class="big" style="font-size:13px;">Agrega varias imágenes por nombre</div>
-            <div class="hint">se emparejan por id de variante, nombre de variante o número/etiqueta del frame</div>
-            <div class="hint" style="margin-top:4px;">lo que no exista (variante o frame) se crea solo del nombre del archivo</div>
+            <div data-t class="big" style="font-size:13px;">Agrega varias imágenes por nombre</div>
+            <div data-t class="hint">se emparejan por id de variante, nombre de variante o número/etiqueta del frame</div>
+            <div data-t class="hint" style="margin-top:4px;">lo que no exista (variante o frame) se crea solo del nombre del archivo</div>
           </div>
           <div id="bulkNote" class="okline" style="margin-top:6px; min-height:16px;"></div>
           <div id="bulkWarn"></div>
@@ -445,76 +446,77 @@
         </div>
 
         <div class="step" data-step="4">
-          <h2>Revisar y compartir</h2>
-          <p class="sub">Completa las imágenes que falten y abre la vista previa antes de compartir.</p>
+          <h2 data-t>Revisar y compartir</h2>
+          <p data-t class="sub">Completa las imágenes que falten y abre la vista previa antes de compartir.</p>
           <ul class="vlist" id="checkList"></ul>
           <div class="card">
             <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer;">
               <input type="checkbox" id="s2Toggle" style="margin-top:2px;">
-              <span><b>Calcular S2 (SSIMULACRA2)</b>
-              <span class="hint" style="display:block;">puntúa cada frame de cada variante contra la primera (la referencia). Sale en la página bajo el nombre de cada variante. Tarda unos segundos por imagen · se calcula localmente, como todo lo demás.</span></span>
+              <span><b data-t>Calcular S2 (SSIMULACRA2)</b>
+              <span data-t class="hint" style="display:block;">puntúa cada frame de cada variante contra la primera (la referencia). Sale en la página bajo el nombre de cada variante. Tarda unos segundos por imagen · se calcula localmente, como todo lo demás.</span></span>
             </label>
             <div id="s2Prog" class="okline" style="margin-top:6px; min-height:16px;"></div>
           </div>
           <div class="exports">
             <div class="exp">
-              <b>Vista previa</b>
-              <span class="hint">la página exacta que van a ver quienes abran tu export.</span>
-              <button id="btnPreview" class="primary">Abrir vista previa</button>
+              <b data-t>Vista previa</b>
+              <span data-t class="hint">la página exacta que van a ver quienes abran tu export.</span>
+              <button data-t id="btnPreview" class="primary">Abrir vista previa</button>
             </div>
             <div class="exp">
-              <b>HTML de un solo archivo</b>
-              <span class="hint">motor + imágenes embebidos. Se abre con doble clic, sin internet.</span>
-              <button id="btnExpHtml">Descargar .html</button>
+              <b data-t>HTML de un solo archivo</b>
+              <span data-t class="hint">motor + imágenes embebidos. Se abre con doble clic, sin internet.</span>
+              <button data-t id="btnExpHtml">Descargar .html</button>
             </div>
             <div class="exp">
-              <b>Carpeta autocontenida (.zip)</b>
-              <span class="hint">index.html + compare.js + manifest.json + img/ · lista para cualquier hosting estático.</span>
-              <button id="btnExpZip">Descargar .zip</button>
+              <b data-t>Carpeta autocontenida (.zip)</b>
+              <span data-t class="hint">index.html + compare.js + manifest.json + img/ · lista para cualquier hosting estático.</span>
+              <button data-t id="btnExpZip">Descargar .zip</button>
             </div>
             <div class="exp">
-              <b>Paquete .cmp</b>
-              <span class="hint">el formato de gatos.pics · para guardar o subir por tu cuenta.</span>
-              <button id="btnExpCmp">Descargar .cmp</button>
+              <b data-t>Paquete .cmp</b>
+              <span data-t class="hint">el formato de gatos.pics · para guardar o subir por tu cuenta.</span>
+              <button data-t id="btnExpCmp">Descargar .cmp</button>
             </div>
             <div class="exp">
-              <b>Publicar en gatos.pics</b>
-              <span class="hint">sube la página tal cual y te da el link para compartir. Se puede borrar con la llave que entrega.</span>
-              <button id="btnPublish2" class="primary">Publicar y obtener link</button>
+              <b data-t>Publicar en gatos.pics</b>
+              <span data-t class="hint">sube la página tal cual y te da el link para compartir. Se puede borrar con la llave que entrega.</span>
+              <button data-t id="btnPublish2" class="primary">Publicar y obtener link</button>
             </div>
             <div class="exp">
-              <b>Actualizar una página publicada</b>
-              <span class="hint">reemplaza el contenido de una página que ya publicaste y conserva su mismo enlace. Usa su llave de borrado o tu llave API.</span>
-              <button id="btnUpdate2">Actualizar una página ya publicada</button>
+              <b data-t>Actualizar una página publicada</b>
+              <span data-t class="hint">reemplaza el contenido de una página que ya publicaste y conserva su mismo enlace. Usa su llave de borrado o tu llave API.</span>
+              <button data-t id="btnUpdate2">Actualizar una página ya publicada</button>
             </div>
           </div>
         </div>
 
-        <div class="wizard-actions"><button id="stepBack">← Anterior</button><button id="stepNext">Siguiente →</button></div>
+        <div class="wizard-actions"><button data-t id="stepBack">← Anterior</button><button data-t id="stepNext">Siguiente →</button></div>
       </div>
     </div>
   </section>
 </main>
 
 <footer>
-  <span>Todo se prepara en tu navegador. Publicar sube las imágenes y los datos a gatos.pics.</span>
-  <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo · con un proyecto abierto, te pedimos confirmación</span>
+  <span data-t>Todo se prepara en tu navegador. Publicar sube las imágenes y los datos a gatos.pics.</span>
+  <span data-t class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo · con un proyecto abierto, te pedimos confirmación</span>
 </footer>
 
 <!-- ayuda: guías paso a paso y comentarios (guide.js) -->
 <div id="helpFrame" class="overlay" style="display:none;">
   <div class="card" id="helpCard" role="dialog" aria-label="Ayuda">
-    <h2 style="font-size:16px; margin-bottom:6px;">¿Qué quieres hacer?</h2>
-    <p class="hint" style="margin-bottom:10px;">Elige tu caso y te lo mostramos paso a paso sobre la pantalla, con capturas de ejemplo.</p>
+    <h2 data-t style="font-size:16px; margin-bottom:6px;">¿Qué quieres hacer?</h2>
+    <p data-t class="hint" style="margin-bottom:10px;">Elige tu caso y te lo mostramos paso a paso sobre la pantalla, con capturas de ejemplo.</p>
     <div id="helpGuides"></div>
-    <h2 style="font-size:14px; margin:16px 0 4px;">Enviar comentarios</h2>
-    <p class="hint">¿Algo no funciona, falta o se puede mejorar? Cuéntanos. No pedimos ningún dato; si quieres respuesta, deja tu usuario de Discord en el mensaje.</p>
+    <h2 data-t style="font-size:14px; margin:16px 0 4px;">Enviar comentarios</h2>
+    <p data-t class="hint">¿Algo no funciona, falta o se puede mejorar? Cuéntanos. No pedimos ningún dato; si quieres respuesta, deja tu usuario de Discord en el mensaje.</p>
     <textarea id="fbText" rows="4" maxlength="2000" aria-label="Tu comentario" placeholder="Escribe aquí…"></textarea>
     <div class="actions">
-      <button id="fbSend" class="primary">Enviar comentario</button>
-      <button id="helpWelcome">Ver la bienvenida</button>
-      <button id="helpClose">Cerrar</button>
+      <button data-t id="fbSend" class="primary">Enviar comentario</button>
+      <button data-t id="helpWelcome">Ver la bienvenida</button>
+      <button data-t id="helpClose">Cerrar</button>
     </div>
+    <p class="hint langs" data-nt style="margin-top:10px;">Idioma · Language: <a href="#" data-lang="es">Español</a> · <a href="#" data-lang="en">English</a></p>
     <p class="hint" id="fbStatus" role="status" style="margin-top:8px;"></p>
   </div>
 </div>
@@ -522,34 +524,34 @@
 <div id="guideCard" role="dialog" aria-label="Guía" aria-live="polite" hidden>
   <div id="guideCount"></div>
   <p id="guideText"></p>
-  <div class="actions"><button id="guideBack">Atrás</button><button id="guideNext" class="primary">Siguiente</button><button id="guideExit">Salir de la guía</button></div>
+  <div class="actions"><button data-t id="guideBack">Atrás</button><button data-t id="guideNext" class="primary">Siguiente</button><button data-t id="guideExit">Salir de la guía</button></div>
 </div>
 
 <!-- resultado de publicacion -->
 <div id="pubFrame" class="overlay" style="display:none;">
   <div class="card" id="pubCard">
-    <h2 style="font-size:16px; margin-bottom:6px;">Publicado</h2>
-    <p class="hint" style="margin-bottom:12px;">Guarda la llave: sirve para borrar la página, actualizar su imagen compartida y reemplazar su contenido sin cambiar el enlace. Cualquiera con el enlace puede ver la comparación.</p>
-    <label class="f">Link para compartir</label>
+    <h2 data-t style="font-size:16px; margin-bottom:6px;">Publicado</h2>
+    <p data-t class="hint" style="margin-bottom:12px;">Guarda la llave: sirve para borrar la página, actualizar su imagen compartida y reemplazar su contenido sin cambiar el enlace. Cualquiera con el enlace puede ver la comparación.</p>
+    <label data-t class="f">Link para compartir</label>
     <div style="display:flex; gap:8px;">
       <input type="text" id="pubUrl" readonly>
-      <button id="pubCopy" style="flex:0 0 auto;">Copiar</button>
+      <button data-t id="pubCopy" style="flex:0 0 auto;">Copiar</button>
     </div>
-    <label class="f">Llave de borrado</label>
+    <label data-t class="f">Llave de borrado</label>
     <input type="text" id="pubKey" readonly class="mono">
     <p class="hint" id="pubShare" role="status" style="margin-top:10px;"></p>
-    <label class="f">Para foros (BBCode, con vista previa clicable)</label>
+    <label data-t class="f">Para foros (BBCode, con vista previa clicable)</label>
     <textarea id="pubBB" rows="2" readonly class="mono" style="width:100%; background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:6px 9px; font-size:11px; resize:none;"></textarea>
-    <label class="f">Markdown</label>
+    <label class="f" data-nt>Markdown</label>
     <textarea id="pubMD" rows="2" readonly class="mono" style="width:100%; background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:6px 9px; font-size:11px; resize:none;"></textarea>
-    <label class="f">HTML</label>
+    <label class="f" data-nt>HTML</label>
     <textarea id="pubHTML" rows="2" readonly class="mono" style="width:100%; background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:6px 9px; font-size:11px; resize:none;"></textarea>
-    <label class="f">Borrar más tarde</label>
+    <label data-t class="f">Borrar más tarde</label>
     <p class="hint mono" id="pubDel" style="word-break:break-all;"></p>
     <div class="actions">
-      <button id="pubOpen" class="primary">Abrir la página</button>
-      <button id="pubReceipt">Guardar enlace y llave</button>
-      <button id="pubClose">Cerrar</button>
+      <button data-t id="pubOpen" class="primary">Abrir la página</button>
+      <button data-t id="pubReceipt">Guardar enlace y llave</button>
+      <button data-t id="pubClose">Cerrar</button>
     </div>
   </div>
 </div>
@@ -557,14 +559,17 @@
 <!-- vista previa -->
 <div id="pvFrame">
   <div id="pvBar">
-    <b>Vista previa</b>
-    <button id="pvClose">Volver al creador</button>
-    <span class="hint">esta es exactamente la página exportada · mismo motor, imágenes embebidas</span>
+    <b data-t>Vista previa</b>
+    <button data-t id="pvClose">Volver al creador</button>
+    <span data-t class="hint">esta es exactamente la página exportada · mismo motor, imágenes embebidas</span>
   </div>
   <iframe id="pvBox" title="vista previa"></iframe>
 </div>
 
 <!-- generado por tools/build_app.py: la copia del visor comprimida (VIEWER_GZ -> SHELL_HTML, ENGINE_SRC, UPLOAD_SRC) -->
+<script src="../viewer/src/05-i18n.js"></script>
+<script src="../viewer/src/06-lang-upload.js"></script>
+<script src="lang.js"></script>
 <script src="assets.js"></script>
 <script src="../viewer/upload.js"></script>
 <script src="s2.js"></script>

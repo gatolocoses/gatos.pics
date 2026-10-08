@@ -44,7 +44,7 @@ function solarizedCopy(img){
 }
 
 function renderViewCanvas(){
-  if (loadFailA || loadFailB) throw new Error('No se puede compartir: una imagen no carg\u00f3.');
+  if (loadFailA || loadFailB) throw new Error(T('No se puede compartir: una imagen no cargó.'));
   // autoridad de URL asentada (misma clase de carrera que el diff): complete
   // puede seguir en true con pixeles de la generacion anterior; el PNG exige
   // el par actual asentado en ambos lados (en diff realB es la autoridad)
@@ -53,8 +53,8 @@ function renderViewCanvas(){
   const diffLive = diffMode && !missA && !missB;
   const bSettled = diffLive ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
   if ((!missA && (loadedUrlA !== imgA.src || !imgA.naturalWidth)) || (!missB && (!bSettled || !imgB.naturalWidth)))
-    throw new Error('Espera a que terminen de cargar las dos imágenes.');
-  if (diffLive && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
+    throw Object.assign(new Error(T('Espera a que terminen de cargar las dos imágenes.')), {wait:true});
+  if (diffLive && !ensureDiffBase()) throw new Error(T('No se puede compartir el diff: revisa las dimensiones de las imágenes.'));
   const comp2 = $('comp');
   const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
   // region visible del contenido, sin barras negras: el lienzo es exactamente
@@ -87,7 +87,7 @@ function renderViewCanvas(){
     x.fillStyle = '#16161d'; x.fillRect(x0, iy, x1 - x0, vh);
     x.fillStyle = '#b4b4c2'; x.font = '600 13px system-ui, sans-serif';
     x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('Esta variante no tiene este cuadro', (x0 + x1) / 2, iy + vh / 2, Math.max(20, x1 - x0 - 24));
+    x.fillText(T('Esta variante no tiene este cuadro'), (x0 + x1) / 2, iy + vh / 2, Math.max(20, x1 - x0 - 24));
     x.restore();
   };
   const divX = dividerPos * w;
@@ -141,10 +141,10 @@ function renderViewCanvas(){
   // el chip resume los modos activos: sin las entradas de parpadeo y Δ media,
   // un PNG congelado no indicaba su origen ni cuánto difiere el par
   const modes = [
-    diffLive ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
-    blinkMode ? 'Parpadeo A/B' : '',
+    diffLive ? T`Diff ×${GAINS[gainIdx]}${heat ? T(' · calor') : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
+    blinkMode ? T('Parpadeo A/B') : '',
     solarMode ? 'Solar' : '',
-    blindMode ? 'Ciego' : '',
+    blindMode ? T('Ciego') : '',
   ].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
@@ -161,12 +161,12 @@ async function openShare(){
   let c;
   try { c = renderViewCanvas(); } catch(e){ alert(e.message); return; }
   const url = location.href.split('#')[0]+'#'+stateParams();
-  const title = document.title || 'Comparación';
+  const title = document.title || T('Comparación');
   const snapshotNames = [variantName(varA),variantName(varB)];
   const snapshotFrame = blindMode ? FRAMES.indexOf(frame)+1 : frame;
   $('shotUpload').hidden = true;
   $('shareUp').disabled = true;
-  const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [['Enlace a esta vista', url]];
+  const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [[T('Enlace a esta vista'), url]];
   $('shareBlindNote').hidden = !blindMode;
   $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
   $('shareOwner').hidden = true;
@@ -187,7 +187,7 @@ async function openShare(){
       }
       if (!ok){ try { ok = document.execCommand('copy'); } catch(e){} }
       const hint = $('shareHint');
-      hint.textContent = ok ? 'copiado \u2713' : 'seleccionado: Ctrl+C';
+      hint.textContent = ok ? T('copiado ✓') : T('seleccionado: Ctrl+C');
       box.style.borderColor = ok ? '#7bd389' : '#ffb454';
       setTimeout(() => { hint.textContent = ''; box.style.borderColor = '#333'; }, 1500);
     };
@@ -197,7 +197,7 @@ async function openShare(){
   sharePanel.style.display = 'flex';
   // generar la imagen de la vista actual
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-  if (!blob){ $('shareHint').textContent = 'No se pudo generar el PNG.'; return; }
+  if (!blob){ $('shareHint').textContent = T('No se pudo generar el PNG.'); return; }
   if (shareBlobUrl) URL.revokeObjectURL(shareBlobUrl);
   shareBlobUrl = URL.createObjectURL(blob);
   const prev = $('sharePreview');
@@ -222,24 +222,24 @@ async function openShare(){
   $('pageDelete').onclick = async () => {
     const key = ($('shareKey').value || '').trim();
     if (!key){
-      $('shareHint').textContent = 'pega la llave de borrado para poder eliminar la página';
+      $('shareHint').textContent = T('pega la llave de borrado para poder eliminar la página');
       $('shareKey').focus();
       return;
     }
-    if (!confirm('¿Borrar esta página y su imagen compartida? No se puede deshacer.')) return;
+    if (!confirm(T('¿Borrar esta página y su imagen compartida? No se puede deshacer.'))) return;
     const btn = $('pageDelete');
-    btn.disabled = true; btn.textContent = 'Borrando…';
+    btn.disabled = true; btn.textContent = T('Borrando…');
     try {
-      const resp = await fetch('/api/page/' + m[1], { method: 'DELETE', headers: { 'x-delete-key': key } });
+      const resp = await fetch('/api/page/' + m[1], { method: 'DELETE', headers: { 'x-delete-key': key, 'accept-language': I18N.lang } });
       if (!resp.ok){
         let j = null; try { j = await resp.json(); } catch(e){}
         throw new Error((j && j.error) || ('HTTP ' + resp.status));
       }
-      alert('Página borrada.');
+      alert(T('Página borrada.'));
       location.href = '/';
     } catch (e) {
-      alert('No se pudo borrar: ' + e.message);
-      btn.disabled = false; btn.textContent = 'Borrar esta página…';
+      alert(T`No se pudo borrar: ${e.message}`);
+      btn.disabled = false; btn.textContent = T('Borrar esta página…');
     }
   };
   $('shareUseKey').onclick = () => {
@@ -261,15 +261,15 @@ async function openShare(){
   shotUploader = new GatosUpload({
     panel:$('shotUpload'), progress:$('shotProgress'), status:$('shotStatus'),
     cancel:$('shotCancel'), retry:$('shotRetry'),
-    retryCaution:'La imagen pudo actualizarse. Reintentar reemplaza la misma URL.',
+    retryCaution:T('La imagen pudo actualizarse. Reintentar reemplaza la misma URL.'),
     onBusy:busy => { up.disabled = busy; $('shareKey').disabled = busy; },
     onSuccess:j => {
       const page = url;
       const codes = [
-        ['BBCode (foros, la vista exacta clicable)', '[url=' + page + '][img]' + j.url + '[/img][/url]'],
+        [T('BBCode (foros, la vista exacta clicable)'), '[url=' + page + '][img]' + j.url + '[/img][/url]'],
         ['Markdown', '[![' + title.replace(/[\[\]\\]/g, '\\$&') + '](' + j.url + ')](' + page + ')'],
         ['HTML', '<a href="' + escq(page) + '"><img src="' + escq(j.url) + '" alt="' + escq(title) + '" loading="lazy"></a>'],
-        ['Imagen directa', j.url],
+        [T('Imagen directa'), j.url],
       ];
       const host2 = $('shareCodes');
       host2.innerHTML = '';
@@ -286,7 +286,7 @@ async function openShare(){
           let ok2 = false;
           if (navigator.clipboard && window.isSecureContext){ try { await navigator.clipboard.writeText(text); ok2 = true; } catch(e){} }
           if (!ok2){ try { ok2 = document.execCommand('copy'); } catch(e){} }
-          $('shareHint').textContent = ok2 ? 'copiado \u2713' : 'seleccionado: Ctrl+C';
+          $('shareHint').textContent = ok2 ? T('copiado ✓') : T('seleccionado: Ctrl+C');
           box.style.borderColor = ok2 ? '#7bd389' : '#ffb454';
           setTimeout(() => { $('shareHint').textContent = ''; box.style.borderColor = '#333'; }, 1500);
         };
@@ -298,9 +298,9 @@ async function openShare(){
   });
   up.onclick = () => {
     const key = $('shareKey').value.trim();
-    if (!key){ $('shareHint').textContent = 'Ingresa la llave que recibiste al publicar.'; $('shareKey').focus(); return; }
+    if (!key){ $('shareHint').textContent = T('Ingresa la llave que recibiste al publicar.'); $('shareKey').focus(); return; }
     shotUploader.start(async () => ({url:'/api/shot/'+m[1],
-      headers:{'content-type':'image/png','x-delete-key':key}, body:blob}));
+      headers:{'content-type':'image/png','x-delete-key':key,'accept-language':I18N.lang}, body:blob}));
   };
 }
 $('shareBtn').addEventListener('click', openShare);
@@ -317,7 +317,7 @@ function closeReport(){
     $('reportClose').onclick = closeReport;
     $('reportSend').onclick = async () => {
       const send = $('reportSend');
-      send.disabled = true; send.textContent = 'Enviando…';
+      send.disabled = true; send.textContent = T('Enviando…');
       try {
         const resp = await fetch('/api/report/' + rm[1], {
           method: 'POST',
@@ -325,12 +325,12 @@ function closeReport(){
           body: JSON.stringify({ reason: $('reportReason').value, note: $('reportNote').value }),
         });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        $('reportStatus').textContent = 'Reporte enviado. Gracias.';
+        $('reportStatus').textContent = T('Reporte enviado. Gracias.');
         setTimeout(() => { closeReport(); $('reportStatus').textContent = ''; }, 1400);
       } catch (e) {
-        $('reportStatus').textContent = 'No se pudo enviar: ' + e.message;
+        $('reportStatus').textContent = T`No se pudo enviar: ${e.message}`;
       } finally {
-        send.disabled = false; send.textContent = 'Enviar reporte';
+        send.disabled = false; send.textContent = T('Enviar reporte');
       }
     };
     for (const ev of ['pointerdown','mousedown','touchstart'])

@@ -47,7 +47,7 @@ if (!key && !opt.out) fail('falta GATOS_DELETE_KEY (o usa --out <archivo> para s
   const browser = await chromium.launch({ headless: true });
   let png;
   try {
-    const page = await browser.newPage({ viewport: { width: opt.width, height: opt.height } });
+    const page = await browser.newPage({ locale: 'es-MX', viewport: { width: opt.width, height: opt.height } });
     const resp = await page.goto(pageUrl, { waitUntil: 'load', timeout: 120000 });
     if (!resp || !resp.ok()) fail(`la página respondió ${resp ? resp.status() : 'sin respuesta'}`);
     // el visor rechaza dibujar mientras el par no terminó de cargar: se reintenta
@@ -64,7 +64,7 @@ if (!key && !opt.out) fail('falta GATOS_DELETE_KEY (o usa --out <archivo> para s
           for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
           return btoa(s);
         } catch (e){
-          if (!/^Espera/.test(e.message) || Date.now() > until) throw e;
+          if (!(e.wait || /^(Espera|Wait)/.test(e.message)) || Date.now() > until) throw e;
           await new Promise(r => setTimeout(r, 250));
         }
       }

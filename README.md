@@ -10,6 +10,7 @@ en tu computadora. Las imágenes solo se suben cuando eliges Publicar.
 - Sin cuentas ni registros: el creador corre completo en tu navegador.
 - Sin dependencias: un archivo HTML con JS puro, sin instalar nada.
 - **Linux · Windows · macOS**: cualquier navegador moderno.
+- **Español e inglés**: se muestra en el idioma de tu navegador; se puede cambiar a mano.
 - **Conserva una copia**: el HTML exportado incluye las imágenes y se abre
   sin conexión en un navegador compatible.
 

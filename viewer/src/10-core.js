@@ -1,4 +1,4 @@
-/* gatos.pics compare engine.
+/* gatos.pics compare engine (after the i18n parts 05-07).
    Two data sources, picked at boot:
    - Embedded: window.GATOS_PACKAGE = {format, manifest, images:{"<id>_<frame>": dataURL}}
      Set by a self-contained export or by the builder preview. Works from file://
@@ -6,8 +6,6 @@
      1:1 crops keep working).
    - Http: manifest.json + img/<id>_<frame>.<ext> next to this page (classic
      static hosting). version -> ?v= cache busting for immutable image caches. */
-'use strict';
-
 const $ = id => document.getElementById(id);
 const comp = $('comp'), imgA = $('imgA'), imgB = $('imgB'), diffCanvas = $('diffCanvas');
 const paneA = $('paneA'), paneB = $('paneB');
@@ -22,7 +20,7 @@ const pixBtn = $('pixBtn');
 const blindBtn = $('blindBtn');
 const solarBtn = $('solarBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
-let originalTitle = 'Comparación';
+let originalTitle = T('Comparación');
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
 let FRAMES = [], VARIANTS = [];
@@ -40,7 +38,7 @@ function makeHttpSource(){
       if (!r.ok) throw new Error('manifest.json HTTP '+r.status);
       let m;
       try { m = await r.json(); }
-      catch(e){ throw Object.assign(new Error('manifest inv\u00e1lido: JSON truncado o malformado'), {manifestInvalid:true}); }
+      catch(e){ throw Object.assign(new Error(T('manifest inválido: JSON truncado o malformado')), {manifestInvalid:true}); }
       VERSION = String(m?.version || '');
       return m;
     },
@@ -212,9 +210,9 @@ function clampPan(){
   if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
 }
 function updateBadge(){
-  if (loadFailA){ zoomBadge.textContent = 'la imagen no carg\u00f3'; return; }
-  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
-  zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
+  if (loadFailA){ zoomBadge.textContent = T('la imagen no cargó'); return; }
+  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = T('cargando…'); return; }
+  zoomBadge.textContent = zoom === 1 ? T('ajustar') : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
 /* la marca del encabezado es un espejo del visor: el circulito cruza las
    palabras siguiendo al divisor real, como el divisor cruza la imagen */

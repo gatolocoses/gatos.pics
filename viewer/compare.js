@@ -1,4 +1,258 @@
-/* gatos.pics compare engine.
+/* i18n: español (fuente) e inglés. El idioma sale del navegador, sin red y sin
+   guardar nada de quien visita; el interruptor manual vive en localStorage.
+
+   El español ES el código. Cada texto visible lleva su traducción en un
+   diccionario español → inglés:
+   - HTML fijo: el elemento lleva `data-t`; su clave es su texto (sin etiquetas)
+     y la traducción es su innerHTML en inglés. title, placeholder, aria-label
+     y alt se buscan por su valor.
+   - JS: T`Texto con ${valor}` (clave: 'Texto con {}') o T('Texto').
+   Sin entrada, queda el español. tools/check_i18n.mjs (gate de push) exige
+   que cada clave tenga traducción y que ningún texto quede sin marcar. */
+'use strict';
+const I18N = (() => {
+  const dict = Object.create(null), miss = new Set();
+  const ATTRS = ['title', 'placeholder', 'aria-label', 'alt'];
+  const ok = l => l === 'es' || l === 'en';
+  const lang = (() => {
+    if (ok(globalThis.GATOS_LANG)) return globalThis.GATOS_LANG;
+    try { const q = new URLSearchParams(location.search).get('lang'); if (ok(q)) return q; } catch (e){}
+    try { const s = localStorage.getItem('gatos.lang'); if (ok(s)) return s; } catch (e){}
+    const list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+    for (const l of list){ const p = String(l).toLowerCase().slice(0, 2); if (ok(p)) return p; }
+    return 'en';
+  })();
+  const norm = s => String(s).replace(/\s+/g, ' ').trim();
+  const find = key => {
+    if (lang === 'es') return undefined;
+    const v = dict[key];
+    if (v === undefined) miss.add(key);
+    return v;
+  };
+  function t(strings, ...vals){
+    if (typeof strings === 'string'){ const v = find(strings); return v === undefined ? strings : v; }
+    const tpl = find(strings.join('{}'));
+    if (tpl === undefined) return strings.reduce((out, s, i) => out + vals[i - 1] + s);
+    let n = 0;
+    return tpl.replace(/\{(\d*)\}/g, (m, d) => vals[d === '' ? n++ : +d]);
+  }
+  function apply(root = document){
+    document.documentElement.lang = lang === 'es' ? 'es-419' : 'en';
+    if (lang === 'es') return;
+    for (const el of root.querySelectorAll('[data-t]')){ const v = find(norm(el.textContent)); if (v !== undefined) el.innerHTML = v; }
+    for (const a of ATTRS) for (const el of root.querySelectorAll('[' + a + ']')){ const v = dict[norm(el.getAttribute(a))]; if (v !== undefined) el.setAttribute(a, v); }
+    if (root === document){ const v = dict[norm(document.title)]; if (v !== undefined) document.title = v; }
+  }
+  // el interruptor: recuerda la elección en este navegador y recarga
+  function set(l){
+    if (!ok(l) || l === lang) return;
+    try { localStorage.setItem('gatos.lang', l); } catch (e){}
+    try { const u = new URL(location.href); if (u.searchParams.has('lang')){ u.searchParams.delete('lang'); location.replace(u.href); return; } } catch (e){}
+    location.reload();
+  }
+  // enlaces [data-lang="es|en"]: se marca el idioma actual y el otro lo cambia
+  function wire(root = document){
+    for (const el of root.querySelectorAll('[data-lang]')){
+      const l = el.dataset.lang;
+      if (l === lang) el.setAttribute('aria-current', 'true');
+      el.addEventListener('click', e => { e.preventDefault(); set(l); });
+    }
+  }
+  return { lang, dict, miss, t, apply, set, wire, add: o => Object.assign(dict, o) };
+})();
+const T = I18N.t;
+
+/* Inglés de viewer/upload.js: lo comparten el visor y el creador. */
+I18N.add({
+  'Preparación cancelada. No se inició el envío.': 'Preparation cancelled. Nothing was sent.',
+  'Preparando el envío…': 'Preparing the upload…',
+  'Iniciando el envío…': 'Starting the upload…',
+  'No se pudo confirmar el resultado.': 'The result could not be confirmed.',
+  'Enviando: {} de {} ({} %).': 'Uploading: {} of {} ({}%).',
+  'Enviando: {}.': 'Uploading: {}.',
+  'Envío completo. Esperando confirmación del servidor…': 'Upload complete. Waiting for the server to confirm…',
+  'Envío cancelado.': 'Upload cancelled.',
+  'Se agotó el tiempo de espera.': 'The request timed out.',
+  'El servidor confirmó el envío.': 'The server confirmed the upload.',
+  'No se pudo enviar (HTTP {}).': 'Could not send (HTTP {}).',
+  'Espera antes de reintentar.': 'Wait before retrying.',
+  'No se pudo iniciar el envío: {}': 'Could not start the upload: {}',
+});
+
+/* Inglés del visor: el HTML de viewer/index.html y los textos de las partes
+   10 a 50. Al final se traduce la página, antes de que el motor tome sus
+   elementos. */
+I18N.add({
+  // barra de herramientas
+  'Frame anterior': 'Previous frame',
+  'Frame siguiente': 'Next frame',
+  'Herramientas de comparación': 'Comparison tools',
+  'Diferencia amplificada por canal (D)': 'Per-channel amplified difference (D)',
+  'Curva solar: revela banding y degradados (L)': 'Solar curve: reveals banding and gradients (L)',
+  'Intensidad': 'Gain',
+  'Resaltar diferencias en rojo (H)': 'Highlight differences in red (H)',
+  'Calor': 'Heat',
+  'Parpadeo izquierda/derecha (B)': 'Blink left/right (B)',
+  'Parpadeo': 'Blink',
+  'Modo ciego: oculta qué variante es cuál (G)': 'Blind mode: hides which variant is which (G)',
+  'Ciego': 'Blind',
+  'Mostrar las identidades de esta asignación (R)': 'Show which variant is which (R)',
+  'Revelar': 'Reveal',
+  'Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)': 'Pick a point and inspect 1:1 crops of every variant (C)',
+  'Recortes': 'Crops',
+  '1:1 real en píxeles del dispositivo (O)': 'True 1:1 in device pixels (O)',
+  'Escala con píxeles nítidos al hacer zoom (N)': 'Scale with sharp pixels when zooming (N)',
+  'Nítido': 'Sharp',
+  'Reiniciar zoom (F)': 'Reset zoom (F)',
+  'Ajustar': 'Fit',
+  'Compartir: link, BBCode para foros, Markdown y HTML': 'Share: link, BBCode for forums, Markdown and HTML',
+  'Compartir': 'Share',
+  'Atajos y controles (?)': 'Shortcuts and controls (?)',
+  'Ayuda y atajos': 'Help and shortcuts',
+  'Reportar esta página': 'Report this page',
+  'Reportar': 'Report',
+  'Izquierda': 'Left',
+  'Derecha': 'Right',
+  'Desplazar la lista': 'Scroll the list',
+  'Variante izquierda': 'Left variant',
+  'Variante derecha': 'Right variant',
+  'Comando del encoder': 'Encoder command',
+  'Ver el comando de la variante izquierda': 'Show the left variant\'s command',
+  'Ver el comando de la variante derecha': 'Show the right variant\'s command',
+  'Intercambiar izquierda y derecha (S)': 'Swap left and right (S)',
+  // la comparación
+  'Esta variante no tiene este cuadro': 'This variant does not have this frame',
+  'ajustar': 'fit',
+  'PARPADEO A/B': 'BLINK A/B',
+  'haz clic en un punto (o muévelo con las flechas) para ver recortes 1:1': 'click a point (or move it with the arrow keys) to see 1:1 crops',
+  'Recortes 1:1': '1:1 crops',
+  'cerrar (Esc)': 'close (Esc)',
+  // pie: atajos
+  '←→ frame': '<kbd>←</kbd><kbd>→</kbd> frame',
+  '1–9 variante (Shift = izquierda)': '<kbd>1</kbd>–<kbd>9</kbd> variant (<kbd>Shift</kbd> = left)',
+  'S intercambiar': '<kbd>S</kbd> swap',
+  'D diff': '<kbd>D</kbd> diff',
+  'B parpadeo': '<kbd>B</kbd> blink',
+  'C recortes': '<kbd>C</kbd> crops',
+  'F ajustar': '<kbd>F</kbd> fit',
+  '+/- ganancia': '<kbd>+</kbd>/<kbd>-</kbd> gain',
+  'H calor': '<kbd>H</kbd> heat',
+  'Espacio siguiente variante': '<kbd>Space</kbd> next variant',
+  'N nítido': '<kbd>N</kbd> sharp',
+  'G ciego': '<kbd>G</kbd> blind',
+  'L solar': '<kbd>L</kbd> solar',
+  ',/. divisor': '<kbd>,</kbd>/<kbd>.</kbd> divider',
+  'zoom con rueda/pellizco · arrastra para mover · doble clic ajusta': 'wheel or pinch to zoom · drag to move · double click to fit',
+  // ayuda
+  'Atajos y controles': 'Shortcuts and controls',
+  'Cerrar (Esc)': 'Close (Esc)',
+  'Frame anterior o siguiente.': 'Previous or next frame.',
+  'Espacio': 'Space',
+  'Siguiente variante a la derecha.': 'Next variant on the right.',
+  '1 a 9': '<kbd>1</kbd> to <kbd>9</kbd>',
+  'Elegir variante a la derecha. Con Shift, a la izquierda.': 'Pick the variant on the right. With Shift, on the left.',
+  'Intercambiar izquierda y derecha.': 'Swap left and right.',
+  'Activar o desactivar la diferencia amplificada.': 'Turn the amplified difference on or off.',
+  'Aumentar o reducir la intensidad del diff.': 'Raise or lower the diff gain.',
+  'Activar o desactivar el mapa de calor del diff.': 'Turn the diff heat map on or off.',
+  'Activar o desactivar el parpadeo A/B.': 'Turn A/B blink on or off.',
+  'Entrar al modo ciego o revelar las identidades.': 'Enter blind mode, or reveal which variant is which.',
+  'Revelar las identidades en modo ciego.': 'Reveal which variant is which in blind mode.',
+  'Activar o desactivar la curva solar.': 'Turn the solar curve on or off.',
+  'Elegir un punto para ver recortes 1:1. Con el modo activo, las flechas siembran y mueven el punto; con Shift, en pasos de 10 px.': 'Pick a point to see 1:1 crops. While the mode is on, the arrow keys place and move the point; with Shift, in 10 px steps.',
+  'Ver un píxel de imagen por píxel del dispositivo.': 'Show one image pixel per device pixel.',
+  'Ajustar la imagen al área disponible.': 'Fit the image to the available area.',
+  'Alternar escala suave y píxeles nítidos.': 'Switch between smooth scaling and sharp pixels.',
+  'Mover el divisor. Con Shift, moverlo en pasos mayores.': 'Move the divider. With Shift, in larger steps.',
+  'Abrir esta ayuda.': 'Open this help.',
+  'Cerrar ayuda, Compartir, comandos o recortes.': 'Close help, Share, commands or crops.',
+  'Rueda o pellizco: zoom. Arrastra la imagen ampliada para moverla. Doble clic: ajustar. Mantén el cursor sobre una variante para consultar su comando, si tiene uno.': 'Wheel or pinch: zoom. Drag the zoomed image to move it. Double click: fit. Hover over a variant to see its command, if it has one.',
+  'Teléfono: desliza para cambiar de frame, pellizca para acercar, cmd muestra el comando.': 'Phone: swipe to change frame, pinch to zoom, <b>cmd</b> shows the command.',
+  'Los atajos no cambian la comparación mientras escribes en un campo.': 'Shortcuts do not change the comparison while you type in a field.',
+  // reportar
+  'Reportar página': 'Report page',
+  'Contenido inapropiado': 'Inappropriate content',
+  'Material ajeno / derechos': 'Someone else\'s material / copyright',
+  'Spam o engaño': 'Spam or scam',
+  'Otro': 'Other',
+  'detalle (opcional)': 'details (optional)',
+  'Enviar reporte': 'Send report',
+  'Cerrar': 'Close',
+  'Enviando…': 'Sending…',
+  'Reporte enviado. Gracias.': 'Report sent. Thank you.',
+  'No se pudo enviar: {}': 'Could not send: {}',
+  // compartir
+  'Compartir comparación': 'Share comparison',
+  'Guarda la comparación visible como PNG sin pérdida. El enlace conserva el frame, las variantes y los ajustes.': 'Saves the visible comparison as a lossless PNG. The link keeps the frame, the variants and the settings.',
+  'La imagen conserva el modo ciego. El enlace abre la comparación sin la asignación privada de esta sesión.': 'The image keeps blind mode. The link opens the comparison without this session\'s private assignment.',
+  'vista a compartir': 'view to share',
+  'Llave de borrado del autor': 'Author\'s delete key',
+  'La recibiste al publicar': 'You received it when you published',
+  'usar la llave guardada (esta sesión)': 'use the saved key (this session)',
+  'Solo el autor puede reemplazar la imagen compartida. La nueva imagen aparecerá también en los enlaces que ya publicaste.': 'Only the author can replace the shared image. The new image will also show in the links you already posted.',
+  'Descargar PNG': 'Download PNG',
+  'sube esta imagen exacta a gatos.pics y arma el BBCode para foros': 'uploads this exact image to gatos.pics and builds the BBCode for forums',
+  'Subir y obtener BBCode': 'Upload and get BBCode',
+  'Progreso del envío de la imagen': 'Image upload progress',
+  'Cancelar envío': 'Cancel upload',
+  'Reintentar esta imagen': 'Retry this image',
+  'Borrar esta página…': 'Delete this page…',
+  'Enlace a esta vista': 'Link to this view',
+  'copiado ✓': 'copied ✓',
+  'seleccionado: Ctrl+C': 'selected: Ctrl+C',
+  'No se pudo generar el PNG.': 'Could not create the PNG.',
+  'pega la llave de borrado para poder eliminar la página': 'paste the delete key to remove the page',
+  '¿Borrar esta página y su imagen compartida? No se puede deshacer.': 'Delete this page and its shared image? This cannot be undone.',
+  'Borrando…': 'Deleting…',
+  'Página borrada.': 'Page deleted.',
+  'No se pudo borrar: {}': 'Could not delete: {}',
+  'La imagen pudo actualizarse. Reintentar reemplaza la misma URL.': 'The image may have been updated. Retrying replaces the same URL.',
+  'BBCode (foros, la vista exacta clicable)': 'BBCode (forums, the exact view, clickable)',
+  'Imagen directa': 'Direct image',
+  'Ingresa la llave que recibiste al publicar.': 'Enter the key you received when you published.',
+  'No se puede compartir: una imagen no cargó.': 'Cannot share: an image did not load.',
+  'Espera a que terminen de cargar las dos imágenes.': 'Wait for both images to finish loading.',
+  'No se puede compartir el diff: revisa las dimensiones de las imágenes.': 'Cannot share the diff: check the image dimensions.',
+  // estado y modos
+  'Comparación': 'Comparison',
+  'Comparación a ciegas': 'Blind comparison',
+  'manifest inválido: JSON truncado o malformado': 'invalid manifest: truncated or malformed JSON',
+  'manifest inválido: faltan frames o hay menos de 2 variantes': 'invalid manifest: frames are missing or there are fewer than 2 variants',
+  'no se encontraron datos de comparación (sin paquete embebido, sin manifest.json)': 'no comparison data found (no embedded package, no manifest.json)',
+  'la imagen no cargó': 'the image did not load',
+  'la imagen derecha no cargó': 'the right image did not load',
+  'cargando…': 'loading…',
+  'Diff no disponible: una variante no tiene este cuadro.': 'Diff unavailable: a variant does not have this frame.',
+  'Diff no disponible: una imagen no cargó.': 'Diff unavailable: an image did not load.',
+  'Diff no disponible: las imágenes tienen dimensiones distintas.': 'Diff unavailable: the images have different dimensions.',
+  'Diff: cargando…': 'Diff: loading…',
+  ' · calor (Δ≥{} en rojo)': ' · heat (Δ≥{} in red)',
+  ' · calor': ' · heat',
+  'Diff ×{}{} · color = canal que difiere · Δ media {}/255': 'Diff ×{}{} · color = channel that differs · mean Δ {}/255',
+  'Diff ×{}{} · Δ media {}/255': 'Diff ×{}{} · mean Δ {}/255',
+  'Diff ×{} · calculando…': 'Diff ×{} · computing…',
+  'Parpadeo A/B': 'Blink A/B',
+  'sin este cuadro': 'no such frame',
+  'S2 media {}': 'S2 mean {}',
+  'Recortes 1:1 @ {},{} (px nativos)': '1:1 crops @ {},{} (native px)',
+  'izq.': 'left',
+  'der.': 'right',
+  ' y ': ' and ',
+  ' · sin este cuadro: {}': ' · missing this frame: {}',
+  'Frame {} · izquierda: {} · derecha: {} · CIEGO{}': 'Frame {} · left: {} · right: {} · BLIND{}',
+  'Inicio del clip {} · ': 'Clip start {} · ',
+  'CIEGO': 'BLIND',
+  '{}Frame {} (#{}{}) · izq. {} · der. {}{}{}': '{}Frame {} (#{}{}) · left {} · right {}{}{}',
+  'en ámbar lo que difiere de <b>{}</b>': 'in amber, what differs from <b>{}</b>',
+  'comando': 'command',
+  'Copiar': 'Copy',
+  'Copiado ✓': 'Copied ✓',
+  'Falló la copia': 'Copy failed',
+});
+I18N.apply();
+I18N.wire();
+
+/* gatos.pics compare engine (after the i18n parts 05-07).
    Two data sources, picked at boot:
    - Embedded: window.GATOS_PACKAGE = {format, manifest, images:{"<id>_<frame>": dataURL}}
      Set by a self-contained export or by the builder preview. Works from file://
@@ -6,8 +260,6 @@
      1:1 crops keep working).
    - Http: manifest.json + img/<id>_<frame>.<ext> next to this page (classic
      static hosting). version -> ?v= cache busting for immutable image caches. */
-'use strict';
-
 const $ = id => document.getElementById(id);
 const comp = $('comp'), imgA = $('imgA'), imgB = $('imgB'), diffCanvas = $('diffCanvas');
 const paneA = $('paneA'), paneB = $('paneB');
@@ -22,7 +274,7 @@ const pixBtn = $('pixBtn');
 const blindBtn = $('blindBtn');
 const solarBtn = $('solarBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
-let originalTitle = 'Comparación';
+let originalTitle = T('Comparación');
 const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
 let FRAMES = [], VARIANTS = [];
@@ -40,7 +292,7 @@ function makeHttpSource(){
       if (!r.ok) throw new Error('manifest.json HTTP '+r.status);
       let m;
       try { m = await r.json(); }
-      catch(e){ throw Object.assign(new Error('manifest inv\u00e1lido: JSON truncado o malformado'), {manifestInvalid:true}); }
+      catch(e){ throw Object.assign(new Error(T('manifest inválido: JSON truncado o malformado')), {manifestInvalid:true}); }
       VERSION = String(m?.version || '');
       return m;
     },
@@ -212,9 +464,9 @@ function clampPan(){
   if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
 }
 function updateBadge(){
-  if (loadFailA){ zoomBadge.textContent = 'la imagen no carg\u00f3'; return; }
-  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = 'cargando\u2026'; return; }
-  zoomBadge.textContent = zoom === 1 ? 'ajustar' : Math.round(fitScale*zoom*dpr()*100)+'%';
+  if (loadFailA){ zoomBadge.textContent = T('la imagen no cargó'); return; }
+  if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = T('cargando…'); return; }
+  zoomBadge.textContent = zoom === 1 ? T('ajustar') : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
 /* la marca del encabezado es un espejo del visor: el circulito cruza las
    palabras siguiendo al divisor real, como el divisor cruza la imagen */
@@ -383,7 +635,7 @@ function renderDiff(){
     diffCanvas.style.display = 'none';
     imgB.style.display = '';
     diffNote.style.display = 'block';
-    diffNote.textContent = 'Diff no disponible: una variante no tiene este cuadro.';
+    diffNote.textContent = T('Diff no disponible: una variante no tiene este cuadro.');
     return;
   }
   const d = ensureDiffBase();
@@ -394,8 +646,8 @@ function renderDiff(){
       imgA.naturalWidth && realB.naturalWidth &&
       (imgA.naturalWidth !== realB.naturalWidth || imgA.naturalHeight !== realB.naturalHeight);
     diffNote.textContent = loadFailA || loadFailB
-      ? 'Diff no disponible: una imagen no carg\u00f3.'
-      : mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
+      ? T('Diff no disponible: una imagen no cargó.')
+      : mismatch ? T('Diff no disponible: las imágenes tienen dimensiones distintas.') : T('Diff: cargando…');
     return;
   }
   diffCanvas.width = d.w; diffCanvas.height = d.h;
@@ -414,7 +666,7 @@ function renderDiff(){
     o[i+3] = 255;
   }
   diffCtx.putImageData(out, 0, 0);
-  diffNote.textContent = `Diff \u00D7${A}${heat ? ` \u00B7 calor (\u0394\u2265${HEAT_T} en rojo)` : ''} \u00B7 color = canal que difiere \u00B7 \u0394 media ${d.mean.toFixed(2)}/255`;
+  diffNote.textContent = T`Diff ×${A}${heat ? T` · calor (Δ≥${HEAT_T} en rojo)` : ''} · color = canal que difiere · Δ media ${d.mean.toFixed(2)}/255`;
 }
 function setDiff(on){
   diffMode = on;
@@ -426,7 +678,7 @@ function setDiff(on){
   imgB.style.display = on ? 'none' : '';
   diffNote.style.display = on ? 'block' : 'none';
   if (on){
-    diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 calculando\u2026';
+    diffNote.textContent = T`Diff ×${GAINS[gainIdx]} · calculando…`;
     setSideSrc('B', varB);
     renderDiff();
   } else {
@@ -491,7 +743,7 @@ function onBError(){
   loadFailB = true; imgB.style.visibility = 'hidden';
   paintSide('B');
   if (diffMode) renderDiff();
-  else { diffNote.style.display = 'block'; diffNote.textContent = 'la imagen derecha no carg\u00f3'; }
+  else { diffNote.style.display = 'block'; diffNote.textContent = T('la imagen derecha no cargó'); }
 }
 imgB.addEventListener('error', onBError);
 realB.addEventListener('error', onBError);
@@ -553,7 +805,7 @@ function setBlind(on){
   blindBtn.classList.toggle('blind-on', on);
   blindBtn.setAttribute('aria-pressed', String(on));
   $('revealBtn').hidden = !on;
-  pageTitle.textContent = on ? 'Comparación a ciegas' : originalTitle;
+  pageTitle.textContent = on ? T('Comparación a ciegas') : originalTitle;
   document.title = pageTitle.textContent;
   if (on) hideTip();
   refreshVariantButtons();
@@ -643,13 +895,13 @@ function drawCropRow(id, canvas){
   ctx.imageSmoothingEnabled = false;
   if (!hasFrame(id, frame)){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#9a9aa8'; ctx.fillText('sin este cuadro', 10, 20);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText(T('sin este cuadro'), 10, 20);
     return;
   }
   const im = cropImg(id);
   if (!im || !im.complete || !im.naturalWidth){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\u2026', 10, 20);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText(T('cargando…'), 10, 20);
     if (im) im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});
     return;
   }
@@ -668,7 +920,7 @@ function openCropPanel(){
   // hoja inferior del teléfono (apaisado sobre todo): un recorte más alto que
   // media vista taparía la comparación entera; se acota por alto
   if (PHONE_MQ.matches && CH > comp.clientHeight*0.45){ CH = Math.round(comp.clientHeight*0.45); CW = Math.max(64, Math.round(CH*16/9)); }
-  cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
+  cropTitle.textContent = T`Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
   cropRows.innerHTML = '';
   orderedVariants().forEach(v => {
     const row = document.createElement('div');
@@ -789,7 +1041,7 @@ function variantStats(id){
   if (m.custom_note) l2.push(m.custom_note);
   const mS2 = metricNum(m.ssimulacra2), mPsnr = metricNum(m.psnr_avg), mSsim = metricNum(m.ssim_all);
   const mBytes = metricNum(m.size_bytes), mKbps = metricNum(m.kbps);
-  if (mS2 != null) l2.push('S2 media '+mS2.toFixed(1));
+  if (mS2 != null) l2.push(T`S2 media ${mS2.toFixed(1)}`);
   if (mPsnr != null) l2.push('clip PSNR '+mPsnr.toFixed(2));
   if (mSsim != null) l2.push('SSIM '+mSsim.toFixed(4));
   if (mBytes) l2.push((mBytes/1048576).toFixed(1)+' MB');
@@ -799,20 +1051,20 @@ function variantStats(id){
 }
 function updateMeta(){
   // variante parcial: qué lado no tiene el cuadro (vacío en las páginas completas)
-  const gaps = [missA ? 'izq.' : '', missB ? 'der.' : ''].filter(Boolean);
-  const noFrame = gaps.length ? ' \u00B7 sin este cuadro: '+gaps.join(' y ') : '';
+  const gaps = [missA ? T('izq.') : '', missB ? T('der.') : ''].filter(Boolean);
+  const noFrame = gaps.length ? T` · sin este cuadro: ${gaps.join(T(' y '))}` : '';
   if (blindMode){
-    metaLine.textContent = `Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
+    metaLine.textContent = T`Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
     return;
   }
   const lbl = FRAME_LABELS[frame] || String(frame);
   const m = FRAME_META[frame] || {};
   const clipS = metricNum(m.clip_s);
   const where = clipS != null ? ` \u00B7 clip +${clipS.toFixed(1)}s` : '';
-  const origin = CLIP.start_label ? `Inicio del clip ${CLIP.start_label} \u00B7 ` : '';
-  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
+  const origin = CLIP.start_label ? T`Inicio del clip ${CLIP.start_label} · ` : '';
+  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? T('CIEGO') : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}${noFrame}`;
+    T`${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} · der. ${blindMode ? '?' : varB}${modes ? ' · '+modes : ''}${noFrame}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
@@ -865,7 +1117,7 @@ function makeButtons(containerId, items, activeId, onPick){
       b.className = item.id === activeId ? 'active' : '';
     }
     // variante parcial sin este cuadro: atenuada pero elegible (verla es ver el aviso)
-    if (item.dim){ b.classList.add('nofr'); b.title = 'Esta variante no tiene este cuadro'; }
+    if (item.dim){ b.classList.add('nofr'); b.title = T('Esta variante no tiene este cuadro'); }
     b.addEventListener('click', () => onPick(item.id));
     b.setAttribute('aria-pressed', String(item.id === activeId));
     c.appendChild(b);
@@ -906,10 +1158,10 @@ function showTip(b){
   } else {
     body = esc(cmdText);
   }
-  const legend = other && other.cmd ? 'en \u00e1mbar lo que difiere de <b>' + esc(other.name) + '</b>'
-                                     : 'comando';
+  const legend = other && other.cmd ? T`en ámbar lo que difiere de <b>${esc(other.name)}</b>`
+                                     : T('comando');
   cmdTip.innerHTML = '<div class="tiphead"><span class="tt">' + legend + '</span>'
-    + '<button data-act="copy">Copiar</button><button data-act="close">\u00d7</button></div>'
+    + '<button data-act="copy">' + T('Copiar') + '</button><button data-act="close">\u00d7</button></div>'
     + '<div class="cmdtext">' + body + '</div>';
   cmdTip.style.display = 'block';
   if (PHONE_MQ.matches){ cmdTip.style.left = ''; cmdTip.style.top = ''; return; }   // hoja desde abajo (CSS)
@@ -939,8 +1191,8 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('click', e => {
   const act = e.target.closest('#cmdTip [data-act]');
   if (act && act.dataset.act === 'copy'){
-    const done = ok => { const b = act; b.textContent = ok ? 'Copiado \u2713' : 'Fall\u00f3 la copia';
-      setTimeout(() => { b.textContent = 'Copiar'; }, 1200); };
+    const done = ok => { const b = act; b.textContent = ok ? T('Copiado ✓') : T('Falló la copia');
+      setTimeout(() => { b.textContent = T('Copiar'); }, 1200); };
     if (navigator.clipboard && window.isSecureContext){
       navigator.clipboard.writeText(cmdText).then(() => done(true), () => done(false));
     } else {
@@ -984,7 +1236,7 @@ function fillSelect(selId, items, activeId, onPick){
   items.forEach((it,i) => {
     const o = document.createElement('option');
     o.value = blindMode ? 'blind-'+i : it.id;
-    o.textContent = [it.main, it.sub, it.dim ? 'sin este cuadro' : ''].filter(Boolean).join(' · ');
+    o.textContent = [it.main, it.sub, it.dim ? T('sin este cuadro') : ''].filter(Boolean).join(' · ');
     s.appendChild(o);
   });
   s.selectedIndex = items.findIndex(it=>it.id === activeId);
@@ -1126,7 +1378,7 @@ function solarizedCopy(img){
 }
 
 function renderViewCanvas(){
-  if (loadFailA || loadFailB) throw new Error('No se puede compartir: una imagen no carg\u00f3.');
+  if (loadFailA || loadFailB) throw new Error(T('No se puede compartir: una imagen no cargó.'));
   // autoridad de URL asentada (misma clase de carrera que el diff): complete
   // puede seguir en true con pixeles de la generacion anterior; el PNG exige
   // el par actual asentado en ambos lados (en diff realB es la autoridad)
@@ -1135,8 +1387,8 @@ function renderViewCanvas(){
   const diffLive = diffMode && !missA && !missB;
   const bSettled = diffLive ? loadedUrlB === realB.src : loadedUrlPaneB === imgB.src;
   if ((!missA && (loadedUrlA !== imgA.src || !imgA.naturalWidth)) || (!missB && (!bSettled || !imgB.naturalWidth)))
-    throw new Error('Espera a que terminen de cargar las dos imágenes.');
-  if (diffLive && !ensureDiffBase()) throw new Error('No se puede compartir el diff: revisa las dimensiones de las imágenes.');
+    throw Object.assign(new Error(T('Espera a que terminen de cargar las dos imágenes.')), {wait:true});
+  if (diffLive && !ensureDiffBase()) throw new Error(T('No se puede compartir el diff: revisa las dimensiones de las imágenes.'));
   const comp2 = $('comp');
   const w = comp2.clientWidth, h = comp2.clientHeight, d = dpr();
   // region visible del contenido, sin barras negras: el lienzo es exactamente
@@ -1169,7 +1421,7 @@ function renderViewCanvas(){
     x.fillStyle = '#16161d'; x.fillRect(x0, iy, x1 - x0, vh);
     x.fillStyle = '#b4b4c2'; x.font = '600 13px system-ui, sans-serif';
     x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('Esta variante no tiene este cuadro', (x0 + x1) / 2, iy + vh / 2, Math.max(20, x1 - x0 - 24));
+    x.fillText(T('Esta variante no tiene este cuadro'), (x0 + x1) / 2, iy + vh / 2, Math.max(20, x1 - x0 - 24));
     x.restore();
   };
   const divX = dividerPos * w;
@@ -1223,10 +1475,10 @@ function renderViewCanvas(){
   // el chip resume los modos activos: sin las entradas de parpadeo y Δ media,
   // un PNG congelado no indicaba su origen ni cuánto difiere el par
   const modes = [
-    diffLive ? `Diff ×${GAINS[gainIdx]}${heat ? ' · calor' : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
-    blinkMode ? 'Parpadeo A/B' : '',
+    diffLive ? T`Diff ×${GAINS[gainIdx]}${heat ? T(' · calor') : ''} · Δ media ${diffData.mean.toFixed(2)}/255` : '',
+    blinkMode ? T('Parpadeo A/B') : '',
     solarMode ? 'Solar' : '',
-    blindMode ? 'Ciego' : '',
+    blindMode ? T('Ciego') : '',
   ].filter(Boolean).join(' · ');
   if (modes && vw >= 160 && vh >= 100){
     x.font = '600 11px system-ui, sans-serif';
@@ -1243,12 +1495,12 @@ async function openShare(){
   let c;
   try { c = renderViewCanvas(); } catch(e){ alert(e.message); return; }
   const url = location.href.split('#')[0]+'#'+stateParams();
-  const title = document.title || 'Comparación';
+  const title = document.title || T('Comparación');
   const snapshotNames = [variantName(varA),variantName(varB)];
   const snapshotFrame = blindMode ? FRAMES.indexOf(frame)+1 : frame;
   $('shotUpload').hidden = true;
   $('shareUp').disabled = true;
-  const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [['Enlace a esta vista', url]];
+  const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [[T('Enlace a esta vista'), url]];
   $('shareBlindNote').hidden = !blindMode;
   $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
   $('shareOwner').hidden = true;
@@ -1269,7 +1521,7 @@ async function openShare(){
       }
       if (!ok){ try { ok = document.execCommand('copy'); } catch(e){} }
       const hint = $('shareHint');
-      hint.textContent = ok ? 'copiado \u2713' : 'seleccionado: Ctrl+C';
+      hint.textContent = ok ? T('copiado ✓') : T('seleccionado: Ctrl+C');
       box.style.borderColor = ok ? '#7bd389' : '#ffb454';
       setTimeout(() => { hint.textContent = ''; box.style.borderColor = '#333'; }, 1500);
     };
@@ -1279,7 +1531,7 @@ async function openShare(){
   sharePanel.style.display = 'flex';
   // generar la imagen de la vista actual
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-  if (!blob){ $('shareHint').textContent = 'No se pudo generar el PNG.'; return; }
+  if (!blob){ $('shareHint').textContent = T('No se pudo generar el PNG.'); return; }
   if (shareBlobUrl) URL.revokeObjectURL(shareBlobUrl);
   shareBlobUrl = URL.createObjectURL(blob);
   const prev = $('sharePreview');
@@ -1304,24 +1556,24 @@ async function openShare(){
   $('pageDelete').onclick = async () => {
     const key = ($('shareKey').value || '').trim();
     if (!key){
-      $('shareHint').textContent = 'pega la llave de borrado para poder eliminar la página';
+      $('shareHint').textContent = T('pega la llave de borrado para poder eliminar la página');
       $('shareKey').focus();
       return;
     }
-    if (!confirm('¿Borrar esta página y su imagen compartida? No se puede deshacer.')) return;
+    if (!confirm(T('¿Borrar esta página y su imagen compartida? No se puede deshacer.'))) return;
     const btn = $('pageDelete');
-    btn.disabled = true; btn.textContent = 'Borrando…';
+    btn.disabled = true; btn.textContent = T('Borrando…');
     try {
-      const resp = await fetch('/api/page/' + m[1], { method: 'DELETE', headers: { 'x-delete-key': key } });
+      const resp = await fetch('/api/page/' + m[1], { method: 'DELETE', headers: { 'x-delete-key': key, 'accept-language': I18N.lang } });
       if (!resp.ok){
         let j = null; try { j = await resp.json(); } catch(e){}
         throw new Error((j && j.error) || ('HTTP ' + resp.status));
       }
-      alert('Página borrada.');
+      alert(T('Página borrada.'));
       location.href = '/';
     } catch (e) {
-      alert('No se pudo borrar: ' + e.message);
-      btn.disabled = false; btn.textContent = 'Borrar esta página…';
+      alert(T`No se pudo borrar: ${e.message}`);
+      btn.disabled = false; btn.textContent = T('Borrar esta página…');
     }
   };
   $('shareUseKey').onclick = () => {
@@ -1343,15 +1595,15 @@ async function openShare(){
   shotUploader = new GatosUpload({
     panel:$('shotUpload'), progress:$('shotProgress'), status:$('shotStatus'),
     cancel:$('shotCancel'), retry:$('shotRetry'),
-    retryCaution:'La imagen pudo actualizarse. Reintentar reemplaza la misma URL.',
+    retryCaution:T('La imagen pudo actualizarse. Reintentar reemplaza la misma URL.'),
     onBusy:busy => { up.disabled = busy; $('shareKey').disabled = busy; },
     onSuccess:j => {
       const page = url;
       const codes = [
-        ['BBCode (foros, la vista exacta clicable)', '[url=' + page + '][img]' + j.url + '[/img][/url]'],
+        [T('BBCode (foros, la vista exacta clicable)'), '[url=' + page + '][img]' + j.url + '[/img][/url]'],
         ['Markdown', '[![' + title.replace(/[\[\]\\]/g, '\\$&') + '](' + j.url + ')](' + page + ')'],
         ['HTML', '<a href="' + escq(page) + '"><img src="' + escq(j.url) + '" alt="' + escq(title) + '" loading="lazy"></a>'],
-        ['Imagen directa', j.url],
+        [T('Imagen directa'), j.url],
       ];
       const host2 = $('shareCodes');
       host2.innerHTML = '';
@@ -1368,7 +1620,7 @@ async function openShare(){
           let ok2 = false;
           if (navigator.clipboard && window.isSecureContext){ try { await navigator.clipboard.writeText(text); ok2 = true; } catch(e){} }
           if (!ok2){ try { ok2 = document.execCommand('copy'); } catch(e){} }
-          $('shareHint').textContent = ok2 ? 'copiado \u2713' : 'seleccionado: Ctrl+C';
+          $('shareHint').textContent = ok2 ? T('copiado ✓') : T('seleccionado: Ctrl+C');
           box.style.borderColor = ok2 ? '#7bd389' : '#ffb454';
           setTimeout(() => { $('shareHint').textContent = ''; box.style.borderColor = '#333'; }, 1500);
         };
@@ -1380,9 +1632,9 @@ async function openShare(){
   });
   up.onclick = () => {
     const key = $('shareKey').value.trim();
-    if (!key){ $('shareHint').textContent = 'Ingresa la llave que recibiste al publicar.'; $('shareKey').focus(); return; }
+    if (!key){ $('shareHint').textContent = T('Ingresa la llave que recibiste al publicar.'); $('shareKey').focus(); return; }
     shotUploader.start(async () => ({url:'/api/shot/'+m[1],
-      headers:{'content-type':'image/png','x-delete-key':key}, body:blob}));
+      headers:{'content-type':'image/png','x-delete-key':key,'accept-language':I18N.lang}, body:blob}));
   };
 }
 $('shareBtn').addEventListener('click', openShare);
@@ -1399,7 +1651,7 @@ function closeReport(){
     $('reportClose').onclick = closeReport;
     $('reportSend').onclick = async () => {
       const send = $('reportSend');
-      send.disabled = true; send.textContent = 'Enviando…';
+      send.disabled = true; send.textContent = T('Enviando…');
       try {
         const resp = await fetch('/api/report/' + rm[1], {
           method: 'POST',
@@ -1407,12 +1659,12 @@ function closeReport(){
           body: JSON.stringify({ reason: $('reportReason').value, note: $('reportNote').value }),
         });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        $('reportStatus').textContent = 'Reporte enviado. Gracias.';
+        $('reportStatus').textContent = T('Reporte enviado. Gracias.');
         setTimeout(() => { closeReport(); $('reportStatus').textContent = ''; }, 1400);
       } catch (e) {
-        $('reportStatus').textContent = 'No se pudo enviar: ' + e.message;
+        $('reportStatus').textContent = T`No se pudo enviar: ${e.message}`;
       } finally {
-        send.disabled = false; send.textContent = 'Enviar reporte';
+        send.disabled = false; send.textContent = T('Enviar reporte');
       }
     };
     for (const ev of ['pointerdown','mousedown','touchstart'])
@@ -1430,13 +1682,13 @@ function applyManifest(m){
   // esto, readState revienta en .find/.some y el init culpa al transportista
   if (!m || !Array.isArray(m.frames) || !m.frames.length ||
       !Array.isArray(m.variants) || m.variants.length < 2)
-    throw Object.assign(new Error('manifest inv\u00e1lido: faltan frames o hay menos de 2 variantes'), {manifestInvalid:true});
+    throw Object.assign(new Error(T('manifest inválido: faltan frames o hay menos de 2 variantes')), {manifestInvalid:true});
   FRAMES = m.frames;
   VARIANTS = m.variants;
   FRAME_LABELS = m.frame_labels || {};
   FRAME_META = m.frame_meta || {};
   CLIP = m.clip || {};
-  originalTitle = m.title || 'Comparación';
+  originalTitle = m.title || T('Comparación');
   document.title = originalTitle; pageTitle.textContent = originalTitle;
   const h = readState();
   $('diffGain').value = String(gainIdx);
@@ -1468,6 +1720,6 @@ function applyManifest(m){
   } catch (err) {
     console.error('comparison data unavailable', err);
     metaLine.textContent = err?.manifestInvalid ? err.message
-      : 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
+      : T('no se encontraron datos de comparación (sin paquete embebido, sin manifest.json)');
   }
 })();

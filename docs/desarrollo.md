@@ -68,8 +68,39 @@ Los tres corren con Python 3 puro, sin dependencias.
   una imagen compartida requieren una acción explícita y son las únicas subidas.
 - **`file://` primero**: todo lo que entre al creador debe funcionar abierto
   con doble clic, sin servidor.
-- **UI en español latino**: el producto habla es-LA; nada de tuteo cruzado ni
-  términos de España (`ordenador`, `fichero`, `vosotros`).
+- **UI en español latino y en inglés**: el español es la fuente (es-LA; nada
+  de tuteo cruzado ni términos de España: `ordenador`, `fichero`, `vosotros`)
+  y cada texto lleva su inglés. Ver «Idiomas» abajo.
+
+## Idiomas
+
+El idioma sale del navegador (`navigator.languages`): español si es su primera
+preferencia entre las dos, inglés en cualquier otro caso. `?lang=es|en` lo
+fuerza para una visita y el interruptor «Español · English» lo guarda en
+`localStorage` (`gatos.lang`), solo en ese navegador. Nada de esto toca la red.
+
+El runtime es `viewer/src/05-i18n.js` (`I18N`, `T`). El español se escribe en
+el código, como siempre, y el inglés vive en diccionarios español → inglés:
+`viewer/src/07-lang.js` (visor), `app/lang.js` (creador) y
+`viewer/src/06-lang-upload.js` (lo que comparten por `upload.js`).
+
+Para agregar un texto:
+
+- **HTML fijo**: pon `data-t` en el elemento que lo contiene. Dentro solo puede
+  haber formato en línea (`b`, `code`, `a`, `span`…) sin `id`. La clave del
+  diccionario es su texto sin etiquetas; el valor, su HTML en inglés.
+  `title`, `placeholder`, `aria-label` y `alt` se traducen solos por su valor.
+  Lo que no se traduce (la marca, `Diff`, teclas) lleva `data-nt`.
+- **JS**: `T('Texto')` o ``T`Texto con ${valor}` `` (clave `'Texto con {}'`;
+  el inglés puede reordenar con `{0}`, `{1}`). Para plurales, dos textos
+  enteros: ``n === 1 ? T('1 par listo') : T`${n} pares listos` ``.
+- Agrega la entrada al diccionario de esa superficie.
+
+`node tools/check_i18n.mjs` (gate de push) falla si un texto no tiene inglés,
+si hay texto en el HTML fuera de un `data-t`, si un literal con letras
+españolas no pasa por `T`, o si el diccionario guarda una entrada que ya nadie
+usa. `tools/review_browser.cjs` recorre el sitio en inglés y exige que no
+quede nada sin traducir (`I18N.miss`).
 
 ## El puerto de SSIMULACRA2
 

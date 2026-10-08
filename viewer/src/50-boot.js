@@ -4,13 +4,13 @@ function applyManifest(m){
   // esto, readState revienta en .find/.some y el init culpa al transportista
   if (!m || !Array.isArray(m.frames) || !m.frames.length ||
       !Array.isArray(m.variants) || m.variants.length < 2)
-    throw Object.assign(new Error('manifest inv\u00e1lido: faltan frames o hay menos de 2 variantes'), {manifestInvalid:true});
+    throw Object.assign(new Error(T('manifest inválido: faltan frames o hay menos de 2 variantes')), {manifestInvalid:true});
   FRAMES = m.frames;
   VARIANTS = m.variants;
   FRAME_LABELS = m.frame_labels || {};
   FRAME_META = m.frame_meta || {};
   CLIP = m.clip || {};
-  originalTitle = m.title || 'Comparación';
+  originalTitle = m.title || T('Comparación');
   document.title = originalTitle; pageTitle.textContent = originalTitle;
   const h = readState();
   $('diffGain').value = String(gainIdx);
@@ -42,6 +42,6 @@ function applyManifest(m){
   } catch (err) {
     console.error('comparison data unavailable', err);
     metaLine.textContent = err?.manifestInvalid ? err.message
-      : 'no se encontraron datos de comparaci\u00f3n (sin paquete embebido, sin manifest.json)';
+      : T('no se encontraron datos de comparación (sin paquete embebido, sin manifest.json)');
   }
 })();

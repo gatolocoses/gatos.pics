@@ -78,7 +78,7 @@ function variantStats(id){
   if (m.custom_note) l2.push(m.custom_note);
   const mS2 = metricNum(m.ssimulacra2), mPsnr = metricNum(m.psnr_avg), mSsim = metricNum(m.ssim_all);
   const mBytes = metricNum(m.size_bytes), mKbps = metricNum(m.kbps);
-  if (mS2 != null) l2.push('S2 media '+mS2.toFixed(1));
+  if (mS2 != null) l2.push(T`S2 media ${mS2.toFixed(1)}`);
   if (mPsnr != null) l2.push('clip PSNR '+mPsnr.toFixed(2));
   if (mSsim != null) l2.push('SSIM '+mSsim.toFixed(4));
   if (mBytes) l2.push((mBytes/1048576).toFixed(1)+' MB');
@@ -88,20 +88,20 @@ function variantStats(id){
 }
 function updateMeta(){
   // variante parcial: qué lado no tiene el cuadro (vacío en las páginas completas)
-  const gaps = [missA ? 'izq.' : '', missB ? 'der.' : ''].filter(Boolean);
-  const noFrame = gaps.length ? ' \u00B7 sin este cuadro: '+gaps.join(' y ') : '';
+  const gaps = [missA ? T('izq.') : '', missB ? T('der.') : ''].filter(Boolean);
+  const noFrame = gaps.length ? T` · sin este cuadro: ${gaps.join(T(' y '))}` : '';
   if (blindMode){
-    metaLine.textContent = `Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
+    metaLine.textContent = T`Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
     return;
   }
   const lbl = FRAME_LABELS[frame] || String(frame);
   const m = FRAME_META[frame] || {};
   const clipS = metricNum(m.clip_s);
   const where = clipS != null ? ` \u00B7 clip +${clipS.toFixed(1)}s` : '';
-  const origin = CLIP.start_label ? `Inicio del clip ${CLIP.start_label} \u00B7 ` : '';
-  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? 'CIEGO' : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
+  const origin = CLIP.start_label ? T`Inicio del clip ${CLIP.start_label} · ` : '';
+  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? T('CIEGO') : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
-    `${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} \u00B7 der. ${blindMode ? '?' : varB}${modes ? ' \u00B7 '+modes : ''}${noFrame}`;
+    T`${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} · der. ${blindMode ? '?' : varB}${modes ? ' · '+modes : ''}${noFrame}`;
 }
 function preload(){
   const i = FRAMES.indexOf(frame);
@@ -154,7 +154,7 @@ function makeButtons(containerId, items, activeId, onPick){
       b.className = item.id === activeId ? 'active' : '';
     }
     // variante parcial sin este cuadro: atenuada pero elegible (verla es ver el aviso)
-    if (item.dim){ b.classList.add('nofr'); b.title = 'Esta variante no tiene este cuadro'; }
+    if (item.dim){ b.classList.add('nofr'); b.title = T('Esta variante no tiene este cuadro'); }
     b.addEventListener('click', () => onPick(item.id));
     b.setAttribute('aria-pressed', String(item.id === activeId));
     c.appendChild(b);
@@ -195,10 +195,10 @@ function showTip(b){
   } else {
     body = esc(cmdText);
   }
-  const legend = other && other.cmd ? 'en \u00e1mbar lo que difiere de <b>' + esc(other.name) + '</b>'
-                                     : 'comando';
+  const legend = other && other.cmd ? T`en ámbar lo que difiere de <b>${esc(other.name)}</b>`
+                                     : T('comando');
   cmdTip.innerHTML = '<div class="tiphead"><span class="tt">' + legend + '</span>'
-    + '<button data-act="copy">Copiar</button><button data-act="close">\u00d7</button></div>'
+    + '<button data-act="copy">' + T('Copiar') + '</button><button data-act="close">\u00d7</button></div>'
     + '<div class="cmdtext">' + body + '</div>';
   cmdTip.style.display = 'block';
   if (PHONE_MQ.matches){ cmdTip.style.left = ''; cmdTip.style.top = ''; return; }   // hoja desde abajo (CSS)
@@ -228,8 +228,8 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('click', e => {
   const act = e.target.closest('#cmdTip [data-act]');
   if (act && act.dataset.act === 'copy'){
-    const done = ok => { const b = act; b.textContent = ok ? 'Copiado \u2713' : 'Fall\u00f3 la copia';
-      setTimeout(() => { b.textContent = 'Copiar'; }, 1200); };
+    const done = ok => { const b = act; b.textContent = ok ? T('Copiado ✓') : T('Falló la copia');
+      setTimeout(() => { b.textContent = T('Copiar'); }, 1200); };
     if (navigator.clipboard && window.isSecureContext){
       navigator.clipboard.writeText(cmdText).then(() => done(true), () => done(false));
     } else {
@@ -273,7 +273,7 @@ function fillSelect(selId, items, activeId, onPick){
   items.forEach((it,i) => {
     const o = document.createElement('option');
     o.value = blindMode ? 'blind-'+i : it.id;
-    o.textContent = [it.main, it.sub, it.dim ? 'sin este cuadro' : ''].filter(Boolean).join(' · ');
+    o.textContent = [it.main, it.sub, it.dim ? T('sin este cuadro') : ''].filter(Boolean).join(' · ');
     s.appendChild(o);
   });
   s.selectedIndex = items.findIndex(it=>it.id === activeId);

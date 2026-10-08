@@ -29,7 +29,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     server.once('exit',code=>{clearTimeout(timeout);reject(Error('Local service exited '+code));});
   });
   browser = await chromium.launch({headless:true});
-  const page = await browser.newPage({viewport:{width:1440,height:1000}});
+  const page = await browser.newPage({locale:'es-MX',viewport:{width:1440,height:1000}});
   const errors=[], network=[];
   page.on('pageerror',e=>{errors.push(e.message);console.error('BROWSER',e.message);});
   page.on('console',m=>{if(m.type()==='error')console.error('CONSOLE',m.text());});
@@ -114,7 +114,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   await dropOn('.vname[data-col="1"]', ['z2.png','z1.png','z3.png','z4.png']);
   ok('dropping files on a version name fills it from the top and adds rows', await cols().then(r=>r.map(p=>p[1])), ['z1.png','z2.png','z3.png','z4.png']);
   { // lo mismo en Avanzado: clic en el nombre de la variante llena sus frames y crea los que falten
-    const adv = await browser.newPage({viewport:{width:1440,height:1000}});
+    const adv = await browser.newPage({locale:'es-MX',viewport:{width:1440,height:1000}});
     await adv.goto('file://'+ROOT+'/dist/gatos.html'); await adv.locator('#obStart').click(); await adv.locator('#tabAdv').click();
     await adv.evaluate(()=>{BUILDER.renderSteps();document.querySelectorAll('#stepNav button')[3].click();});
     const pickAdv = async (locator, names) => { const [chooser] = await Promise.all([adv.waitForEvent('filechooser'), locator.click()]); await chooser.setFiles(names.map(name=>({name,mimeType:'image/png',buffer:png}))); };
@@ -158,7 +158,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   ok('Escape leaves the guide and clears the examples', await page.evaluate(()=>[!GUIDE.state.def, BUILDER.state.pairs.length]), [true, 0]);
   await page.locator('#basicFile').setInputFiles([{name:'mia_1.png',mimeType:'image/png',buffer:png},{name:'otra_1.png',mimeType:'image/png',buffer:png}]);
   ok('with your own work open the guide only points: no examples mixed in', [await walk(page, 'por-version'), await page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f&&f.name)))], [[], [['mia_1.png','otra_1.png']]]);
-  { const ph = await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,hasTouch:true,isMobile:true});
+  { const ph = await browser.newPage({locale:'es-MX',viewport:{width:390,height:844},deviceScaleFactor:2,hasTouch:true,isMobile:true});
     await ph.goto('file://'+ROOT+'/dist/gatos.html');
     await ph.locator('#obGuide').click();
     ok('phone: the welcome screen offers the guides', await ph.locator('#helpGuides button').count(), 2);
@@ -196,7 +196,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   // gatolocoses/gatos.pics#32: creador en teléfono (contexto táctil desde file://):
   // cabecera de 44 px sin desborde, pares en dos columnas, campos de 16 px
   {
-    const pctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+    const pctx=await browser.newContext({locale:'es-MX',viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
     const ph=await pctx.newPage();ph.on('pageerror',e=>errors.push(e.message));
     await ph.goto('file://'+ROOT+'/dist/gatos.html');await ph.locator('#obStart').tap();
     await ph.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png},{name:'a.png',mimeType:'image/png',buffer:png}]);
@@ -223,7 +223,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   for (const [button,name] of [['btnExpHtml','comparison.html'],['btnExpZip','comparison.zip'],['btnExpCmp','comparison.cmp']]){
     const pending=page.waitForEvent('download');await page.locator('#'+button).click();await (await pending).saveAs(path.join(OUT,name));
   }
-  const offline=await browser.newPage({viewport:{width:1200,height:900}});
+  const offline=await browser.newPage({locale:'es-MX',viewport:{width:1200,height:900}});
   await offline.goto('file://'+path.join(OUT,'comparison.html'));await loaded(offline);
   ok('exported HTML works from file URL',await offline.locator('#imgA').evaluate(i=>i.naturalWidth),640);
   await offline.close();
@@ -250,7 +250,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   // regresion ops#74: el creador HOSPEDADO carga con CSP real (hashes+script-src)
   // y su vista previa (blob:) debe prender; file:// no ejercita la CSP
   {
-    const creator = await browser.newPage({viewport:{width:1200,height:900}});
+    const creator = await browser.newPage({locale:'es-MX',viewport:{width:1200,height:900}});
     const viol=[]; creator.on('console',m=>{if(m.type()==='error'&&/Content Security Policy/.test(m.text()))viol.push(m.text());});
     await creator.goto(BASE+'/crear/');
     ok('hosted creator CSP allows blob scripts',/script-src 'self' blob:/.test((await (await creator.request.get(BASE+'/crear/')).headers())['content-security-policy']||''));
@@ -283,7 +283,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     // gatos-ops#157: envío por partes. Con el corte casi en cero cada frame
     // viaja en su propio pedido (POST + PATCH + PATCH) y la página final debe
     // quedar igual que con un solo envío: tres frames, sus etiquetas, sus imágenes.
-    const parts = await browser.newPage({viewport:{width:1200,height:900}});
+    const parts = await browser.newPage({locale:'es-MX',viewport:{width:1200,height:900}});
     await parts.addInitScript(() => { window.GATOS_PART_MB = 0.000001; });
     const sentReqs=[]; parts.on('request',r=>{ if(/\/api\/(upload|page\/)/.test(r.url())&&r.method()!=='OPTIONS') sentReqs.push(r.method()); });
     await parts.goto(BASE+'/crear/');
@@ -375,7 +375,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   // y una variante `p` que solo tiene f2 y f4: en f1, f3 y f5 su panel muestra el
   // aviso, nada se pide a la red, y diff/parpadeo/recortes/compartir no fallan.
   {
-    const pp=await browser.newPage({viewport:{width:1200,height:800}});
+    const pp=await browser.newPage({locale:'es-MX',viewport:{width:1200,height:800}});
     const perrs=[],bad=[],reqs=[];
     pp.on('pageerror',e=>perrs.push(e.message));
     pp.on('response',r=>{if(r.status()>=400)bad.push(r.status()+' '+r.url());});
@@ -470,7 +470,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('partial variant viewer: no uncaught browser errors',perrs,[]);
     await pp.close();
     // fuente embebida (el creador y las exportaciones): mismo comportamiento sin red
-    const pe=await browser.newPage({viewport:{width:1200,height:800}});
+    const pe=await browser.newPage({locale:'es-MX',viewport:{width:1200,height:800}});
     const eerrs=[];pe.on('pageerror',e=>eerrs.push(e.message));
     await pe.addInitScript(pkg=>{window.GATOS_PACKAGE=pkg;},{format:'gatos.pics/cmp@1',manifest:manifestP,images});
     await pe.goto(upP.url+'#f=f1&a=a&b=p');
@@ -486,7 +486,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   // eventos por CDP): barra inferior, arranque ajustado, deslizar, pellizco,
   // divisor, PNG exacto con zoom táctil, botón cmd y apaisado
   {
-    const pctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+    const pctx=await browser.newContext({locale:'es-MX',viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
     const phone=await pctx.newPage();
     phone.on('pageerror',e=>errors.push(e.message));
     await phone.goto(publication.url+'#f=intro&a=source&b=encode');await loaded(phone);
@@ -548,6 +548,59 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   await page.locator('a', {hasText:'Ver un ejemplo'}).click();
   await page.locator('#pvFrame.show').waitFor();
   ok('landing demo opens above onboarding',await page.locator('#onboard').isVisible(),false);
+  // idiomas: el navegador decide (inglés si no es español), el interruptor lo
+  // recuerda, y en inglés no queda ningún texto sin traducción (I18N.miss)
+  { const ectx = await browser.newContext({locale:'en-US',viewport:{width:1280,height:900}});
+    const en = await ectx.newPage(); en.on('pageerror',e=>errors.push(e.message)); en.on('dialog',d=>d.accept().catch(()=>{}));
+    const state = () => ({lang:document.documentElement.lang, miss:[...I18N.miss]});
+    await en.goto(BASE+'/');
+    ok('en: landing follows the browser language', await en.evaluate(()=>({lang:document.documentElement.lang,h1:document.querySelector('h1').textContent,cta:document.querySelector('.cta .primary').textContent,title:document.title,miss:[...I18N.miss]})),
+      {lang:'en',h1:'Compare screenshotsof your encodes.',cta:'Create a comparison',title:'gatos.pics · Compare screenshots of your encodes',miss:[]});
+    await en.goto(BASE+'/subir/');
+    ok('en: upload page is in English with nothing left untranslated', await en.evaluate(()=>({up:document.getElementById('btnUpload').textContent,ph:document.getElementById('name').placeholder,lang:document.documentElement.lang,miss:[...I18N.miss]})),
+      {up:'Upload',ph:'e.g. episode 3 screenshots',lang:'en',miss:[]});
+    await en.goto(BASE+'/crear/');
+    ok('en: creator welcome and tabs are in English', await en.evaluate(()=>({start:document.getElementById('obStart').textContent,tab:document.getElementById('tabBasic').textContent,help:document.getElementById('btnHelp').getAttribute('aria-label'),steps:[...document.querySelectorAll('#stepNav button')].map(b=>b.textContent.replace(/^\d+/,'').replace(/ \d+$/,''))})),
+      {start:'Create a comparison',tab:'Basic',help:'Help',steps:['Project','Variants','Frames','Images','Review']});
+    await en.locator('#obStart').click();
+    for (const id of ['por-version','todas-juntas']){
+      await en.evaluate(id=>GUIDE.start(id), id);
+      const n = await en.evaluate(()=>GUIDE.state.def.steps.length);
+      for (let i=0;i<n;i++) await en.locator('#guideNext').click();
+    }
+    ok('en: both guides run in English (step text, sample rows)', await en.evaluate(()=>({first:GUIDE.GUIDES[0].steps[0].text,fill:document.querySelector('.vfill').textContent})), {first:'Start in Basic: there is nothing to set up.',fill:'Choose its images'});
+    const pngE = Buffer.from(fixture.images.source_intro.split(',')[1],'base64');
+    await en.locator('#basicFile').setInputFiles(['source_1.png','encode_1.png','source_2.png','encode_2.png'].map(name=>({name,mimeType:'image/png',buffer:pngE})));
+    ok('en: basic rows and footer are in English', await en.evaluate(()=>({names:state.basicNames,row:document.querySelector('#pairList .pair:not(.pairhead) .no').textContent,ready:document.querySelector('#basicFoot .okline').textContent})),
+      {names:['source','encode'],row:'pair 1',ready:'2 pairs ready · export whenever you like:'});
+    for (const tab of ['tabVideo','tabAdv','tabBasic']) await en.locator('#'+tab).click();
+    await en.locator('#btnPreviewTop').click();
+    await en.waitForFunction(()=>{const d=document.getElementById('pvBox').contentDocument;const i=d&&d.getElementById('imgA');return !!(i&&i.complete&&i.naturalWidth>0);},null,{timeout:20000});
+    ok('en: the preview shows the viewer in English, nothing untranslated', await en.frames().find(f=>f!==en.mainFrame()).evaluate(()=>({lang:document.documentElement.lang,blink:document.getElementById('blinkBtn').textContent,left:document.querySelector('.glabel[data-t]').textContent,tip:document.getElementById('shareBtn').title,miss:[...I18N.miss]})),
+      {lang:'en',blink:'Blink',left:'Left',tip:'Share: link, BBCode for forums, Markdown and HTML',miss:[]});
+    await en.locator('#pvClose').click();
+    await en.evaluate(()=>localStorage.setItem('gatosApiKey','test-key-123'));
+    await en.locator('#btnPublish').click();
+    await en.waitForFunction(() => { const u=document.getElementById('pubUrl'); return u && u.value && document.getElementById('pubFrame').style.display === 'flex'; }, null, {timeout:25000});
+    await en.waitForFunction(()=>/ready|Could not/.test(document.getElementById('pubShare').textContent),null,{timeout:60000});
+    ok('en: publish receipt and the automatic share image report in English', await en.evaluate(()=>({h:document.querySelector('#pubCard h2').textContent,note:document.getElementById('pubShare').textContent})), {h:'Published',note:'Share image ready: the codes below already use it.'});
+    ok('en: nothing in the creator was left untranslated', await en.evaluate(()=>[...I18N.miss]), []);
+    const pubE = await en.locator('#pubUrl').inputValue();
+    await en.goto(pubE); await loaded(en);
+    ok('en: a published page opens in English', await en.evaluate(()=>({lang:document.documentElement.lang,share:document.getElementById('shareBtn').textContent,meta:/left/.test(metaLine.textContent),miss:[...I18N.miss]})), {lang:'en',share:'Share',meta:true,miss:[]});
+    await en.goto(pubE+'?lang=es'); await loaded(en);
+    ok('?lang=es forces Spanish on the same page', await en.evaluate(()=>({lang:document.documentElement.lang,share:document.getElementById('shareBtn').textContent})), {lang:'es-419',share:'Compartir'});
+    // el interruptor: se guarda en este navegador y vale para todo el sitio
+    await en.goto(BASE+'/');
+    await Promise.all([en.waitForNavigation(), en.locator('[data-lang="es"]').click()]);
+    ok('language switch: Spanish is remembered across the site', [await en.evaluate(()=>({lang:document.documentElement.lang,h1:document.querySelector('h1').textContent,saved:localStorage.getItem('gatos.lang')})), await (async()=>{await en.goto(pubE);await loaded(en);return en.evaluate(()=>document.getElementById('shareBtn').textContent);})()],
+      [{lang:'es-419',h1:'Compara capturasde tus encodes.',saved:'es'},'Compartir']);
+    // otro idioma de navegador: inglés por defecto
+    const pctx2 = await browser.newContext({locale:'pt-BR',viewport:{width:1280,height:900}});
+    const pt = await pctx2.newPage(); await pt.goto(BASE+'/');
+    ok('a browser in another language gets English', await pt.evaluate(()=>document.documentElement.lang), 'en');
+    await pctx2.close(); await ectx.close();
+  }
   ok('no uncaught browser errors',errors,[]);
   fs.writeFileSync(path.join(OUT,'results.json'),JSON.stringify({checks,errors},null,2));
   console.log('Artifacts: '+OUT);

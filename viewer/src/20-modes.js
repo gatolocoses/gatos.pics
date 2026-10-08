@@ -32,7 +32,7 @@ function renderDiff(){
     diffCanvas.style.display = 'none';
     imgB.style.display = '';
     diffNote.style.display = 'block';
-    diffNote.textContent = 'Diff no disponible: una variante no tiene este cuadro.';
+    diffNote.textContent = T('Diff no disponible: una variante no tiene este cuadro.');
     return;
   }
   const d = ensureDiffBase();
@@ -43,8 +43,8 @@ function renderDiff(){
       imgA.naturalWidth && realB.naturalWidth &&
       (imgA.naturalWidth !== realB.naturalWidth || imgA.naturalHeight !== realB.naturalHeight);
     diffNote.textContent = loadFailA || loadFailB
-      ? 'Diff no disponible: una imagen no carg\u00f3.'
-      : mismatch ? 'Diff no disponible: las imágenes tienen dimensiones distintas.' : 'Diff: cargando…';
+      ? T('Diff no disponible: una imagen no cargó.')
+      : mismatch ? T('Diff no disponible: las imágenes tienen dimensiones distintas.') : T('Diff: cargando…');
     return;
   }
   diffCanvas.width = d.w; diffCanvas.height = d.h;
@@ -63,7 +63,7 @@ function renderDiff(){
     o[i+3] = 255;
   }
   diffCtx.putImageData(out, 0, 0);
-  diffNote.textContent = `Diff \u00D7${A}${heat ? ` \u00B7 calor (\u0394\u2265${HEAT_T} en rojo)` : ''} \u00B7 color = canal que difiere \u00B7 \u0394 media ${d.mean.toFixed(2)}/255`;
+  diffNote.textContent = T`Diff ×${A}${heat ? T` · calor (Δ≥${HEAT_T} en rojo)` : ''} · color = canal que difiere · Δ media ${d.mean.toFixed(2)}/255`;
 }
 function setDiff(on){
   diffMode = on;
@@ -75,7 +75,7 @@ function setDiff(on){
   imgB.style.display = on ? 'none' : '';
   diffNote.style.display = on ? 'block' : 'none';
   if (on){
-    diffNote.textContent = 'Diff \u00D7'+GAINS[gainIdx]+' \u00B7 calculando\u2026';
+    diffNote.textContent = T`Diff ×${GAINS[gainIdx]} · calculando…`;
     setSideSrc('B', varB);
     renderDiff();
   } else {
@@ -140,7 +140,7 @@ function onBError(){
   loadFailB = true; imgB.style.visibility = 'hidden';
   paintSide('B');
   if (diffMode) renderDiff();
-  else { diffNote.style.display = 'block'; diffNote.textContent = 'la imagen derecha no carg\u00f3'; }
+  else { diffNote.style.display = 'block'; diffNote.textContent = T('la imagen derecha no cargó'); }
 }
 imgB.addEventListener('error', onBError);
 realB.addEventListener('error', onBError);
@@ -202,7 +202,7 @@ function setBlind(on){
   blindBtn.classList.toggle('blind-on', on);
   blindBtn.setAttribute('aria-pressed', String(on));
   $('revealBtn').hidden = !on;
-  pageTitle.textContent = on ? 'Comparación a ciegas' : originalTitle;
+  pageTitle.textContent = on ? T('Comparación a ciegas') : originalTitle;
   document.title = pageTitle.textContent;
   if (on) hideTip();
   refreshVariantButtons();
@@ -292,13 +292,13 @@ function drawCropRow(id, canvas){
   ctx.imageSmoothingEnabled = false;
   if (!hasFrame(id, frame)){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#9a9aa8'; ctx.fillText('sin este cuadro', 10, 20);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText(T('sin este cuadro'), 10, 20);
     return;
   }
   const im = cropImg(id);
   if (!im || !im.complete || !im.naturalWidth){
     ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#9a9aa8'; ctx.fillText('cargando\u2026', 10, 20);
+    ctx.fillStyle = '#9a9aa8'; ctx.fillText(T('cargando…'), 10, 20);
     if (im) im.addEventListener('load', () => { if (cropPanel.style.display !== 'none') drawCropRow(id, canvas); }, {once:true});
     return;
   }
@@ -317,7 +317,7 @@ function openCropPanel(){
   // hoja inferior del teléfono (apaisado sobre todo): un recorte más alto que
   // media vista taparía la comparación entera; se acota por alto
   if (PHONE_MQ.matches && CH > comp.clientHeight*0.45){ CH = Math.round(comp.clientHeight*0.45); CW = Math.max(64, Math.round(CH*16/9)); }
-  cropTitle.textContent = `Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
+  cropTitle.textContent = T`Recortes 1:1 @ ${cropUV.u},${cropUV.v} (px nativos)`;
   cropRows.innerHTML = '';
   orderedVariants().forEach(v => {
     const row = document.createElement('div');

@@ -38,7 +38,7 @@ const MEAN = () => { const t=document.getElementById('diffNote').textContent.mat
     server.stderr.on('data',d=>process.stderr.write(d));
     server.once('exit',c=>{clearTimeout(t);rej(Error('server exit '+c));}); });
   browser = await chromium.launch({headless:true});
-  const page = await browser.newPage({viewport:{width:1200,height:900}});
+  const page = await browser.newPage({locale:'es-MX',viewport:{width:1200,height:900}});
   const errors=[]; page.on('pageerror',e=>errors.push(e.message));
   await page.goto('about:blank');
   const pkg = await page.evaluate(() => {

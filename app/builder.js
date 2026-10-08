@@ -46,19 +46,19 @@ $('obStart').addEventListener('click', () => {
 });
 $('obDemo').addEventListener('click', () => {
   const btn = $('obDemo');
-  btn.disabled = true; btn.textContent = 'Generando ejemplo…';
+  btn.disabled = true; btn.textContent = T('Generando ejemplo…');
   setTimeout(async () => {
     const pkg = await makeDemoPackage();
     await VIEWER_ASSETS;
     $('pvBox').srcdoc = buildStandaloneHTML(pkg, {blob:true});
     $('pvFrame').classList.add('show');
     $('onboard').hidden = true;
-    btn.disabled = false; btn.textContent = 'Ver un ejemplo';
+    btn.disabled = false; btn.textContent = T('Ver un ejemplo');
   }, 30);
 });
 $('obLoad').addEventListener('click', () => runAction(async () => {
   // cargar el ejemplo como proyecto básico para poder tocarlo
-  if (state.pairs.some(p => p.some(Boolean)) && !confirm('Cargar el ejemplo descarta tu proyecto actual. ¿Continuar?')) return;
+  if (state.pairs.some(p => p.some(Boolean)) && !confirm(T('Cargar el ejemplo descarta tu proyecto actual. ¿Continuar?'))) return;
   const pkg = await makeDemoPackage();
   setMode('basic');
   resetBasic();
@@ -105,7 +105,7 @@ function makeDemoPackage(){
     }
     x.font = '600 26px system-ui, sans-serif';
     x.fillStyle = '#fff';
-    x.fillText('ejemplo sintético · nada real', 26, 42);
+    x.fillText(T('ejemplo sintético · nada real'), 26, 42);
     if (blurred){
       const c2 = document.createElement('canvas');
       c2.width = W; c2.height = H;
@@ -143,14 +143,14 @@ function makeDemoPackage(){
   return {
     format: FORMAT,
     manifest: {
-      title: 'gatos.pics · ejemplo',
+      title: T('gatos.pics · ejemplo'),
       version: 1,
       frames: [1, 2, 3],
-      frame_labels: {1: 'ejemplo 1', 2: 'ejemplo 2', 3: 'ejemplo 3'},
+      frame_labels: {1: T`ejemplo ${1}`, 2: T`ejemplo ${2}`, 3: T`ejemplo ${3}`},
       variants: [
-        {id: 'src', name: 'Fuente', color: '#7bd389', note: 'referencia'},
-        {id: 'enc', name: 'Encode', color: '#7bb3ff', note: 'desenfoque + ruido simulados',
-         cmd: 'encoder --entrada in.png --crf 26 --preset 4 --salida out.png',
+        {id: 'src', name: T('Fuente'), color: '#7bd389', note: T('referencia')},
+        {id: 'enc', name: 'Encode', color: '#7bb3ff', note: T('desenfoque + ruido simulados'),
+         cmd: T('encoder --entrada in.png --crf 26 --preset 4 --salida out.png'),
          metrics: {ssimulacra2: Math.round((sum/3)*100)/100, per_frame: per}},
       ],
     },
@@ -173,7 +173,7 @@ async function countLossy(files){
   return n;
 }
 function lossyWarnHTML(n){
-  return n ? `<div class="warn" style="margin-top:6px;">\u26a0 ${n} imagen${n>1?'es':''} con p\u00e9rdida (JPEG o WebP con p\u00e9rdida): la evidencia se degrada y el S2 medir\u00e1 esa compresi\u00f3n extra, no tu encode. Se aceptan, pero usa PNG sin p\u00e9rdida para comparaciones serias.</div>` : '';
+  return n ? `<div class="warn" style="margin-top:6px;">⚠ ${n === 1 ? T('1 imagen con pérdida') : T`${n} imágenes con pérdida`} ${T('(JPEG o WebP con pérdida): la evidencia se degrada y el S2 medirá esa compresión extra, no tu encode. Se aceptan, pero usa PNG sin pérdida para comparaciones serias.')}</div>` : '';
 }
 
 /* ---------- archivos ---------- */
@@ -338,7 +338,7 @@ function addBasicFiles(files){
     const col = new Map();
     for (const v of order) col.set(v, have.has(v) ? have.get(v) : basicAddColumn(match.names.get(v)));
     if (fresh && !order.some(isRef))
-      pairWarns.push('Ningún nombre parece la referencia (fuente, src, máster): la columna izquierda es una suposición. Revísala.');
+      pairWarns.push(T('Ningún nombre parece la referencia (fuente, src, máster): la columna izquierda es una suposición. Revísala.'));
     const placed = new Set();
     for (const [k, g] of match.usable.sort((x, y) => x[0].localeCompare(y[0], 'es', {numeric:true}))){
       let row = state.pairs.find(r => r.key === k);
@@ -347,7 +347,7 @@ function addBasicFiles(files){
     }
     loose = imgs.filter(f => !placed.has(f));
     const holes = state.pairs.filter(r => r.key !== undefined && r.some(f => !f)).length;
-    if (holes) pairWarns.push(`${holes} cuadro${holes>1?'s':''} no tiene${holes>1?'n':''} todas las versiones: completa los huecos o quita la fila.`);
+    if (holes) pairWarns.push(holes === 1 ? T('1 cuadro no tiene todas las versiones: completa los huecos o quita la fila.') : T`${holes} cuadros no tienen todas las versiones: completa los huecos o quita la fila.`);
   }
 
   // sin pista en el nombre: por orden. Primero los huecos de la última fila a medias
@@ -358,7 +358,7 @@ function addBasicFiles(files){
     if (!row.some(Boolean) || row.every(Boolean)) continue;
     for (let c = 0; c < n && loose.length; c++) if (!row[c]){
       const f = loose.shift();
-      if (n === 2 && row[1-c] && sameVariant(row[1-c], f)) pairWarns.push(`${row[1-c].name} y ${f.name} parecen la misma variante: se completó el par por orden. Revísalo.`);
+      if (n === 2 && row[1-c] && sameVariant(row[1-c], f)) pairWarns.push(T`${row[1-c].name} y ${f.name} parecen la misma variante: se completó el par por orden. Revísalo.`);
       row[c] = f;
     }
     break;
@@ -366,7 +366,7 @@ function addBasicFiles(files){
   while (loose.length){
     const row = basicBlank();
     for (let c = 0; c < n && loose.length; c++) row[c] = loose.shift();
-    if (n === 2 && row[0] && row[1] && sameVariant(row[0], row[1])) pairWarns.push(`${row[0].name} y ${row[1].name} parecen la misma variante: se emparejaron por orden. Revísalos.`);
+    if (n === 2 && row[0] && row[1] && sameVariant(row[0], row[1])) pairWarns.push(T`${row[0].name} y ${row[1].name} parecen la misma variante: se emparejaron por orden. Revísalos.`);
     state.pairs.push(row);
   }
   renderPairs();
@@ -392,46 +392,46 @@ function basicFillColumn(c, files, fromRow = 0){
 // topes del servicio por página: avisar aquí, no con un error al publicar
 function basicOverLimits(){
   const out = [], n = state.basicNames.length, k = state.pairs.length;
-  if (n > 12) out.push(`Una página admite hasta 12 versiones y aquí hay ${n}: quita ${n-12} con la × junto a su nombre.`);
-  if (k > 200) out.push(`Una página admite hasta 200 cuadros y aquí hay ${k}: quita ${k-200}.`);
+  if (n > 12) out.push(T`Una página admite hasta 12 versiones y aquí hay ${n}: quita ${n-12} con la × junto a su nombre.`);
+  if (k > 200) out.push(T`Una página admite hasta 200 cuadros y aquí hay ${k}: quita ${k-200}.`);
   return out;
 }
 function renderPairs(){
   const host = $('pairList');
   host.innerHTML = '';
   const names = state.basicNames, n = names.length, two = n === 2;
-  const unit = two ? 'par' : 'cuadro';
+  const unit = two ? T('par') : T('cuadro');
   {
     // nombres de las versiones: se pueden corregir, y con más de dos, quitar.
     // Cada una se puede llenar entera: botón, o soltando archivos sobre ella
     const head = document.createElement('div');
     head.className = 'pair pairhead';
-    head.innerHTML = '<span class="no">versiones</span>';
+    head.innerHTML = '<span class="no">' + T('versiones') + '</span>';
     names.forEach((name, c) => {
       const box = document.createElement('div');
       box.className = 'vname'; box.dataset.col = c;
       const line = document.createElement('div'); line.className = 'vline';
       const inp = document.createElement('input');
-      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.dataset.guide = 'vname-' + c; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
+      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.dataset.guide = 'vname-' + c; inp.setAttribute('aria-label', T`Nombre de la versión ${c+1}`);
       inp.onchange = () => { names[c] = inp.value.trim() || String.fromCharCode(65 + c % 26); renderPairs(); };
       line.appendChild(inp);
       box.appendChild(line);
       const fill = document.createElement('button');
-      fill.className = 'vfill'; fill.textContent = 'Elegir sus imágenes'; fill.dataset.guide = 'vfill-' + c;
-      fill.title = 'Elige (o suelta aquí) todas las imágenes de esta versión: llenan su columna en orden de nombre';
-      fill.setAttribute('aria-label', `Elegir todas las imágenes de la versión ${name}`);
+      fill.className = 'vfill'; fill.textContent = T('Elegir sus imágenes'); fill.dataset.guide = 'vfill-' + c;
+      fill.title = T('Elige (o suelta aquí) todas las imágenes de esta versión: llenan su columna en orden de nombre');
+      fill.setAttribute('aria-label', T`Elegir todas las imágenes de la versión ${name}`);
       fill.onclick = () => pickMany(files => basicFillColumn(c, files));
       box.appendChild(fill);
       if (n > 2){
-        const x = document.createElement('button'); x.textContent = '×'; x.title = 'Quitar esta versión';
-        x.setAttribute('aria-label', `Quitar la versión ${name}`);
-        x.onclick = () => { if (confirm(`¿Quitar la versión «${name}» y sus imágenes?`)){ basicDropColumn(c); renderPairs(); } };
+        const x = document.createElement('button'); x.textContent = '×'; x.title = T('Quitar esta versión');
+        x.setAttribute('aria-label', T`Quitar la versión ${name}`);
+        x.onclick = () => { if (confirm(T`¿Quitar la versión «${name}» y sus imágenes?`)){ basicDropColumn(c); renderPairs(); } };
         line.appendChild(x);
       }
       head.appendChild(box);
     });
     const add = document.createElement('button');
-    add.id = 'basicAddVersion'; add.textContent = '+ versión'; add.dataset.guide = 'add-version'; add.title = 'Agregar otra versión a cada cuadro';
+    add.id = 'basicAddVersion'; add.textContent = T('+ versión'); add.dataset.guide = 'add-version'; add.title = T('Agregar otra versión a cada cuadro');
     add.onclick = () => { basicAddColumn(String.fromCharCode(65 + n % 26)); renderPairs(); };
     const tools = document.createElement('div'); tools.className = 'tools'; tools.appendChild(add);
     head.appendChild(tools);
@@ -441,15 +441,15 @@ function renderPairs(){
     const row = document.createElement('div');
     row.className = 'pair';
     const mk = (f, side) => {
-      const where = two ? (side ? 'Derecha' : 'Izquierda') : names[side];
+      const where = two ? (side ? T('Derecha') : T('Izquierda')) : names[side];
       const s = document.createElement('div');
       s.className = 'slot ' + (f ? 'filled' : 'empty');
       s.setAttribute('role', 'button'); s.tabIndex = 0;
       s.dataset.col = side; s.dataset.row = i;
-      s.setAttribute('aria-label', `${where}, ${unit} ${i+1}: ${f ? f.name : 'elegir imagen'}`);
-      if (f) s.innerHTML = `<img src="${thumb(f)}" alt="${esc(f.name)}">`; else s.textContent = `${where}: elegir imagen`;
+      s.setAttribute('aria-label', `${where}, ${unit} ${i+1}: ${f ? f.name : T('elegir imagen')}`);
+      if (f) s.innerHTML = `<img src="${thumb(f)}" alt="${esc(f.name)}">`; else s.textContent = T`${where}: elegir imagen`;
       s.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); s.click(); } });
-      s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : 'clic para elegir una imagen, o varias para llenar esta versión hacia abajo';
+      s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : T('clic para elegir una imagen, o varias para llenar esta versión hacia abajo');
       // una imagen llena esta casilla; varias siguen hacia abajo en la misma versión
       s.addEventListener('click', () => pickMany(files => basicFillColumn(side, files, i)));
       return s;
@@ -458,14 +458,14 @@ function renderPairs(){
     p.forEach((f, side) => row.appendChild(mk(f, side)));
     const tools = document.createElement('div');
     tools.className = 'tools';
-    const up = document.createElement('button'); up.textContent='↑'; up.title='subir';
+    const up = document.createElement('button'); up.textContent='↑'; up.title=T('subir');
     up.onclick = () => { if (i>0){ [state.pairs[i-1], state.pairs[i]] = [state.pairs[i], state.pairs[i-1]]; renderPairs(); } };
-    const dn = document.createElement('button'); dn.textContent='↓'; dn.title='bajar';
+    const dn = document.createElement('button'); dn.textContent='↓'; dn.title=T('bajar');
     dn.onclick = () => { if (i<state.pairs.length-1){ [state.pairs[i+1], state.pairs[i]] = [state.pairs[i], state.pairs[i+1]]; renderPairs(); } };
-    const rm = document.createElement('button'); rm.textContent='×'; rm.title=`quitar ${unit}`;
+    const rm = document.createElement('button'); rm.textContent='×'; rm.title=T`quitar ${unit}`;
     rm.onclick = () => { state.pairs.splice(i,1); if (!state.pairs.length) resetBasic(); renderPairs(); };
     if (two){
-      const swap = document.createElement('button'); swap.textContent='↔'; swap.title='Intercambiar izquierda y derecha';
+      const swap = document.createElement('button'); swap.textContent='↔'; swap.title=T('Intercambiar izquierda y derecha');
       swap.onclick = () => { [p[0],p[1]] = [p[1],p[0]]; renderPairs(); };
       tools.append(swap);
     }
@@ -477,18 +477,20 @@ function renderPairs(){
   const half = state.pairs.some(p => p.some(f => !f));
   const dims = new Set([...state.pairs.flat()].filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
   let h = '';
-  if (half) h += `<div class="warn">Completa ${two ? 'el par vacío' : 'los huecos'} antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
-  if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
+  if (half) h += `<div class="warn">${two ? T('Completa el par vacío antes de compartir.') : T('Completa los huecos antes de compartir.')} ${T('Puedes guardar el proyecto para seguir después.')}</div>`;
+  if (dims.size > 1) h += `<div class="warn">${T`Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`}</div>`;
   for (const w of pairWarns) h += `<div class="warn">${esc(w)}</div>`;
   const over = basicOverLimits();
   for (const w of over) h += `<div class="warn">${esc(w)}</div>`;
   if (state.pairs.length && !half && !over.length){
     const k = state.pairs.length;
-    h += `<div class="okline">${k} ${unit}${k>1?(two?'es':'s'):''} listo${k>1?'s':''}${two ? '' : ` · ${n} versiones en cada uno`} · y exporta cuando quieras:</div>`;
+    const ready = two ? (k === 1 ? T('1 par listo') : T`${k} pares listos`)
+      : (k === 1 ? T`1 cuadro listo · ${n} versiones en cada uno` : T`${k} cuadros listos · ${n} versiones en cada uno`);
+    h += `<div class="okline">${ready} ${T('· y exporta cuando quieras:')}</div>`;
     h += `<div class="exports" style="margin-top:8px;">
-      <button id="bExpHtml">Descargar .html</button>
-      <button id="bExpZip">Descargar .zip</button>
-      <button id="bExpCmp">Descargar .cmp</button>
+      <button id="bExpHtml">${T('Descargar .html')}</button>
+      <button id="bExpZip">${T('Descargar .zip')}</button>
+      <button id="bExpCmp">${T('Descargar .cmp')}</button>
     </div>`;
   }
   foot.innerHTML = h;
@@ -525,7 +527,7 @@ async function basicCore(cancelled = () => false){
   // ids estables por columna: a, b, c… (a/b son los de siempre con dos versiones)
   const ids = names.map((_, c) => c < 26 ? String.fromCharCode(97 + c) : 'v' + (c+1));
   const manifest = {
-    title: 'Comparación',
+    title: T('Comparación'),
     version: state.version,
     frames: pairs.map((_, i) => i+1),
     frame_labels: Object.fromEntries(pairs.map((row, i) => [String(i+1), String(row.label || i+1)])),
@@ -533,7 +535,7 @@ async function basicCore(cancelled = () => false){
   };
   const entries = [];
   for (let i = 0; i < pairs.length; i++){
-    if (cancelled()) throw new Error('Preparación cancelada.');
+    if (cancelled()) throw new Error(T('Preparación cancelada.'));
     pairs[i].forEach((f, c) => { if (f) entries.push([ids[c]+'_'+(i+1), f]); });
   }
   return {format: FORMAT, manifest, entries};
@@ -551,7 +553,7 @@ async function basicCore(cancelled = () => false){
 /* ============================================================
    MODO AVANZADO · pasos
    ============================================================ */
-const STEPS = ['Proyecto','Variantes','Frames','Imágenes','Revisar'];
+const STEPS = [T('Proyecto'),T('Variantes'),'Frames',T('Imágenes'),T('Revisar')];
 let curStep = 0;
 function renderSteps(){
   const nav = $('stepNav');
@@ -588,7 +590,7 @@ function defVariant(ids){
 }
 function ensureSeed(){
   if (!state.variants.length){
-    const a = defVariant(); a.name = 'Fuente'; a.note = 'referencia';
+    const a = defVariant(); a.name = T('Fuente'); a.note = T('referencia');
     const b = defVariant(); b.name = 'Encode';
     state.variants.push(a, b);
   }
@@ -606,30 +608,30 @@ function renderVariants(){
   state.variants.forEach((v, i) => {
     const card = document.createElement('div');
     card.className = 'card';
-    const badge = i===0 ? '<span class="badge">izquierda por defecto</span>' : i===1 ? '<span class="badge">derecha por defecto</span>' : '';
+    const badge = i===0 ? `<span class="badge">${T('izquierda por defecto')}</span>` : i===1 ? `<span class="badge">${T('derecha por defecto')}</span>` : '';
     card.innerHTML = `
       <div class="vrow">
-        <div class="dot" style="background:${v.color}" title="clic para cambiar el color"></div>
-        <input type="text" data-k="name" placeholder="nombre (p. ej. Fuente, CRF 26)" value="${esc(v.name)}">
-        <input type="text" class="opt" data-k="codec" placeholder="codec" value="${esc(v.codec)}" title="codec · p. ej. AV1, x264, HEVC">
-        <input type="text" class="opt" data-k="crf" placeholder="CRF" value="${esc(v.crf)}" title="número de calidad">
+        <div class="dot" style="background:${v.color}" title="${T('clic para cambiar el color')}"></div>
+        <input type="text" data-k="name" placeholder="${T('nombre (p. ej. Fuente, CRF 26)')}" value="${esc(v.name)}">
+        <input type="text" class="opt" data-k="codec" placeholder="codec" value="${esc(v.codec)}" title="${T('codec · p. ej. AV1, x264, HEVC')}">
+        <input type="text" class="opt" data-k="crf" placeholder="CRF" value="${esc(v.crf)}" title="${T('número de calidad')}">
         <input type="text" class="opt" data-k="bitrate" placeholder="Mb/s" value="${esc(v.bitrate)}" title="bitrate">
-        <button class="iconbtn" data-a="up" title="subir">↑</button>
-        <button class="iconbtn" data-a="dn" title="bajar">↓</button>
-        <button class="iconbtn" data-a="rm" title="quitar">×</button>
+        <button class="iconbtn" data-a="up" title="${T('subir')}">↑</button>
+        <button class="iconbtn" data-a="dn" title="${T('bajar')}">↓</button>
+        <button class="iconbtn" data-a="rm" title="${T('quitar')}">×</button>
       </div>
       <div class="vrow2">
         <span class="hint">${esc(v.id)}${badge}</span>
-        <input type="text" data-k="note" placeholder="nota extra · sale bajo el botón" value="${esc(v.note)}">
-        <input type="text" class="mono" data-k="cmd" placeholder="comando del encoder (tooltip)" value="${esc(v.cmd)}">
-        <input type="text" data-k="metric" placeholder="Métrica opcional: VMAF 96.2" value="${esc(v.metric)}" title="Se muestra bajo el nombre de la variante">
+        <input type="text" data-k="note" placeholder="${T('nota extra · sale bajo el botón')}" value="${esc(v.note)}">
+        <input type="text" class="mono" data-k="cmd" placeholder="${T('comando del encoder (tooltip)')}" value="${esc(v.cmd)}">
+        <input type="text" data-k="metric" placeholder="${T('Métrica opcional: VMAF 96.2')}" value="${esc(v.metric)}" title="${T('Se muestra bajo el nombre de la variante')}">
       </div>`;
     card.querySelector('.dot').onclick = () => {
       v.color = PALETTE[(PALETTE.indexOf(v.color)+1) % PALETTE.length];
       renderVariants();
     };
     card.querySelectorAll('input[data-k]').forEach(inp => {
-      inp.setAttribute('aria-label', ({name:'Nombre',codec:'Codec',crf:'CRF',bitrate:'Bitrate en Mb/s',note:'Nota',cmd:'Comando del encoder',metric:'Métrica opcional'})[inp.dataset.k]+' de la variante '+(i+1));
+      inp.setAttribute('aria-label', T`${({name:T('Nombre'),codec:'Codec',crf:'CRF',bitrate:T('Bitrate en Mb/s'),note:T('Nota'),cmd:T('Comando del encoder'),metric:T('Métrica opcional')})[inp.dataset.k]} de la variante ${i+1}`);
       inp.addEventListener('input', () => { v[inp.dataset.k] = inp.value; renderVarWarns(); });
     });
     card.querySelectorAll('button[data-a]').forEach(b => {
@@ -651,7 +653,7 @@ function removeVariant(vid){
 function renderVarWarns(){
   const w = $('varWarns');
   const lines = [];
-  if (state.variants.length < 2) lines.push(`<div class="err">Hacen falta al menos dos variantes para comparar.</div>`);
+  if (state.variants.length < 2) lines.push(`<div class="err">${T('Hacen falta al menos dos variantes para comparar.')}</div>`);
   w.innerHTML = lines.join('');
 }
 $('varAdd').addEventListener('click', () => { state.variants.push(defVariant()); renderVariants(); renderMatrix(); });
@@ -665,16 +667,16 @@ function renderFrames(){
     const row = document.createElement('div');
     row.className = 'frow';
     row.innerHTML = `
-      <input type="text" class="mono" data-k="key" placeholder="1" value="${esc(fr.key)}" title="número del frame · se usa en los nombres de archivo">
-      <input type="text" data-k="label" placeholder="etiqueta (opcional · p. ej. escena oscura, primer plano de grano)" value="${esc(fr.label)}">
-      <button class="iconbtn" data-a="up" title="subir">↑</button>
-      <button class="iconbtn" data-a="dn" title="bajar">↓</button>
-      <button class="iconbtn" data-a="rm" title="quitar">×</button>`;
+      <input type="text" class="mono" data-k="key" placeholder="1" value="${esc(fr.key)}" title="${T('número del frame · se usa en los nombres de archivo')}">
+      <input type="text" data-k="label" placeholder="${T('etiqueta (opcional · p. ej. escena oscura, primer plano de grano)')}" value="${esc(fr.label)}">
+      <button class="iconbtn" data-a="up" title="${T('subir')}">↑</button>
+      <button class="iconbtn" data-a="dn" title="${T('bajar')}">↓</button>
+      <button class="iconbtn" data-a="rm" title="${T('quitar')}">×</button>`;
     row.querySelectorAll('input[data-k]').forEach(inp => {
       inp.addEventListener(inp.dataset.k === 'key' ? 'change' : 'input', () => {
         const old = fr.key;
         if (inp.dataset.k === 'key' && (!ID_RE.test(inp.value) || state.frames.some(f => f !== fr && f.key === inp.value))){
-          inp.value = old; $('builderStatus').textContent = 'Usa un identificador único de frame, con letras, números o guiones.'; return;
+          inp.value = old; $('builderStatus').textContent = T('Usa un identificador único de frame, con letras, números o guiones.'); return;
         }
         fr[inp.dataset.k] = inp.value;
         if (inp.dataset.k === 'key' && old !== fr.key){
@@ -699,7 +701,7 @@ function renderFrames(){
     host.appendChild(row);
   });
   const w = $('frameWarns');
-  w.innerHTML = state.frames.length < 1 ? `<div class="err">Hace falta al menos un frame.</div>`
+  w.innerHTML = state.frames.length < 1 ? `<div class="err">${T('Hace falta al menos un frame.')}</div>`
     : '';
 }
 $('frameAdd').addEventListener('click', () => {
@@ -725,10 +727,10 @@ function noteBulk(r){
   if (!r) return;
   const el = $('bulkNote');
   const bits = [];
-  if (r.createdV.length) bits.push(`${r.createdV.length} variante${r.createdV.length>1?'s':''} nueva${r.createdV.length>1?'s':''} (${r.createdV.join(', ')})`);
-  if (r.createdF.length) bits.push(`${r.createdF.length} frame${r.createdF.length>1?'s':''} nuevo${r.createdF.length>1?'s':''}`);
-  if (r.misses) bits.push(`${r.misses} sin asignar`);
-  el.textContent = bits.length ? '✓ ' + bits.join(' · ') : '✓ todo asignado';
+  if (r.createdV.length) bits.push(r.createdV.length === 1 ? T`1 variante nueva (${r.createdV[0]})` : T`${r.createdV.length} variantes nuevas (${r.createdV.join(', ')})`);
+  if (r.createdF.length) bits.push(r.createdF.length === 1 ? T('1 frame nuevo') : T`${r.createdF.length} frames nuevos`);
+  if (r.misses) bits.push(T`${r.misses} sin asignar`);
+  el.textContent = bits.length ? '✓ ' + bits.join(' · ') : T('✓ todo asignado');
   el.style.color = r.misses ? 'var(--warn)' : 'var(--ok)';
   clearTimeout(bulkNoteT);
   bulkNoteT = setTimeout(() => { el.textContent = ''; }, 6000);
@@ -758,7 +760,7 @@ function bulkAdd(files){
       let v = ids.get(vt) || names.get(vt) || prefixes.get(vt);
       let fr = keys.get(ft) || labels.get(ft);
       if (!v && prefixes.has(vt)){
-        misses.push({file:f, why:'nombre ambiguo · usa el nombre completo o el identificador de la variante'});
+        misses.push({file:f, why:T('nombre ambiguo · usa el nombre completo o el identificador de la variante')});
         continue;
       }
       // lo que no existe, se crea: soltar todo y que la tabla se arme sola
@@ -775,8 +777,8 @@ function bulkAdd(files){
       if (v && fr){ state.cells.set(v.id+'|'+fr.key, f); probeDims(f); continue; }
     }
     const why = cut > 0
-      ? 'no se pudo interpretar el nombre · se espera <variante>_<frame>'
-      : 'nombre sin guion bajo · se espera <variante>_<frame>';
+      ? T('no se pudo interpretar el nombre · se espera <variante>_<frame>')
+      : T('nombre sin guion bajo · se espera <variante>_<frame>');
     misses.push({file:f, why});
   }
   // frames numericos en orden natural tras el volcado
@@ -790,9 +792,9 @@ function bulkAdd(files){
 function renderMatrix(){
   const host = $('matrix');
   matrixCells.clear();
-  if (!state.variants.length || !state.frames.length){ host.innerHTML = '<p class="hint">Primero define variantes y frames.</p>'; return; }
+  if (!state.variants.length || !state.frames.length){ host.innerHTML = '<p class="hint">' + T('Primero define variantes y frames.') + '</p>'; return; }
   let html = '<table class="mtx"><tr><th></th>';
-  for (const v of state.variants) html += `<th class="vcol" data-vcol="${esc(v.id)}" role="button" tabindex="0" title="Clic (o suelta aquí) para elegir todas las imágenes de esta variante: llenan sus frames en orden de nombre"><span style="color:${v.color}">\u25CF</span> ${esc(v.name || v.id)} <span class="vcolhint">elegir todas</span></th>`;
+  for (const v of state.variants) html += `<th class="vcol" data-vcol="${esc(v.id)}" role="button" tabindex="0" title="${T('Clic (o suelta aquí) para elegir todas las imágenes de esta variante: llenan sus frames en orden de nombre')}"><span style="color:${v.color}">●</span> ${esc(v.name || v.id)} <span class="vcolhint">${T('elegir todas')}</span></th>`;
   html += '</tr>';
   for (const fr of state.frames){
     html += `<tr><th class="mono">${esc(fr.key)}${fr.label ? '<br><span style="font-weight:400">'+esc(fr.label)+'</span>' : ''}</th>`;
@@ -811,7 +813,7 @@ function renderMatrix(){
 }
 const matrixCells = new Map();
 function matrixCellContent(f){
-  return f ? `<img src="${thumb(f)}" loading="lazy" decoding="async" alt=""><button class="rm" title="quitar">×</button>` : 'suelta / clic';
+  return f ? `<img src="${thumb(f)}" loading="lazy" decoding="async" alt=""><button class="rm" title="${T('quitar')}">×</button>` : T('suelta / clic');
 }
 function updateMatrixCell(key,file){
   if (file){ state.cells.set(key,file); probeDims(file); }
@@ -865,7 +867,7 @@ function renderUnassigned(){
   if (state.unassigned.length){
     const variantOptions = state.variants.map(v=>`<option value="${esc(v.id)}">${esc(v.name||v.id)}</option>`).join('');
     const frameOptions = state.frames.map(f=>`<option value="${esc(f.key)}">${esc(f.key)}${f.label?' · '+esc(f.label):''}</option>`).join('');
-    let h = '<div class="card"><b>Archivos sin asignar</b><ul style="list-style:none;margin-top:6px;">';
+    let h = '<div class="card"><b>' + T('Archivos sin asignar') + '</b><ul style="list-style:none;margin-top:6px;">';
     state.unassigned.forEach((u, i) => {
       h += `<li style="display:flex;gap:8px;align-items:center;margin:4px 0;flex-wrap:wrap;">
         <img src="${thumb(u.file)}" style="width:54px;height:32px;object-fit:contain;border-radius:4px;background:#000;">
@@ -873,12 +875,12 @@ function renderUnassigned(){
         <span class="hint">${esc(u.why)}</span>
         <span style="margin-left:auto;"></span>
         <select data-i="${i}" data-w="v" class="asSel">
-          <option value="">variante…</option>${variantOptions}
+          <option value="">${T('variante…')}</option>${variantOptions}
         </select>
         <select data-i="${i}" data-w="f" class="asSel">
           <option value="">frame…</option>${frameOptions}
         </select>
-        <button class="iconbtn" data-rm="${i}" title="descartar este archivo">×</button>
+        <button class="iconbtn" data-rm="${i}" title="${T('descartar este archivo')}">×</button>
       </li>`;
     });
     h += '</ul></div>';
@@ -939,7 +941,7 @@ async function computeS2Metrics(manifest){
 async function advancedCore(cancelled = () => false){
   const manifest = {
     ...state.manifestExtras,
-    title: state.title.trim() || 'Comparación',
+    title: state.title.trim() || T('Comparación'),
     version: state.version,
     frames: state.frames.map(f => f.key),
     frame_labels: Object.fromEntries(state.frames.filter(f => f.label.trim()).map(f => [f.key, f.label.trim()])),
@@ -964,7 +966,7 @@ async function advancedCore(cancelled = () => false){
   };
   const entries = [];
   for (const [k, f] of state.cells){
-    if (cancelled()) throw new Error('Preparación cancelada.');
+    if (cancelled()) throw new Error(T('Preparación cancelada.'));
     const [vid, fk] = k.split('|');
     entries.push([vid+'_'+fk, f]);
   }
@@ -978,19 +980,19 @@ function validateAdvanced(){
   const missing = [];
   for (const fr of state.frames) for (const v of state.variants)
     if (!state.cells.get(v.id+'|'+fr.key)) missing.push(`${v.name||v.id} \u00B7 frame ${fr.key}`);
-  if (missing.length) out.push(['bad', `${missing.length} casilla${missing.length>1?'s':''} vacía${missing.length>1?'s':''} · ahí la página mostrará un cuadro roto.`]);
-  else if (state.variants.length && state.frames.length) out.push(['good', `Las ${state.variants.length * state.frames.length} casillas llenas.`]);
-  if (state.variants.length < 2) out.push(['bad','Hacen falta al menos dos variantes.']);
-  if (!state.frames.length) out.push(['bad','Hace falta al menos un frame.']);
+  if (missing.length) out.push(['bad', missing.length === 1 ? T('1 casilla vacía · ahí la página mostrará un cuadro roto.') : T`${missing.length} casillas vacías · ahí la página mostrará un cuadro roto.`]);
+  else if (state.variants.length && state.frames.length) out.push(['good', T`Las ${state.variants.length * state.frames.length} casillas llenas.`]);
+  if (state.variants.length < 2) out.push(['bad',T('Hacen falta al menos dos variantes.')]);
+  if (!state.frames.length) out.push(['bad',T('Hace falta al menos un frame.')]);
   const keys = state.frames.map(f => f.key);
-  if (new Set(keys).size !== keys.length) out.push(['bad','Hay identificadores de frame repetidos. Usa uno distinto para cada momento.']);
-  if (keys.some(k => !ID_RE.test(k))) out.push(['bad','Los identificadores de frame admiten letras, números, guion y guion bajo (máximo 32).']);
+  if (new Set(keys).size !== keys.length) out.push(['bad',T('Hay identificadores de frame repetidos. Usa uno distinto para cada momento.')]);
+  if (keys.some(k => !ID_RE.test(k))) out.push(['bad',T('Los identificadores de frame admiten letras, números, guion y guion bajo (máximo 32).')]);
   const dims = new Set([...state.cells.values()].map(f => fileDims.get(f)).filter(Boolean));
-  if (dims.size > 1) out.push(['bad',`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`]);
+  if (dims.size > 1) out.push(['bad',T`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`]);
   let total = 0; for (const f of state.cells.values()) total += f.size;
-  out.push([total > 60*1048576 ? 'warnl' : 'good', `Tamaño del paquete ≈ ${(total*1.34/1048576).toFixed(1)} MB en base64.`]);
-  if (total > 60*1048576) out.push(['warnl','Pesado · considera menos frames o imágenes más chicas.']);
-  if (state.unassigned.length) out.push(['warnl',`${state.unassigned.length} archivo${state.unassigned.length>1?'s':''} sin asignar NO ${state.unassigned.length>1?'van':'va'} a entrar a la página.`]);
+  out.push([total > 60*1048576 ? 'warnl' : 'good', T`Tamaño del paquete ≈ ${(total*1.34/1048576).toFixed(1)} MB en base64.`]);
+  if (total > 60*1048576) out.push(['warnl',T('Pesado · considera menos frames o imágenes más chicas.')]);
+  if (state.unassigned.length) out.push(['warnl',state.unassigned.length === 1 ? T('1 archivo sin asignar NO va a entrar a la página.') : T`${state.unassigned.length} archivos sin asignar NO van a entrar a la página.`]);
   return out;
 }
 function renderFinish(){
@@ -1015,11 +1017,11 @@ async function packageCore({complete = false, cancelled = () => false} = {}){
   if (complete){
     let problems;
     if (mode === 'basic'){
-      problems = !state.pairs.length || state.pairs.some(p => p.some(f => !f)) ? [state.basicNames.length === 2 ? 'Agrega dos imágenes a cada par antes de compartir.' : 'Completa todas las versiones de cada cuadro antes de compartir.'] : [];
+      problems = !state.pairs.length || state.pairs.some(p => p.some(f => !f)) ? [state.basicNames.length === 2 ? T('Agrega dos imágenes a cada par antes de compartir.') : T('Completa todas las versiones de cada cuadro antes de compartir.')] : [];
       // igual que avanzado: dimensiones mezcladas rompen el diff y los recortes 1:1
       problems.push(...basicOverLimits());
       const dims = new Set(state.pairs.flat().filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
-      if (dims.size > 1) problems.push(`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`);
+      if (dims.size > 1) problems.push(T`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`);
     } else {
       problems = validateAdvanced().filter(([type]) => type === 'bad').map(([,text]) => text);
     }
@@ -1028,9 +1030,9 @@ async function packageCore({complete = false, cancelled = () => false} = {}){
     // reparte lo que pase de un pedido en varias partes: publish.js)
     const files = mode === 'basic' ? state.pairs.flat().filter(Boolean) : [...state.cells.values()];
     const big = files.find(f => f.size > 25*1048576);
-    if (big) throw new Error(`«${big.name}» pesa ${(big.size/1048576).toFixed(1)} MB: el límite por imagen es 25 MiB.`);
+    if (big) throw new Error(T`«${big.name}» pesa ${(big.size/1048576).toFixed(1)} MB: el límite por imagen es 25 MiB.`);
     let total = 0; for (const f of files) total += f.size;
-    if (total > 1024*1048576) throw new Error(`Las imágenes suman ${(total/1048576).toFixed(0)} MiB: el límite por página es 1 GiB. Reduce frames o variantes.`);
+    if (total > 1024*1048576) throw new Error(T`Las imágenes suman ${(total/1048576).toFixed(0)} MiB: el límite por página es 1 GiB. Reduce frames o variantes.`);
   }
   return mode === 'basic' ? basicCore(cancelled) : advancedCore(cancelled);   // video también alimenta el estado avanzado
 }
@@ -1041,7 +1043,7 @@ async function currentPackage(opts = {}){
   const core = await packageCore(opts);
   const images = {};
   for (const [k, f] of core.entries){
-    if (cancelled()) throw new Error('Preparación cancelada.');
+    if (cancelled()) throw new Error(T('Preparación cancelada.'));
     images[k] = await readAsDataURL(f);
   }
   return {format: core.format, manifest: core.manifest, images};
@@ -1063,7 +1065,7 @@ async function packageJSONBlob(core, {htmlSafe = false, cancelled = () => false}
   const parts = [head];
   let first = true;
   for (const [k, f] of core.entries){
-    if (cancelled()) throw new Error('Preparación cancelada.');
+    if (cancelled()) throw new Error(T('Preparación cancelada.'));
     const du = await readAsDataURL(f);
     // Blob por imagen: la cadena se suelta en cuanto entra, el Blob final es
     // una concatenación diferida (no copia) de todos ellos
@@ -1094,7 +1096,7 @@ function buildStandaloneHTML(pkg, opts){
     const blobSrc = (code) => { const u = URL.createObjectURL(new Blob([code], {type:'text/javascript'})); previewUrls.push(u); return u; };
     return SHELL_HTML
       .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobSrc(UPLOAD_SRC) + '"><\/script>')
-      .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobSrc('window.GATOS_PACKAGE = ' + json + ';') + '"><\/script>\n<script src="' + blobSrc(ENGINE_SRC) + '"><\/script>');
+      .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobSrc('window.GATOS_LANG = "' + I18N.lang + '";window.GATOS_PACKAGE = ' + json + ';') + '"><\/script>\n<script src="' + blobSrc(ENGINE_SRC) + '"><\/script>');
   }
   const injection = '<script>window.GATOS_PACKAGE = ' + json + ';<\/script>\n';
   const engineTag = '<script>\n' + ENGINE_SRC + '\n<\/script>';
@@ -1114,13 +1116,13 @@ async function buildPreviewSrcdoc(core){
   await VIEWER_ASSETS;
   return SHELL_HTML
     .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobURL(new Blob([UPLOAD_SRC], {type:'text/javascript'})) + '"><\/script>')
-    .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
+    .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_LANG = "' + I18N.lang + '";window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
 }
 async function openPreviewOverlay(){
-  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para abrir la vista previa.'; return; }
+  if (busy){ $('builderStatus').textContent = T('La captura de video está en curso; espera a que termine para abrir la vista previa.'); return; }
   const core = await packageCore({complete:true});
   $('pvFrame').classList.add('show');
-  $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>Generando vista previa…</body></html>';
+  $('pvBox').srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#000;color:#9a9aa8;font:14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head><body>' + T('Generando vista previa…') + '</body></html>';
   $('pvBox').srcdoc = await buildPreviewSrcdoc(core);
 }
 $('pvClose').addEventListener('click', () => { $('pvFrame').classList.remove('show'); $('pvBox').srcdoc = ''; for (const u of previewUrls) URL.revokeObjectURL(u); previewUrls.length = 0; });
@@ -1154,7 +1156,7 @@ async function standaloneParts(core){
   await VIEWER_ASSETS;
   const shell = SHELL_HTML;
   const i1 = shell.indexOf(UP_TAG), i2 = shell.indexOf(CMP_TAG);
-  if (i1 < 0 || i2 < 0 || i2 < i1) throw new Error('El shell del visor no tiene las etiquetas esperadas.');
+  if (i1 < 0 || i2 < 0 || i2 < i1) throw new Error(T('El shell del visor no tiene las etiquetas esperadas.'));
   return [
     new Blob([shell.slice(0, i1)]),
     '<script>\n' + UPLOAD_SRC + '\n<\/script>',
@@ -1178,7 +1180,7 @@ $('btnExpCmp').addEventListener('click', () => runAction(async () => {
 
 /* guardar / abrir proyecto (.cmp) */
 async function saveProject(){
-  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para guardar.'; return; }
+  if (busy){ $('builderStatus').textContent = T('La captura de video está en curso; espera a que termine para guardar.'); return; }
   const core = await packageCore();
   download(fileBase()+'.cmp', await packageJSONBlob(core));
 }
@@ -1226,25 +1228,25 @@ $('btnExpZip').addEventListener('click', () => runAction(async () => {
 
 /* ---------- importar .cmp (en ambos modos) ---------- */
 async function importCmp(file){
-  if (busy){ $('builderStatus').textContent = 'La captura de video está en curso; espera a que termine para importar.'; return; }
+  if (busy){ $('builderStatus').textContent = T('La captura de video está en curso; espera a que termine para importar.'); return; }
   // Importar sobre trabajo abierto (botón Abrir o drop) tiene que ser una
   // decisión explícita: la pregunta vive aquí, en el único punto de entrada,
   // y cancelar preserva el proyecto tal como estaba.
   if (state.pairs.length || state.cells.size || state.unassigned.length){
-    if (!confirm('Abrir este archivo reemplaza el proyecto que tienes abierto. ¿Continuar?')){
-      $('builderStatus').textContent = 'No se importó nada: tu proyecto sigue como estaba.';
+    if (!confirm(T('Abrir este archivo reemplaza el proyecto que tienes abierto. ¿Continuar?'))){
+      $('builderStatus').textContent = T('No se importó nada: tu proyecto sigue como estaba.');
       return;
     }
   }
   try {
     const pkg = JSON.parse(await readAsText(file));
-    if (pkg.format !== FORMAT) { alert('No es un paquete '+FORMAT+'.'); return; }
+    if (pkg.format !== FORMAT) { alert(T`No es un paquete ${FORMAT}.`); return; }
     if (!pkg.manifest || !Array.isArray(pkg.manifest.frames) || !Array.isArray(pkg.manifest.variants) || !pkg.images)
-      throw new Error('Faltan los datos del proyecto.');
+      throw new Error(T('Faltan los datos del proyecto.'));
     // Los ids llegan de un archivo externo y llegan a innerHTML: sin este
     // filtro, un .cmp hostil inyecta HTML en la matriz (XSS same-origin en /crear/).
     if (pkg.manifest.variants.some(v => !ID_RE.test(String(v.id))) || pkg.manifest.frames.some(f => !ID_RE.test(String(f))))
-      throw new Error('identificador de variante o frame no válido: se admite A-Z a-z 0-9 _ y -, máximo 32.');
+      throw new Error(T('identificador de variante o frame no válido: se admite A-Z a-z 0-9 _ y -, máximo 32.'));
     const b64toFile = async (key, du) => {
       const {mime, buf} = dataURLtoBytes(du);
       return new File([buf], key.replace(/[\\/:*?"<>|]/g,'_')+'.'+mime.split('/')[1], {type:mime});
@@ -1274,7 +1276,7 @@ async function importCmp(file){
         if (du) cells.set(v.id+'|'+fr.key, await b64toFile(v.id+'_'+fr.key, du));
       }
       // Commit only after every file decoded successfully. Always retain all variants.
-      state.title = pkg.manifest.title === 'Comparación' ? '' : (pkg.manifest.title || '');
+      state.title = ['Comparación', 'Comparison'].includes(pkg.manifest.title) ? '' : (pkg.manifest.title || '');   // i18n-ok: el título por defecto, en cualquier idioma
       state.version = pkg.manifest.version || 1;
       state.manifestExtras = {...pkg.manifest};
       state.variants = variants; state.frames = frames; state.cells = cells;
@@ -1287,7 +1289,7 @@ async function importCmp(file){
       $('pjTitle').value = state.title; $('pjTitleWarn').style.display = state.title.trim()?'none':'';
       $('pjVersion').value = state.version;
       renderVariants(); renderFrames(); renderMatrix();
-  } catch (e) { alert('No se pudo leer este paquete: ' + e.message); }
+  } catch (e) { alert(T`No se pudo leer este paquete: ${e.message}`); }
 }
 window.addEventListener('dragover', e => { if ([...e.dataTransfer.items].some(i => i.kind === 'file')) e.preventDefault(); });
 window.addEventListener('drop', e => {
