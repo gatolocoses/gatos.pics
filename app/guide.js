@@ -53,11 +53,16 @@ async function guideImages(label, hue, names){
   }
   return out;
 }
-async function guideFill(col, hue){ basicFillColumn(col, await guideImages(state.basicNames[col] || T('versión'), hue, ['shot0001.png', 'shot0002.png', 'shot0003.png'])); }
+// Armar las capturas tarda: si mientras tanto salieron de la guía, no se agregan
+// (entrarían al proyecto de quien ya está trabajando con sus propios archivos)
+async function guideFill(col, hue){
+  const def = guide.def, files = await guideImages(state.basicNames[col] || T('versión'), hue, ['shot0001.png', 'shot0002.png', 'shot0003.png']);
+  if (guide.def === def) basicFillColumn(col, files);
+}
 async function guideDump(){
-  const files = [];
+  const def = guide.def, files = [];
   for (const [v, hue] of [[T('fuente'), 0], ['encode', 130], ['web', 220]]) files.push(...await guideImages(v, hue, [1, 2, 3].map(n => `${v}_0${n}.png`)));
-  addBasicFiles(files);
+  if (guide.def === def) addBasicFiles(files);
 }
 const guideOnlySamples = () => state.pairs.length > 0 && state.pairs.every(row => row.every(f => !f || guideSamples.has(f)));
 const guideHasWork = () => state.pairs.some(row => row.some(f => f && !guideSamples.has(f))) || state.cells.size > 0;

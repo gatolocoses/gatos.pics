@@ -29,7 +29,7 @@ APP = ROOT / "app"
 DIST = ROOT / "dist"
 
 # La copia del visor viaja comprimida para que el creador de un solo archivo
-# quepa en el presupuesto de GOALS (< 200 KiB). base64 no lleva comillas ni
+# quepa en el presupuesto de GOALS (< 200 KiB, medido con gzip). base64 no lleva comillas ni
 # "</", así que va tal cual dentro de la cadena y del <script>.
 ASSETS_JS = """\
 /* Generado por tools/build_app.py — no editar a mano.

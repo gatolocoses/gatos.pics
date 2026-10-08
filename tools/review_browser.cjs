@@ -568,6 +568,12 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       const n = await en.evaluate(()=>GUIDE.state.def.steps.length);
       for (let i=0;i<n;i++) await en.locator('#guideNext').click();
     }
+    // salir de una guía mientras arma sus ejemplos: lo que el usuario suelte después no se mezcla con ellos
+    await en.evaluate(async()=>{ GUIDE.start('todas-juntas'); document.getElementById('guideNext').click(); document.getElementById('guideNext').click(); GUIDE.end(); });
+    await en.locator('#basicFile').setInputFiles(['mine_1.png','other_1.png'].map(name=>({name,mimeType:'image/png',buffer:Buffer.from(fixture.images.source_intro.split(',')[1],'base64')})));
+    await en.waitForTimeout(600);
+    ok('leaving a guide while its samples are still being drawn never adds them to the project', await en.evaluate(()=>state.pairs.map(r=>r.map(f=>f&&f.name))), [['mine_1.png','other_1.png']]);
+    await en.evaluate(()=>{ resetBasic(); renderPairs(); });
     ok('en: both guides run in English (step text, sample rows)', await en.evaluate(()=>({first:GUIDE.GUIDES[0].steps[0].text,fill:document.querySelector('.vfill').textContent})), {first:'Start in Basic: there is nothing to set up.',fill:'Choose its images'});
     const pngE = Buffer.from(fixture.images.source_intro.split(',')[1],'base64');
     await en.locator('#basicFile').setInputFiles(['source_1.png','encode_1.png','source_2.png','encode_2.png'].map(name=>({name,mimeType:'image/png',buffer:pngE})));
