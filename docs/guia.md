@@ -37,11 +37,19 @@ Para cuando solo quieres comparar imágenes y nada más.
    (fuente, src, máster) queda a la izquierda. Los nombres de las versiones
    se pueden corregir arriba de las filas, y con **+ versión** agregas otra a
    mano.
-3. Si los nombres no dan pista, se ordenan por nombre y cada **dos imágenes**
-   forman un par: la primera a la izquierda, la segunda a la derecha.
-4. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltala: completa
+3. Si los nombres no dan pista (por ejemplo cada versión trae `shot0001.png`,
+   `shot0002.png`…), llena **cada versión por separado**: pulsa «Elegir sus
+   imágenes» bajo su nombre, o suelta sus archivos sobre el nombre, y quedan
+   en fila en orden de nombre, una por cuadro. Repite con la siguiente
+   versión. Si eliges varias imágenes desde una casilla, siguen hacia abajo
+   desde ahí. En Avanzado es igual: clic en el nombre de la variante en la
+   tabla, o suelta ahí sus imágenes.
+4. Soltando todo junto sin pista en los nombres, se ordenan por nombre y cada
+   **dos imágenes** forman un par: la primera a la izquierda, la segunda a la
+   derecha.
+5. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltala: completa
    el hueco de la última fila automáticamente.
-5. **Vista previa** arriba a la derecha, y exporta con los botones que aparecen
+6. **Vista previa** arriba a la derecha, y exporta con los botones que aparecen
    cuando los pares están completos.
 
 Si dejas un par a medias, la página te avisa antes de exportar. Si mezclas

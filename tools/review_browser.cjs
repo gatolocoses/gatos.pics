@@ -95,8 +95,35 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   ok('a later file joins its frame', await page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f?.name||null))), [['fuente_1.png','enc_1.png','web_1.png'],['fuente_2.png','enc_2.png','web_2.png']]);
   ok('basic package carries every version', await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(p=>({v:p.manifest.variants.map(v=>v.id+':'+v.name),labels:p.manifest.frame_labels,images:Object.keys(p.images).sort()}))),
     {v:['a:fuente','b:enc','c:web'],labels:{1:'1',2:'2'},images:['a_1','a_2','b_1','b_2','c_1','c_2']});
-  ok('version names and add/remove controls', await page.evaluate(()=>({inputs:[...document.querySelectorAll('.vname input')].map(i=>i.value),remove:document.querySelectorAll('.vname button').length,add:!!document.getElementById('basicAddVersion')})), {inputs:['fuente','enc','web'],remove:3,add:true});
+  ok('version names and add/remove controls', await page.evaluate(()=>({inputs:[...document.querySelectorAll('.vname input')].map(i=>i.value),remove:document.querySelectorAll('.vname .vline button').length,add:!!document.getElementById('basicAddVersion')})), {inputs:['fuente','enc','web'],remove:3,add:true});
   ok('basic warns before the 12-version limit', [await dump(Array.from({length:13},(_,i)=>`v${String.fromCharCode(97+i)}_1.png`)).then(r=>r.names.length), await page.locator('#basicFoot .warn').allTextContents().then(w=>w.some(t=>t.includes('hasta 12 versiones'))), await page.locator('#bExpCmp').count(), await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(()=>'ok',e=>e.message.includes('hasta 12 versiones')))], [13,true,0,true]);
+  // ops#171: llenar una versión entera de una vez, sin depender de los nombres
+  await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];BUILDER.renderPairs();});
+  const pickInto = async (locator, names) => { const [chooser] = await Promise.all([page.waitForEvent('filechooser'), locator.click()]); await chooser.setFiles(names.map(name=>({name,mimeType:'image/png',buffer:png}))); };
+  ok('an empty Basic project offers to fill each version', [await page.locator('.vname .vfill').count(), await page.locator('#pairList .slot').count()], [2, 0]);
+  await pickInto(page.locator('.vname .vfill').nth(0), ['shot0010.png','shot0002.png','shot0001.png']);
+  await pickInto(page.locator('.vname .vfill').nth(1), ['shot0001.png','shot0002.png','shot0010.png']);
+  const cols = () => page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f?f.name:null)));
+  ok('each version fills its own column in name order, same names allowed', [await cols(), await page.evaluate(()=>BUILDER.state.pairs.every(p=>p[0]!==p[1]))], [[['shot0001.png','shot0001.png'],['shot0002.png','shot0002.png'],['shot0010.png','shot0010.png']], true]);
+  await page.locator('#basicAddVersion').click();
+  await pickInto(page.locator('.vname .vfill').nth(2), ['c1.png','c2.png']);
+  ok('a shorter version leaves a visible gap', [await cols().then(r=>r.map(p=>p[2])), await page.locator('#basicFoot .warn').first().textContent().then(t=>t.includes('huecos'))], [['c1.png','c2.png',null], true]);
+  await pickInto(page.locator('#pairList .slot[data-col="2"][data-row="1"]'), ['d2.png','d3.png']);
+  ok('several files picked on a slot continue downward', await cols().then(r=>r.map(p=>p[2])), ['c1.png','d2.png','d3.png']);
+  const dropOn = (sel, names) => page.evaluate(async ([sel,names,b64]) => { const dt = new DataTransfer(); const bin = Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); for (const n of names) dt.items.add(new File([bin], n, {type:'image/png'})); document.querySelector(sel).dispatchEvent(new DragEvent('drop', {bubbles:true, cancelable:true, dataTransfer:dt})); }, [sel, names, png.toString('base64')]);
+  await dropOn('.vname[data-col="1"]', ['z2.png','z1.png','z3.png','z4.png']);
+  ok('dropping files on a version name fills it from the top and adds rows', await cols().then(r=>r.map(p=>p[1])), ['z1.png','z2.png','z3.png','z4.png']);
+  { // lo mismo en Avanzado: clic en el nombre de la variante llena sus frames y crea los que falten
+    const adv = await browser.newPage({viewport:{width:1440,height:1000}});
+    await adv.goto('file://'+ROOT+'/dist/gatos.html'); await adv.locator('#obStart').click(); await adv.locator('#tabAdv').click();
+    await adv.evaluate(()=>{BUILDER.renderSteps();document.querySelectorAll('#stepNav button')[3].click();});
+    const pickAdv = async (locator, names) => { const [chooser] = await Promise.all([adv.waitForEvent('filechooser'), locator.click()]); await chooser.setFiles(names.map(name=>({name,mimeType:'image/png',buffer:png}))); };
+    await pickAdv(adv.locator('#matrix th.vcol').nth(0), ['s3.png','s1.png','s2.png']);
+    await pickAdv(adv.locator('#matrix th.vcol').nth(1), ['e1.png','e2.png','e3.png']);
+    ok('advanced: a variant header fills its frames in order and adds frames', await adv.evaluate(()=>({frames:BUILDER.state.frames.map(f=>f.key),cells:BUILDER.state.frames.map(f=>BUILDER.state.variants.map(v=>BUILDER.state.cells.get(v.id+'|'+f.key)?.name||null))})),
+      {frames:['1','2','3'],cells:[['s1.png','e1.png'],['s2.png','e2.png'],['s3.png','e3.png']]});
+    await adv.close();
+  }
   ok('names without a clue still pair by order', await dump(['crf18.png','crf20.png','crf22.png']).then(r=>r.rows), [['crf18.png','crf20.png'],['crf22.png',null]]);
   await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];});
   await page.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png},{name:'a.png',mimeType:'image/png',buffer:png},{name:'c.png',mimeType:'image/png',buffer:png}]);

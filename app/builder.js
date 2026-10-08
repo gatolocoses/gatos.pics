@@ -373,6 +373,22 @@ function addBasicFiles(files){
   countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
 }
 
+/* Llenar UNA versión con varios archivos (ops#171): van a su columna en orden de
+   nombre, uno por fila desde `fromRow`, creando las filas que falten. No mira
+   el nombre para agrupar: sirve cuando cada versión trae los mismos nombres
+   (shot0001.png… en cada carpeta) o ninguno útil. */
+function basicFillColumn(c, files, fromRow = 0){
+  const imgs = imagesInOrder(files);
+  if (!imgs.length) return;
+  $('builderStatus').textContent = '';
+  pairWarns = [];
+  imgs.forEach((f, i) => {
+    while (state.pairs.length <= fromRow + i) state.pairs.push(basicBlank());
+    state.pairs[fromRow + i][c] = f; probeDims(f);
+  });
+  renderPairs();
+  countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
+}
 // topes del servicio por página: avisar aquí, no con un error al publicar
 function basicOverLimits(){
   const out = [], n = state.basicNames.length, k = state.pairs.length;
@@ -385,23 +401,32 @@ function renderPairs(){
   host.innerHTML = '';
   const names = state.basicNames, n = names.length, two = n === 2;
   const unit = two ? 'par' : 'cuadro';
-  if (state.pairs.length){
-    // nombres de las versiones: se pueden corregir, y con más de dos, quitar
+  {
+    // nombres de las versiones: se pueden corregir, y con más de dos, quitar.
+    // Cada una se puede llenar entera: botón, o soltando archivos sobre ella
     const head = document.createElement('div');
     head.className = 'pair pairhead';
     head.innerHTML = '<span class="no">versiones</span>';
     names.forEach((name, c) => {
       const box = document.createElement('div');
-      box.className = 'vname';
+      box.className = 'vname'; box.dataset.col = c;
+      const line = document.createElement('div'); line.className = 'vline';
       const inp = document.createElement('input');
       inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
       inp.onchange = () => { names[c] = inp.value.trim() || String.fromCharCode(65 + c % 26); renderPairs(); };
-      box.appendChild(inp);
+      line.appendChild(inp);
+      box.appendChild(line);
+      const fill = document.createElement('button');
+      fill.className = 'vfill'; fill.textContent = 'Elegir sus imágenes';
+      fill.title = 'Elige (o suelta aquí) todas las imágenes de esta versión: llenan su columna en orden de nombre';
+      fill.setAttribute('aria-label', `Elegir todas las imágenes de la versión ${name}`);
+      fill.onclick = () => pickMany(files => basicFillColumn(c, files));
+      box.appendChild(fill);
       if (n > 2){
         const x = document.createElement('button'); x.textContent = '×'; x.title = 'Quitar esta versión';
         x.setAttribute('aria-label', `Quitar la versión ${name}`);
         x.onclick = () => { if (confirm(`¿Quitar la versión «${name}» y sus imágenes?`)){ basicDropColumn(c); renderPairs(); } };
-        box.appendChild(x);
+        line.appendChild(x);
       }
       head.appendChild(box);
     });
@@ -420,11 +445,13 @@ function renderPairs(){
       const s = document.createElement('div');
       s.className = 'slot ' + (f ? 'filled' : 'empty');
       s.setAttribute('role', 'button'); s.tabIndex = 0;
+      s.dataset.col = side; s.dataset.row = i;
       s.setAttribute('aria-label', `${where}, ${unit} ${i+1}: ${f ? f.name : 'elegir imagen'}`);
       if (f) s.innerHTML = `<img src="${thumb(f)}" alt="${esc(f.name)}">`; else s.textContent = `${where}: elegir imagen`;
       s.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); s.click(); } });
-      s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : 'clic para elegir una imagen';
-      s.addEventListener('click', () => pickOne(file => { state.pairs[i][side] = file; probeDims(file); renderPairs(); }));
+      s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : 'clic para elegir una imagen, o varias para llenar esta versión hacia abajo';
+      // una imagen llena esta casilla; varias siguen hacia abajo en la misma versión
+      s.addEventListener('click', () => pickMany(files => basicFillColumn(side, files, i)));
       return s;
     };
     row.innerHTML = `<span class="no">${unit} ${i+1}</span>`;
@@ -470,10 +497,24 @@ function renderPairs(){
   wire('bExpZip', () => $('btnExpZip').click());
   wire('bExpCmp', () => $('btnExpCmp').click());
 }
+// soltar archivos sobre una versión (su nombre) o sobre una casilla llena esa columna
+for (const event of ['dragover','dragleave','drop']) $('pairList').addEventListener(event, e => {
+  const t = e.target.closest('.slot[data-col], .vname[data-col]'); if (!t) return;
+  e.preventDefault(); t.classList.toggle('over', event === 'dragover');
+  if (event === 'drop'){ e.stopPropagation(); basicFillColumn(+t.dataset.col, [...e.dataTransfer.files], t.dataset.row === undefined ? 0 : +t.dataset.row); }
+});
 function pickOne(cb){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = () => { if (inp.files[0]) cb(inp.files[0]); };
+  inp.click();
+}
+// varias imágenes de una vez, en orden de nombre (1, 2, 10: orden natural)
+const imagesInOrder = files => [...files].filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
+function pickMany(cb){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+  inp.onchange = () => { const files = imagesInOrder(inp.files); if (files.length) cb(files); };
   inp.click();
 }
 
@@ -751,7 +792,7 @@ function renderMatrix(){
   matrixCells.clear();
   if (!state.variants.length || !state.frames.length){ host.innerHTML = '<p class="hint">Primero define variantes y frames.</p>'; return; }
   let html = '<table class="mtx"><tr><th></th>';
-  for (const v of state.variants) html += `<th><span style="color:${v.color}">\u25CF</span> ${esc(v.name || v.id)}</th>`;
+  for (const v of state.variants) html += `<th class="vcol" data-vcol="${esc(v.id)}" role="button" tabindex="0" title="Clic (o suelta aquí) para elegir todas las imágenes de esta variante: llenan sus frames en orden de nombre"><span style="color:${v.color}">\u25CF</span> ${esc(v.name || v.id)} <span class="vcolhint">elegir todas</span></th>`;
   html += '</tr>';
   for (const fr of state.frames){
     html += `<tr><th class="mono">${esc(fr.key)}${fr.label ? '<br><span style="font-weight:400">'+esc(fr.label)+'</span>' : ''}</th>`;
@@ -778,18 +819,44 @@ function updateMatrixCell(key,file){
   const cell = matrixCells.get(key);
   if (cell){ cell.className = 'cell '+(file?'filled':'empty'); cell.innerHTML = matrixCellContent(file); }
 }
+/* Llenar una variante con varios archivos (ops#171): en orden de nombre, un
+   frame cada uno desde `fromKey` (o el primero); los frames que falten se crean. */
+const cellParts = key => { const cut = key.indexOf('|'); return [key.slice(0, cut), key.slice(cut + 1)]; };
+function matrixFillColumn(vid, files, fromKey){
+  const imgs = imagesInOrder(files);
+  if (!imgs.length) return;
+  let at = fromKey === undefined ? 0 : Math.max(0, state.frames.findIndex(f => f.key === fromKey));
+  let grew = false;
+  for (const f of imgs){
+    if (at >= state.frames.length){
+      let n = nextFrame;
+      while (state.frames.some(fr => fr.key === String(n))) n++;
+      nextFrame = n + 1;
+      state.frames.push({key:String(n), label:''}); grew = true;
+    }
+    state.cells.set(vid+'|'+state.frames[at++].key, f); probeDims(f);
+  }
+  if (grew) renderFrames();
+  renderMatrix();
+  countLossy(imgs).then(n => { if (n) $('bulkWarn').innerHTML = lossyWarnHTML(n); });
+}
 $('matrix').addEventListener('click', e => {
+  const col = e.target.closest('[data-vcol]');
+  if (col){ pickMany(files => matrixFillColumn(col.dataset.vcol, files)); return; }
   const cell = e.target.closest('[data-cell]'); if (!cell) return;
   if (e.target.closest('.rm')) updateMatrixCell(cell.dataset.cell,null);
-  else pickOne(file => updateMatrixCell(cell.dataset.cell,file));
+  else pickMany(files => files.length === 1 ? updateMatrixCell(cell.dataset.cell,files[0]) : matrixFillColumn(...cellParts(cell.dataset.cell), files));
 });
+$('matrix').addEventListener('keydown', e => { const col = e.target.closest('[data-vcol]'); if (col && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); col.click(); } });
 for (const event of ['dragover','dragleave','drop']) $('matrix').addEventListener(event, e => {
-  const cell = e.target.closest('[data-cell]'); if (!cell) return;
+  const cell = e.target.closest('[data-cell], [data-vcol]'); if (!cell) return;
   e.preventDefault(); cell.classList.toggle('over',event==='dragover');
   if (event==='drop'){
     e.stopPropagation();
-    const file = [...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));
-    if (file) updateMatrixCell(cell.dataset.cell,file);
+    const files = imagesInOrder(e.dataTransfer.files);
+    if (cell.dataset.vcol) matrixFillColumn(cell.dataset.vcol, files);
+    else if (files.length === 1) updateMatrixCell(cell.dataset.cell,files[0]);
+    else matrixFillColumn(...cellParts(cell.dataset.cell), files);
   }
 });
 function renderUnassigned(){
@@ -1252,4 +1319,4 @@ window.addEventListener('beforeunload', e => {
 window.addEventListener('pagehide', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });
 
 /* gancho de prueba/consola: permite manejar la página sin mouse (útil también para usuarios avanzados) */
-window.BUILDER = {state, currentPackage, buildStandaloneHTML, addBasicFiles, bulkAdd, importCmp, validateAdvanced, makeDemoPackage, setMode, renderSteps};
+window.BUILDER = {state, currentPackage, buildStandaloneHTML, addBasicFiles, renderPairs, bulkAdd, importCmp, validateAdvanced, makeDemoPackage, setMode, renderSteps};
