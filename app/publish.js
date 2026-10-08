@@ -50,6 +50,54 @@ async function partRequest(core, parts, i, first, meta, cancelled){
     label: many ? `Parte ${i+1} de ${parts.length}` + (i ? ` (la página ya existe, incompleta: ${meta.page.url})` : '') : '',
     meta:{...meta, core, parts, i}};
 }
+/* Imagen compartida al publicar (ops#162). La página nace sin /s/<token>.png y
+   casi nadie la crea después con "Compartir": el creador la dibuja aquí mismo.
+   Monta el visor real en un iframe oculto con solo el primer cuadro y las dos
+   primeras versiones, le pide la misma imagen que "Compartir" y la sube con la
+   llave de la página. Si algo falla, los códigos siguen con la primera imagen. */
+const SHOT_URL = token => (serviceHere ? '' : 'https://gatos.pics') + '/api/shot/' + token;
+async function renderShareImage(core){
+  const m = JSON.parse(JSON.stringify(core.manifest)), f = m.frames[0];
+  m.frames = [f]; m.variants = m.variants.slice(0, 2);
+  if (m.frame_labels) m.frame_labels = f in m.frame_labels ? {[f]: m.frame_labels[f]} : {};
+  for (const v of m.variants){ const pf = v.metrics && v.metrics.per_frame; if (pf) for (const k of Object.keys(pf)) if (String(k) !== String(f)) delete pf[k]; }
+  const keep = new Set(m.variants.map(v => v.id+'_'+f));
+  const mini = {...core, manifest:m, entries:core.entries.filter(([k]) => keep.has(k))};
+  const urls = [], blobURL = blob => { const u = URL.createObjectURL(blob); urls.push(u); return u; };
+  const pkg = await packageJSONBlob(mini, {htmlSafe:true});
+  await VIEWER_ASSETS;
+  const box = document.createElement('iframe');
+  box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
+  box.style.cssText = 'position:fixed; left:-10000px; top:0; width:1280px; height:720px; border:0; visibility:hidden;';
+  document.body.appendChild(box);
+  try {
+    await new Promise((resolve, reject) => {
+      box.onload = resolve; setTimeout(() => reject(new Error('el visor no cargó')), 30000);
+      box.srcdoc = SHELL_HTML
+        .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobURL(new Blob([UPLOAD_SRC], {type:'text/javascript'})) + '"><\/script>')
+        .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
+    });
+    const until = Date.now() + 60000;
+    for (;;){
+      try {
+        const c = box.contentWindow.renderViewCanvas();
+        if (c.width < 320) throw new Error('Espera a que el visor se acomode.');
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        if (!blob || blob.size > 16*1048576) throw new Error('imagen fuera de tamaño');
+        return blob;
+      } catch(e){
+        if (!/^Espera/.test(e.message) || Date.now() > until) throw e;
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+  } finally { box.remove(); for (const u of urls) URL.revokeObjectURL(u); }
+}
+async function shareAfterPublish(core, j){
+  const blob = await renderShareImage(core);
+  const r = await fetch(SHOT_URL(j.token), {method:'POST', headers:{'content-type':'image/png', 'x-delete-key':j.delete_key}, body:blob});
+  if (r.status !== 201) throw new Error('HTTP ' + r.status);
+  return (await r.json()).url;
+}
 const publisher = new GatosUpload({
   panel:$('publishUpload'), progress:$('publishProgress'), status:$('publishStatus'),
   cancel:$('publishCancel'), retry:$('publishRetry'),
@@ -75,12 +123,24 @@ const publisher = new GatosUpload({
     try { sessionStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
     $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
     // formatos para compartir: vista previa clicable con la primera variante/frame
-    const img = j.url + meta.image;
     const title = meta.title;
-    $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
-    $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
-    $('pubHTML').value = '<a href="' + esc(j.url) + '"><img src="' + esc(img) + '" alt="' + esc(title) + '" loading="lazy"></a>';
+    const codes = img => {
+      $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
+      $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
+      $('pubHTML').value = '<a href="' + esc(j.url) + '"><img src="' + esc(img) + '" alt="' + esc(title) + '" loading="lazy"></a>';
+    };
+    codes(j.url + meta.image);
     $('pubFrame').style.display = 'flex';
+    // la imagen de "Compartir" se crea sola; mientras tanto (o si falla) los códigos usan la primera imagen
+    const note = $('pubShare'), mine = j.url;
+    note.textContent = 'Creando la imagen para compartir…';
+    shareAfterPublish(meta.core, j).then(url => {
+      if ($('pubUrl').value !== mine) return;   // ya se publicó otra página
+      codes(url);
+      note.textContent = 'Imagen para compartir lista: los códigos de abajo ya la usan.';
+    }, () => {
+      if ($('pubUrl').value === mine) note.textContent = 'No se pudo crear la imagen para compartir: los códigos usan la primera imagen. Puedes crearla desde la página, con «Compartir».';
+    });
   }
 });
 function askApiKeyAndRetry(){

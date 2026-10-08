@@ -153,6 +153,15 @@ La página que se lleva quien abre tu export.
 - Fuera del modo ciego, el estado (frame, variantes, zoom, divisor, modo) vive
   en la URL: cópiala para compartir la vista.
 
+### La imagen para compartir se crea sola
+
+Al publicar, el creador dibuja la imagen de «Compartir» (vista partida del
+primer cuadro con las dos primeras versiones, etiquetas e insignia) y la sube
+con la llave de la página. Los códigos para foros del recibo pasan a usarla en
+cuanto está lista; si no se pudo crear, siguen con la primera imagen y puedes
+hacerla desde la página con «Compartir». Para cambiarla por otra vista, usa
+«Compartir» en la página con tu llave.
+
 ### Progreso al publicar o actualizar una imagen
 
 **Publicar** y **Subir y obtener BBCode** muestran los MiB enviados y el

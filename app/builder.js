@@ -373,6 +373,13 @@ function addBasicFiles(files){
   countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
 }
 
+// topes del servicio por página: avisar aquí, no con un error al publicar
+function basicOverLimits(){
+  const out = [], n = state.basicNames.length, k = state.pairs.length;
+  if (n > 12) out.push(`Una página admite hasta 12 versiones y aquí hay ${n}: quita ${n-12} con la × junto a su nombre.`);
+  if (k > 200) out.push(`Una página admite hasta 200 cuadros y aquí hay ${k}: quita ${k-200}.`);
+  return out;
+}
 function renderPairs(){
   const host = $('pairList');
   host.innerHTML = '';
@@ -446,7 +453,9 @@ function renderPairs(){
   if (half) h += `<div class="warn">Completa ${two ? 'el par vacío' : 'los huecos'} antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
   if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
   for (const w of pairWarns) h += `<div class="warn">${esc(w)}</div>`;
-  if (state.pairs.length && !half){
+  const over = basicOverLimits();
+  for (const w of over) h += `<div class="warn">${esc(w)}</div>`;
+  if (state.pairs.length && !half && !over.length){
     const k = state.pairs.length;
     h += `<div class="okline">${k} ${unit}${k>1?(two?'es':'s'):''} listo${k>1?'s':''}${two ? '' : ` · ${n} versiones en cada uno`} · y exporta cuando quieras:</div>`;
     h += `<div class="exports" style="margin-top:8px;">
@@ -941,6 +950,7 @@ async function packageCore({complete = false, cancelled = () => false} = {}){
     if (mode === 'basic'){
       problems = !state.pairs.length || state.pairs.some(p => p.some(f => !f)) ? [state.basicNames.length === 2 ? 'Agrega dos imágenes a cada par antes de compartir.' : 'Completa todas las versiones de cada cuadro antes de compartir.'] : [];
       // igual que avanzado: dimensiones mezcladas rompen el diff y los recortes 1:1
+      problems.push(...basicOverLimits());
       const dims = new Set(state.pairs.flat().filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
       if (dims.size > 1) problems.push(`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`);
     } else {

@@ -96,6 +96,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   ok('basic package carries every version', await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(p=>({v:p.manifest.variants.map(v=>v.id+':'+v.name),labels:p.manifest.frame_labels,images:Object.keys(p.images).sort()}))),
     {v:['a:fuente','b:enc','c:web'],labels:{1:'1',2:'2'},images:['a_1','a_2','b_1','b_2','c_1','c_2']});
   ok('version names and add/remove controls', await page.evaluate(()=>({inputs:[...document.querySelectorAll('.vname input')].map(i=>i.value),remove:document.querySelectorAll('.vname button').length,add:!!document.getElementById('basicAddVersion')})), {inputs:['fuente','enc','web'],remove:3,add:true});
+  ok('basic warns before the 12-version limit', [await dump(Array.from({length:13},(_,i)=>`v${String.fromCharCode(97+i)}_1.png`)).then(r=>r.names.length), await page.locator('#basicFoot .warn').allTextContents().then(w=>w.some(t=>t.includes('hasta 12 versiones'))), await page.locator('#bExpCmp').count(), await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(()=>'ok',e=>e.message.includes('hasta 12 versiones')))], [13,true,0,true]);
   ok('names without a clue still pair by order', await dump(['crf18.png','crf20.png','crf22.png']).then(r=>r.rows), [['crf18.png','crf20.png'],['crf22.png',null]]);
   await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];});
   await page.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png},{name:'a.png',mimeType:'image/png',buffer:png},{name:'c.png',mimeType:'image/png',buffer:png}]);
@@ -196,6 +197,12 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await creator.locator('#btnPublish2, #btnPublish').first().click();
     await creator.waitForFunction(() => { const u=document.getElementById('pubUrl'); return u && u.value && document.getElementById('pubFrame').style.display === 'flex'; }, null, {timeout:25000});
     ok('hosted creator publishes keyless (UI tier)', /\/p\/[A-Za-z0-9_-]{10,}/.test(await creator.locator('#pubUrl').inputValue()));
+    // ops#162: la imagen de "Compartir" se crea sola al publicar
+    await creator.waitForFunction(() => /lista|No se pudo/.test(document.getElementById('pubShare').textContent), null, {timeout:30000});
+    const pubTok = (await creator.locator('#pubUrl').inputValue()).match(/\/p\/([A-Za-z0-9_-]+)/)[1];
+    const shotResp = await fetch(`${BASE}/s/${pubTok}.png`), shotPng = Buffer.from(await shotResp.arrayBuffer());
+    ok('publishing creates the share image and the codes use it', [await creator.locator('#pubShare').textContent().then(t=>t.includes('lista')), shotResp.status, shotPng.readUInt32BE(16) >= 320, await creator.locator('#pubBB').inputValue()], [true, 200, true, `[url=${BASE}/p/${pubTok}/][img]${BASE}/s/${pubTok}.png[/img][/url]`]);
+    ok('the hidden viewer is removed after the share image', await creator.locator('iframe[aria-hidden="true"]').count(), 0);
     await creator.close();
     // gatos-ops#157: envío por partes. Con el corte casi en cero cada frame
     // viaja en su propio pedido (POST + PATCH + PATCH) y la página final debe

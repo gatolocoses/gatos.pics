@@ -485,6 +485,7 @@
     </div>
     <label class="f">Llave de borrado</label>
     <input type="text" id="pubKey" readonly class="mono">
+    <p class="hint" id="pubShare" role="status" style="margin-top:10px;"></p>
     <label class="f">Para foros (BBCode, con vista previa clicable)</label>
     <textarea id="pubBB" rows="2" readonly class="mono" style="width:100%; background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:6px 9px; font-size:11px; resize:none;"></textarea>
     <label class="f">Markdown</label>
@@ -1403,6 +1404,13 @@ function addBasicFiles(files){
   countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
 }
 
+// topes del servicio por página: avisar aquí, no con un error al publicar
+function basicOverLimits(){
+  const out = [], n = state.basicNames.length, k = state.pairs.length;
+  if (n > 12) out.push(`Una página admite hasta 12 versiones y aquí hay ${n}: quita ${n-12} con la × junto a su nombre.`);
+  if (k > 200) out.push(`Una página admite hasta 200 cuadros y aquí hay ${k}: quita ${k-200}.`);
+  return out;
+}
 function renderPairs(){
   const host = $('pairList');
   host.innerHTML = '';
@@ -1476,7 +1484,9 @@ function renderPairs(){
   if (half) h += `<div class="warn">Completa ${two ? 'el par vacío' : 'los huecos'} antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
   if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
   for (const w of pairWarns) h += `<div class="warn">${esc(w)}</div>`;
-  if (state.pairs.length && !half){
+  const over = basicOverLimits();
+  for (const w of over) h += `<div class="warn">${esc(w)}</div>`;
+  if (state.pairs.length && !half && !over.length){
     const k = state.pairs.length;
     h += `<div class="okline">${k} ${unit}${k>1?(two?'es':'s'):''} listo${k>1?'s':''}${two ? '' : ` · ${n} versiones en cada uno`} · y exporta cuando quieras:</div>`;
     h += `<div class="exports" style="margin-top:8px;">
@@ -1971,6 +1981,7 @@ async function packageCore({complete = false, cancelled = () => false} = {}){
     if (mode === 'basic'){
       problems = !state.pairs.length || state.pairs.some(p => p.some(f => !f)) ? [state.basicNames.length === 2 ? 'Agrega dos imágenes a cada par antes de compartir.' : 'Completa todas las versiones de cada cuadro antes de compartir.'] : [];
       // igual que avanzado: dimensiones mezcladas rompen el diff y los recortes 1:1
+      problems.push(...basicOverLimits());
       const dims = new Set(state.pairs.flat().filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
       if (dims.size > 1) problems.push(`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`);
     } else {
@@ -2579,6 +2590,54 @@ async function partRequest(core, parts, i, first, meta, cancelled){
     label: many ? `Parte ${i+1} de ${parts.length}` + (i ? ` (la página ya existe, incompleta: ${meta.page.url})` : '') : '',
     meta:{...meta, core, parts, i}};
 }
+/* Imagen compartida al publicar (ops#162). La página nace sin /s/<token>.png y
+   casi nadie la crea después con "Compartir": el creador la dibuja aquí mismo.
+   Monta el visor real en un iframe oculto con solo el primer cuadro y las dos
+   primeras versiones, le pide la misma imagen que "Compartir" y la sube con la
+   llave de la página. Si algo falla, los códigos siguen con la primera imagen. */
+const SHOT_URL = token => (serviceHere ? '' : 'https://gatos.pics') + '/api/shot/' + token;
+async function renderShareImage(core){
+  const m = JSON.parse(JSON.stringify(core.manifest)), f = m.frames[0];
+  m.frames = [f]; m.variants = m.variants.slice(0, 2);
+  if (m.frame_labels) m.frame_labels = f in m.frame_labels ? {[f]: m.frame_labels[f]} : {};
+  for (const v of m.variants){ const pf = v.metrics && v.metrics.per_frame; if (pf) for (const k of Object.keys(pf)) if (String(k) !== String(f)) delete pf[k]; }
+  const keep = new Set(m.variants.map(v => v.id+'_'+f));
+  const mini = {...core, manifest:m, entries:core.entries.filter(([k]) => keep.has(k))};
+  const urls = [], blobURL = blob => { const u = URL.createObjectURL(blob); urls.push(u); return u; };
+  const pkg = await packageJSONBlob(mini, {htmlSafe:true});
+  await VIEWER_ASSETS;
+  const box = document.createElement('iframe');
+  box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
+  box.style.cssText = 'position:fixed; left:-10000px; top:0; width:1280px; height:720px; border:0; visibility:hidden;';
+  document.body.appendChild(box);
+  try {
+    await new Promise((resolve, reject) => {
+      box.onload = resolve; setTimeout(() => reject(new Error('el visor no cargó')), 30000);
+      box.srcdoc = SHELL_HTML
+        .replace('<script src="upload.js"><\/script>', () => '<script src="' + blobURL(new Blob([UPLOAD_SRC], {type:'text/javascript'})) + '"><\/script>')
+        .replace('<script src="compare.js"><\/script>', () => '<script src="' + blobURL(new Blob(['window.GATOS_PACKAGE = ', pkg, ';'], {type:'text/javascript'})) + '"><\/script>\n<script src="' + blobURL(new Blob([ENGINE_SRC], {type:'text/javascript'})) + '"><\/script>');
+    });
+    const until = Date.now() + 60000;
+    for (;;){
+      try {
+        const c = box.contentWindow.renderViewCanvas();
+        if (c.width < 320) throw new Error('Espera a que el visor se acomode.');
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        if (!blob || blob.size > 16*1048576) throw new Error('imagen fuera de tamaño');
+        return blob;
+      } catch(e){
+        if (!/^Espera/.test(e.message) || Date.now() > until) throw e;
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+  } finally { box.remove(); for (const u of urls) URL.revokeObjectURL(u); }
+}
+async function shareAfterPublish(core, j){
+  const blob = await renderShareImage(core);
+  const r = await fetch(SHOT_URL(j.token), {method:'POST', headers:{'content-type':'image/png', 'x-delete-key':j.delete_key}, body:blob});
+  if (r.status !== 201) throw new Error('HTTP ' + r.status);
+  return (await r.json()).url;
+}
 const publisher = new GatosUpload({
   panel:$('publishUpload'), progress:$('publishProgress'), status:$('publishStatus'),
   cancel:$('publishCancel'), retry:$('publishRetry'),
@@ -2604,12 +2663,24 @@ const publisher = new GatosUpload({
     try { sessionStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
     $('pubDel').textContent = 'curl -X DELETE -H "x-delete-key: ' + j.delete_key + '" ' + j.delete_url;
     // formatos para compartir: vista previa clicable con la primera variante/frame
-    const img = j.url + meta.image;
     const title = meta.title;
-    $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
-    $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
-    $('pubHTML').value = '<a href="' + esc(j.url) + '"><img src="' + esc(img) + '" alt="' + esc(title) + '" loading="lazy"></a>';
+    const codes = img => {
+      $('pubBB').value = '[url=' + j.url + '][img]' + img + '[/img][/url]';
+      $('pubMD').value = '[![' + title + '](' + img + ')](' + j.url + ')';
+      $('pubHTML').value = '<a href="' + esc(j.url) + '"><img src="' + esc(img) + '" alt="' + esc(title) + '" loading="lazy"></a>';
+    };
+    codes(j.url + meta.image);
     $('pubFrame').style.display = 'flex';
+    // la imagen de "Compartir" se crea sola; mientras tanto (o si falla) los códigos usan la primera imagen
+    const note = $('pubShare'), mine = j.url;
+    note.textContent = 'Creando la imagen para compartir…';
+    shareAfterPublish(meta.core, j).then(url => {
+      if ($('pubUrl').value !== mine) return;   // ya se publicó otra página
+      codes(url);
+      note.textContent = 'Imagen para compartir lista: los códigos de abajo ya la usan.';
+    }, () => {
+      if ($('pubUrl').value === mine) note.textContent = 'No se pudo crear la imagen para compartir: los códigos usan la primera imagen. Puedes crearla desde la página, con «Compartir».';
+    });
   }
 });
 function askApiKeyAndRetry(){
