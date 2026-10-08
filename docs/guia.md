@@ -25,6 +25,19 @@ creador, visor, motor de captura y S2 incluidos. Funciona sin internet.
 Si prefieres la versión en carpeta (por ejemplo para desarrollo), clona el repo
 y abre `app/index.html`.
 
+## Ayuda paso a paso y comentarios
+
+El botón **Ayuda** (arriba) abre dos cosas:
+
+- **Guías**: eliges tu caso («tengo una carpeta por versión», «tengo todas las
+  capturas juntas») y el creador te lo muestra paso a paso sobre la pantalla
+  real, señalando cada botón, con capturas de ejemplo que se quitan al salir.
+  Si ya tienes un proyecto abierto, la guía solo señala y no toca tus capturas.
+  Se sale en cualquier momento con «Salir de la guía» o Esc.
+- **Enviar comentarios**: un cuadro de texto para contar qué falla o qué falta.
+  No pide ningún dato; si quieres respuesta, deja tu usuario de Discord en el
+  mensaje.
+
 ## 2. Modo Básico
 
 Para cuando solo quieres comparar imágenes y nada más.

@@ -124,6 +124,48 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       {frames:['1','2','3'],cells:[['s1.png','e1.png'],['s2.png','e2.png'],['s3.png','e3.png']]});
     await adv.close();
   }
+  // ops#175: Ayuda con guías paso a paso. Cada guía se recorre ENTERA: si un paso
+  // deja de encontrar su elemento visible (botón movido o renombrado), esto falla.
+  await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];BUILDER.renderPairs();});
+  await page.locator('#btnHelp').click();
+  ok('Help lists the guides and the feedback box', [await page.locator('#helpGuides button').count(), await page.locator('#fbText').isVisible(), await page.evaluate(()=>GUIDE.GUIDES.length)], [2, true, 2]);
+  await page.locator('#helpClose').click();
+  const walk = async (pg, id) => {
+    const total = await pg.evaluate(id=>GUIDE.GUIDES.find(g=>g.id===id).steps.length, id);
+    await pg.evaluate(id=>GUIDE.start(id), id);
+    const bad = [];
+    for (let i=0;i<total;i++){
+      await pg.waitForFunction(i=>GUIDE.state.def && GUIDE.state.i===i && !document.getElementById('guideCard').hidden && document.getElementById('guideCount').textContent.includes('paso '+(i+1)+' de'), i);
+      await pg.waitForTimeout(220);
+      const st = await pg.evaluate(()=>{ const step=GUIDE.state.def.steps[GUIDE.state.i], el=document.querySelector('[data-guide="'+step.target+'"]'), spot=document.getElementById('guideSpot'), card=document.getElementById('guideCard').getBoundingClientRect();
+        const r = el && el.getBoundingClientRect(), s = spot.getBoundingClientRect();
+        return {target:step.target, found:!!el, visible:!!el && el.getClientRects().length>0 && r.width>0 && r.bottom>0 && r.top<innerHeight, spot:!spot.hidden && !!r && Math.abs(s.left-(r.left-6))<3 && Math.abs(s.top-(r.top-6))<3, text:document.getElementById('guideText').textContent.length>20, cardIn:card.left>=0 && card.right<=innerWidth+1 && card.top>=0 && card.bottom<=innerHeight+1}; });
+      if (!(st.found && st.visible && st.spot && st.text && st.cardIn)) bad.push({step:i+1, ...st});
+      await pg.locator('#guideNext').click();
+    }
+    await pg.waitForFunction(()=>!GUIDE.state.def);
+    return bad;
+  };
+  for (const id of await page.evaluate(()=>GUIDE.GUIDES.map(g=>g.id))){
+    ok('guide "'+id+'": every step finds its element visible and highlighted', await walk(page, id), []);
+    ok('guide "'+id+'": the example captures are removed on exit', await page.evaluate(()=>({rows:BUILDER.state.pairs.length, card:document.getElementById('guideCard').hidden, spot:document.getElementById('guideSpot').hidden})), {rows:0, card:true, spot:true});
+  }
+  await page.evaluate(()=>GUIDE.start('por-version'));
+  for (let i=0;i<5;i++) await page.locator('#guideNext').click();
+  await page.waitForFunction(()=>BUILDER.state.pairs.length===3 && BUILDER.state.pairs.every(p=>p[0]&&p[1]));
+  ok('the guide builds real example rows with the same code as a real drop', await page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f.name))), [['shot0001.png','shot0001.png'],['shot0002.png','shot0002.png'],['shot0003.png','shot0003.png']]);
+  await page.keyboard.press('Escape');
+  ok('Escape leaves the guide and clears the examples', await page.evaluate(()=>[!GUIDE.state.def, BUILDER.state.pairs.length]), [true, 0]);
+  await page.locator('#basicFile').setInputFiles([{name:'mia_1.png',mimeType:'image/png',buffer:png},{name:'otra_1.png',mimeType:'image/png',buffer:png}]);
+  ok('with your own work open the guide only points: no examples mixed in', [await walk(page, 'por-version'), await page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f&&f.name)))], [[], [['mia_1.png','otra_1.png']]]);
+  { const ph = await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,hasTouch:true,isMobile:true});
+    await ph.goto('file://'+ROOT+'/dist/gatos.html');
+    await ph.locator('#obGuide').click();
+    ok('phone: the welcome screen offers the guides', await ph.locator('#helpGuides button').count(), 2);
+    await ph.locator('#helpClose').click();
+    for (const id of ['por-version','todas-juntas']) ok('phone guide "'+id+'": every step visible, card on screen', await walk(ph, id), []);
+    ok('phone: no horizontal overflow during the guide', await ph.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));
+    await ph.close(); }
   ok('names without a clue still pair by order', await dump(['crf18.png','crf20.png','crf22.png']).then(r=>r.rows), [['crf18.png','crf20.png'],['crf22.png',null]]);
   await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];});
   await page.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png},{name:'a.png',mimeType:'image/png',buffer:png},{name:'c.png',mimeType:'image/png',buffer:png}]);
@@ -230,6 +272,13 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const shotResp = await fetch(`${BASE}/s/${pubTok}.png`), shotPng = Buffer.from(await shotResp.arrayBuffer());
     ok('publishing creates the share image and the codes use it', [await creator.locator('#pubShare').textContent().then(t=>t.includes('lista')), shotResp.status, shotPng.readUInt32BE(16) >= 320, await creator.locator('#pubBB').inputValue()], [true, 200, true, `[url=${BASE}/p/${pubTok}/][img]${BASE}/s/${pubTok}.png[/img][/url]`]);
     ok('the hidden viewer is removed after the share image', await creator.locator('iframe[aria-hidden="true"]').count(), 0);
+    // ops#175: comentarios desde el creador hospedado
+    await creator.locator('#pubClose').click(); await creator.locator('#btnHelp').click();
+    await creator.locator('#fbSend').click();
+    ok('feedback: empty text is not sent', await creator.locator('#fbStatus').textContent(), 'Escribe tu comentario primero.');
+    await creator.locator('#fbText').fill('Prueba de comentario desde la suite.'); await creator.locator('#fbSend').click();
+    await creator.waitForFunction(()=>/Enviado|No se pudo/.test(document.getElementById('fbStatus').textContent));
+    ok('feedback: sent from the hosted creator and stored by the service', [await creator.locator('#fbStatus').textContent(), await creator.locator('#fbText').inputValue(), JSON.parse(fs.readFileSync(path.join(DATA,'admin','feedback.json'),'utf8')).map(f=>[f.text,f.where])], ['Enviado. Gracias: lo leemos todo.', '', [['Prueba de comentario desde la suite.','creador · basic']]]);
     await creator.close();
     // gatos-ops#157: envío por partes. Con el corte casi en cero cada frame
     // viaja en su propio pedido (POST + PATCH + PATCH) y la página final debe

@@ -189,6 +189,26 @@
   footer{padding:6px 16px; background:var(--panel); border-top:1px solid #000; color:var(--dim); font-size:11px; display:flex; gap:14px; flex-wrap:wrap;}
   .overlay{position:fixed; inset:0; background:#000a; z-index:45; align-items:center; justify-content:center; padding:20px;}
   #pubCard{max-width:560px; width:100%;}
+  #helpCard{max-width:520px; width:100%; max-height:92vh; overflow:auto;}
+  #helpCard .actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  #helpGuides{display:flex; flex-direction:column; gap:8px;}
+  #helpGuides button{text-align:left; padding:10px 12px; display:flex; flex-direction:column; gap:2px;}
+  #helpGuides button span{font-size:12px; color:var(--dim); font-weight:400;}
+  #fbText{width:100%; margin-top:8px; background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:8px 10px; font:13px system-ui,sans-serif; resize:vertical;}
+  /* guía: un foco sobre el elemento real y una tarjeta al lado; no tapa los clics */
+  #guideSpot{position:fixed; z-index:60; border-radius:10px; pointer-events:none; outline:2px solid var(--accent); box-shadow:0 0 0 9999px #000a; transition:all .15s ease;}
+  #guideCard{position:fixed; z-index:61; width:min(380px, calc(100vw - 24px)); background:var(--panel); border:1px solid var(--accent); border-radius:12px; padding:12px 14px; box-shadow:0 8px 30px #000c;}
+  #guideCard.free{left:50% !important; top:50% !important; transform:translate(-50%,-50%);}
+  #guideCount{font-size:11px; color:var(--dim); margin-bottom:4px;}
+  #guideText{font-size:14px; line-height:1.45; margin:0 0 10px;}
+  #guideCard .actions{display:flex; gap:8px; flex-wrap:wrap;}
+  #guideCard .actions #guideExit{margin-left:auto;}
+  @media (prefers-reduced-motion:reduce){ #guideSpot{transition:none;} }
+  @media (max-width:700px){
+    #guideCard, #guideCard.free{left:8px !important; right:8px; top:auto !important; bottom:8px; width:auto; transform:none;}
+    #guideCard .actions button, #helpCard .actions button, #helpGuides button{min-height:44px;}
+    #fbText{font-size:16px;}
+  }
   #pubCard .actions{display:flex; gap:8px; margin-top:14px;}
   @media (max-width:820px), (pointer:coarse) and (max-height:520px){
     .advwrap{flex-direction:column;}
@@ -278,6 +298,7 @@
       <button id="obStart" class="primary">Crear comparación</button>
       <button id="obDemo">Ver un ejemplo</button>
       <button id="obLoad" title="Abre el ejemplo como proyecto para editarlo">Editar el ejemplo</button>
+      <button id="obGuide" title="Guías paso a paso sobre la pantalla">Guíame paso a paso</button>
       <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
     </div>
   </div>
@@ -286,17 +307,17 @@
 <header>
   <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span> <span class="dim">creador</span></h1>
   <nav class="tabs">
-    <button id="tabBasic">Básico</button>
+    <button id="tabBasic" data-guide="tab-basic">Básico</button>
     <button id="tabVideo">Video</button>
     <button id="tabAdv">Avanzado</button>
   </nav>
   <span class="spacer"></span>
   <button id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
-  <button id="btnPublish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
+  <button id="btnPublish" data-guide="publish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
   <button id="btnUpdate" title="Reemplazar el contenido de una página ya publicada con este proyecto, sin cambiar su enlace">Actualizar página</button>
   <button id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
   <button id="btnHelp" aria-label="Ayuda">Ayuda</button>
-  <button id="btnPreviewTop" class="primary">Vista previa</button>
+  <button id="btnPreviewTop" data-guide="preview" class="primary">Vista previa</button>
   <input type="file" id="openFile" accept=".cmp,application/json" style="display:none">
 </header>
 
@@ -316,13 +337,13 @@
       Si no, llena cada versión por separado: «Elegir sus imágenes» (o suéltalas sobre su nombre) las pone en fila, en orden de nombre.
       Datos por versión (códec, comando, métricas): usa Avanzado.
     </p>
-    <div class="drop" id="basicDrop" role="button" tabindex="0" aria-label="Elegir imágenes">
+    <div class="drop" id="basicDrop" data-guide="drop" role="button" tabindex="0" aria-label="Elegir imágenes">
       <div class="big">Suelta imágenes aquí</div>
       <div class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
       <div class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
     </div>
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
-    <div id="pairList"></div>
+    <div id="pairList" data-guide="rows"></div>
     <div id="basicFoot"></div>
   </section>
 
@@ -479,6 +500,30 @@
   <span>Todo se prepara en tu navegador. Publicar sube las imágenes y los datos a gatos.pics.</span>
   <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo · con un proyecto abierto, te pedimos confirmación</span>
 </footer>
+
+<!-- ayuda: guías paso a paso y comentarios (guide.js) -->
+<div id="helpFrame" class="overlay" style="display:none;">
+  <div class="card" id="helpCard" role="dialog" aria-label="Ayuda">
+    <h2 style="font-size:16px; margin-bottom:6px;">¿Qué quieres hacer?</h2>
+    <p class="hint" style="margin-bottom:10px;">Elige tu caso y te lo mostramos paso a paso sobre la pantalla, con capturas de ejemplo.</p>
+    <div id="helpGuides"></div>
+    <h2 style="font-size:14px; margin:16px 0 4px;">Enviar comentarios</h2>
+    <p class="hint">¿Algo no funciona, falta o se puede mejorar? Cuéntanos. No pedimos ningún dato; si quieres respuesta, deja tu usuario de Discord en el mensaje.</p>
+    <textarea id="fbText" rows="4" maxlength="2000" aria-label="Tu comentario" placeholder="Escribe aquí…"></textarea>
+    <div class="actions">
+      <button id="fbSend" class="primary">Enviar comentario</button>
+      <button id="helpWelcome">Ver la bienvenida</button>
+      <button id="helpClose">Cerrar</button>
+    </div>
+    <p class="hint" id="fbStatus" role="status" style="margin-top:8px;"></p>
+  </div>
+</div>
+<div id="guideSpot" hidden></div>
+<div id="guideCard" role="dialog" aria-label="Guía" aria-live="polite" hidden>
+  <div id="guideCount"></div>
+  <p id="guideText"></p>
+  <div class="actions"><button id="guideBack">Atrás</button><button id="guideNext" class="primary">Siguiente</button><button id="guideExit">Salir de la guía</button></div>
+</div>
 
 <!-- resultado de publicacion -->
 <div id="pubFrame" class="overlay" style="display:none;">
@@ -1114,7 +1159,7 @@ $('obLoad').addEventListener('click', () => runAction(async () => {
   renderPairs();
   $('onboard').hidden = true;
 }));
-$('btnHelp').addEventListener('click', () => showOnboard(true));
+$('btnHelp').addEventListener('click', () => openHelp());   // guías y comentarios: guide.js
 
 /* demo sintética: gradientes + figuras por canvas, sin archivos externos */
 function makeDemoPackage(){
@@ -1450,12 +1495,12 @@ function renderPairs(){
       box.className = 'vname'; box.dataset.col = c;
       const line = document.createElement('div'); line.className = 'vline';
       const inp = document.createElement('input');
-      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
+      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.dataset.guide = 'vname-' + c; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
       inp.onchange = () => { names[c] = inp.value.trim() || String.fromCharCode(65 + c % 26); renderPairs(); };
       line.appendChild(inp);
       box.appendChild(line);
       const fill = document.createElement('button');
-      fill.className = 'vfill'; fill.textContent = 'Elegir sus imágenes';
+      fill.className = 'vfill'; fill.textContent = 'Elegir sus imágenes'; fill.dataset.guide = 'vfill-' + c;
       fill.title = 'Elige (o suelta aquí) todas las imágenes de esta versión: llenan su columna en orden de nombre';
       fill.setAttribute('aria-label', `Elegir todas las imágenes de la versión ${name}`);
       fill.onclick = () => pickMany(files => basicFillColumn(c, files));
@@ -1469,7 +1514,7 @@ function renderPairs(){
       head.appendChild(box);
     });
     const add = document.createElement('button');
-    add.id = 'basicAddVersion'; add.textContent = '+ versión'; add.title = 'Agregar otra versión a cada cuadro';
+    add.id = 'basicAddVersion'; add.textContent = '+ versión'; add.dataset.guide = 'add-version'; add.title = 'Agregar otra versión a cada cuadro';
     add.onclick = () => { basicAddColumn(String.fromCharCode(65 + n % 26)); renderPairs(); };
     const tools = document.createElement('div'); tools.className = 'tools'; tools.appendChild(add);
     head.appendChild(tools);
@@ -2840,6 +2885,157 @@ $('pubCopy').addEventListener('click', async () => {
     setTimeout(() => { $('pubCopy').textContent = 'Copiar'; }, 1200);
   } catch(e){}
 });
+</script>
+<script>
+/* guide.js — Ayuda: guías paso a paso sobre la pantalla real, y comentarios.
+   (gatos-ops#175)
+
+   Una guía es una lista de pasos. Cada paso señala un elemento REAL del
+   creador por su marca `data-guide` y dice una frase. Algunos pasos cargan
+   capturas de ejemplo con las mismas funciones que usa quien suelta archivos,
+   así la persona ve armarse las filas sin tener que traer los suyos; al salir,
+   si el proyecto solo tiene ejemplos, se quitan.
+
+   Para que no envejezca: tools/check_guides.mjs (gate de push) comprueba que
+   cada `target` exista en el código del creador, y tools/review_browser.cjs
+   recorre cada guía entera y exige que cada paso encuentre su elemento visible. */
+'use strict';
+const GUIDES = [
+  { id: 'por-version', title: 'Tengo una carpeta por versión', sub: 'Cada versión (fuente, encode…) con sus capturas aparte. Los nombres de archivo no importan.',
+    steps: [
+      { target: 'tab-basic', text: 'Empieza en Básico: no hay nada que configurar.', enter: () => setMode('basic') },
+      { target: 'vname-0', text: 'Cada versión tiene un nombre. Escribe el tuyo: Fuente, Encode, WEB-DL…' },
+      { target: 'vfill-0', text: 'Pulsa «Elegir sus imágenes» y selecciona TODAS las capturas de esta versión de una vez. También puedes soltarlas sobre el nombre.' },
+      { target: 'rows', text: 'Quedan en fila, una por cuadro, en orden de nombre.', sample: () => guideFill(0, 0) },
+      { target: 'vfill-1', text: 'Ahora la segunda versión, igual. No importa que sus archivos se llamen igual que los de la primera.' },
+      { target: 'rows', text: 'Cada fila es un cuadro con sus versiones lado a lado. Si a una versión le faltan capturas, el hueco queda a la vista.', sample: () => guideFill(1, 130) },
+      { target: 'add-version', text: '¿Tres o más versiones? Agrega otra y llénala del mismo modo.' },
+      { target: 'preview', text: 'Vista previa: revisa la comparación antes de compartirla.' },
+      { target: 'publish', text: 'Publicar te da el enlace y el código para foros. La imagen para compartir se crea sola.' },
+    ] },
+  { id: 'todas-juntas', title: 'Tengo todas las capturas juntas', sub: 'Una sola carpeta, con nombres que dicen la versión y el cuadro.',
+    steps: [
+      { target: 'tab-basic', text: 'Empieza en Básico: no hay nada que configurar.', enter: () => setMode('basic') },
+      { target: 'drop', text: 'Suelta aquí todas las capturas juntas, o haz clic para elegirlas. Si el nombre dice la versión y el cuadro (fuente_01, Encode - 01, 01_encode) se agrupan solas. Si no lo dice, usa la guía «una carpeta por versión».' },
+      { target: 'rows', text: 'Cada fila es un cuadro con todas sus versiones. La referencia (fuente, src, máster) queda a la izquierda.', sample: () => guideDump() },
+      { target: 'vname-0', text: 'Los nombres de las versiones salen de los archivos. Corrígelos aquí si hace falta.' },
+      { target: 'preview', text: 'Vista previa: revisa la comparación antes de compartirla.' },
+      { target: 'publish', text: 'Publicar te da el enlace y el código para foros. La imagen para compartir se crea sola.' },
+    ] },
+];
+
+/* ---------- capturas de ejemplo ---------- */
+const guideSamples = new WeakSet();
+async function guideImages(label, hue, names){
+  const out = [];
+  for (let i = 0; i < names.length; i++){
+    const c = document.createElement('canvas'); c.width = 480; c.height = 270;
+    const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 480, 270);
+    g.addColorStop(0, `hsl(${hue} 55% 30%)`); g.addColorStop(1, `hsl(${hue + 40} 60% 50%)`);
+    x.fillStyle = g; x.fillRect(0, 0, 480, 270);
+    x.fillStyle = '#fff'; x.textAlign = 'center';
+    x.font = 'bold 90px sans-serif'; x.fillText(String(i + 1), 240, 150);
+    x.font = '28px sans-serif'; x.fillText(label + ' · ejemplo', 240, 215);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const f = new File([blob], names[i], { type: 'image/png' });
+    guideSamples.add(f); out.push(f);
+  }
+  return out;
+}
+async function guideFill(col, hue){ basicFillColumn(col, await guideImages(state.basicNames[col] || 'versión', hue, ['shot0001.png', 'shot0002.png', 'shot0003.png'])); }
+async function guideDump(){
+  const files = [];
+  for (const [v, hue] of [['fuente', 0], ['encode', 130], ['web', 220]]) files.push(...await guideImages(v, hue, [1, 2, 3].map(n => `${v}_0${n}.png`)));
+  addBasicFiles(files);
+}
+const guideOnlySamples = () => state.pairs.length > 0 && state.pairs.every(row => row.every(f => !f || guideSamples.has(f)));
+const guideHasWork = () => state.pairs.some(row => row.some(f => f && !guideSamples.has(f))) || state.cells.size > 0;
+
+/* ---------- el recorrido ---------- */
+const guide = { def: null, i: 0, samples: false, el: null };
+const guideTarget = name => document.querySelector(`[data-guide="${name}"]`);
+function guidePlace(){
+  if (!guide.def) return;
+  const spot = $('guideSpot'), card = $('guideCard'), el = guide.el;
+  const shown = el && el.isConnected && el.getClientRects().length;
+  spot.hidden = !shown;
+  card.classList.toggle('free', !shown);
+  if (!shown) return;
+  const r = el.getBoundingClientRect(), pad = 6;
+  Object.assign(spot.style, { left: (r.left - pad) + 'px', top: (r.top - pad) + 'px', width: (r.width + pad * 2) + 'px', height: (r.height + pad * 2) + 'px' });
+  if (matchMedia('(max-width:700px)').matches){ card.style.left = card.style.top = ''; return; }   // teléfono: la tarjeta va fija abajo (CSS)
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  const below = r.bottom + pad + 12, top = below + ch <= innerHeight - 8 ? below : Math.max(8, r.top - pad - 12 - ch);
+  card.style.left = Math.max(12, Math.min(r.left, innerWidth - cw - 12)) + 'px';
+  card.style.top = top + 'px';
+}
+async function guideShow(i){
+  const def = guide.def, step = def.steps[i];
+  guide.i = i;
+  if (step.enter) step.enter();
+  if (step.sample && guide.samples && !step.done){ step.done = true; await step.sample(); }
+  if (guide.def !== def) return;   // salieron mientras se armaban los ejemplos
+  guide.el = guideTarget(step.target);
+  $('guideText').textContent = step.text + (step.sample && guide.samples ? ' (Estas capturas son de ejemplo.)' : '');
+  $('guideCount').textContent = `${def.title} · paso ${i + 1} de ${def.steps.length}`;
+  $('guideBack').disabled = i === 0;
+  $('guideNext').textContent = i === def.steps.length - 1 ? 'Terminar' : 'Siguiente';
+  $('guideCard').hidden = false;
+  // lo alto (la lista de filas) se muestra desde arriba; lo demás, al centro
+  if (guide.el) guide.el.scrollIntoView({ block: guide.el.getBoundingClientRect().height > innerHeight * .6 ? 'start' : 'center', inline: 'nearest' });
+  guidePlace(); requestAnimationFrame(guidePlace);
+  $('guideNext').focus({ preventScroll: true });
+}
+function guideStart(id){
+  const def = GUIDES.find(g => g.id === id);
+  if (!def) return;
+  $('helpFrame').style.display = 'none'; $('onboard').hidden = true;
+  for (const s of def.steps) s.done = false;
+  // con trabajo abierto la guía solo señala: nunca mezcla ejemplos con tus capturas
+  Object.assign(guide, { def, i: 0, samples: !guideHasWork() });
+  if (guide.samples && state.pairs.length){ resetBasic(); renderPairs(); }
+  guideShow(0);
+}
+function guideEnd(){
+  if (!guide.def) return;
+  guide.def = null; guide.el = null;
+  $('guideCard').hidden = true; $('guideSpot').hidden = true;
+  if (guideOnlySamples()){ resetBasic(); renderPairs(); }   // los ejemplos no se quedan en tu proyecto
+  $('btnHelp').focus();
+}
+$('guideNext').addEventListener('click', () => { guide.i + 1 < guide.def.steps.length ? guideShow(guide.i + 1) : guideEnd(); });
+$('guideBack').addEventListener('click', () => { if (guide.i > 0) guideShow(guide.i - 1); });
+$('guideExit').addEventListener('click', guideEnd);
+window.addEventListener('resize', guidePlace);
+window.addEventListener('scroll', guidePlace, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && guide.def) guideEnd(); });
+
+/* ---------- panel de Ayuda ---------- */
+function openHelp(){
+  $('helpGuides').innerHTML = GUIDES.map(g => `<button data-start="${g.id}"><b>${esc(g.title)}</b><span>${esc(g.sub)}</span></button>`).join('');
+  $('fbStatus').textContent = '';
+  $('helpFrame').style.display = 'flex';
+}
+$('helpGuides').addEventListener('click', e => { const b = e.target.closest('[data-start]'); if (b) guideStart(b.dataset.start); });
+$('helpWelcome').addEventListener('click', () => { $('helpFrame').style.display = 'none'; showOnboard(true); });
+$('helpClose').addEventListener('click', () => { $('helpFrame').style.display = 'none'; });
+$('obGuide').addEventListener('click', () => { $('onboard').hidden = true; openHelp(); });
+
+/* ---------- comentarios: texto libre, sin datos de quien escribe ---------- */
+$('fbSend').addEventListener('click', async () => {
+  const text = $('fbText').value.trim(), status = $('fbStatus'), btn = $('fbSend');
+  if (text.length < 3){ status.textContent = 'Escribe tu comentario primero.'; $('fbText').focus(); return; }
+  btn.disabled = true; status.textContent = 'Enviando…';
+  try {
+    const r = await fetch((serviceHere ? '' : 'https://gatos.pics') + '/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, where: 'creador · ' + state.mode }) });
+    if (r.status === 429) throw new Error('Ya enviaste varios hace poco. Prueba más tarde.');
+    if (!r.ok) throw new Error('No se pudo enviar (HTTP ' + r.status + ').');
+    $('fbText').value = ''; status.textContent = 'Enviado. Gracias: lo leemos todo.';
+  } catch (e){ status.textContent = e.message === 'Failed to fetch' ? 'No se pudo enviar: sin conexión con gatos.pics.' : e.message; }
+  btn.disabled = false;
+});
+window.GUIDE = { GUIDES, start: guideStart, end: guideEnd, state: guide, open: openHelp };
 </script>
 </body>
 </html>

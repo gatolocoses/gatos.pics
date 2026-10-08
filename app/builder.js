@@ -76,7 +76,7 @@ $('obLoad').addEventListener('click', () => runAction(async () => {
   renderPairs();
   $('onboard').hidden = true;
 }));
-$('btnHelp').addEventListener('click', () => showOnboard(true));
+$('btnHelp').addEventListener('click', () => openHelp());   // guías y comentarios: guide.js
 
 /* demo sintética: gradientes + figuras por canvas, sin archivos externos */
 function makeDemoPackage(){
@@ -412,12 +412,12 @@ function renderPairs(){
       box.className = 'vname'; box.dataset.col = c;
       const line = document.createElement('div'); line.className = 'vline';
       const inp = document.createElement('input');
-      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
+      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.dataset.guide = 'vname-' + c; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
       inp.onchange = () => { names[c] = inp.value.trim() || String.fromCharCode(65 + c % 26); renderPairs(); };
       line.appendChild(inp);
       box.appendChild(line);
       const fill = document.createElement('button');
-      fill.className = 'vfill'; fill.textContent = 'Elegir sus imágenes';
+      fill.className = 'vfill'; fill.textContent = 'Elegir sus imágenes'; fill.dataset.guide = 'vfill-' + c;
       fill.title = 'Elige (o suelta aquí) todas las imágenes de esta versión: llenan su columna en orden de nombre';
       fill.setAttribute('aria-label', `Elegir todas las imágenes de la versión ${name}`);
       fill.onclick = () => pickMany(files => basicFillColumn(c, files));
@@ -431,7 +431,7 @@ function renderPairs(){
       head.appendChild(box);
     });
     const add = document.createElement('button');
-    add.id = 'basicAddVersion'; add.textContent = '+ versión'; add.title = 'Agregar otra versión a cada cuadro';
+    add.id = 'basicAddVersion'; add.textContent = '+ versión'; add.dataset.guide = 'add-version'; add.title = 'Agregar otra versión a cada cuadro';
     add.onclick = () => { basicAddColumn(String.fromCharCode(65 + n % 26)); renderPairs(); };
     const tools = document.createElement('div'); tools.className = 'tools'; tools.appendChild(add);
     head.appendChild(tools);

@@ -85,17 +85,19 @@ def build():
     zip_js = (APP / "zip.js").read_text(encoding="utf-8")
     capture_js = (APP / "capture.js").read_text(encoding="utf-8")
     publish_js = (APP / "publish.js").read_text(encoding="utf-8")
+    guide_js = (APP / "guide.js").read_text(encoding="utf-8")
     tags = ('<script src="assets.js"></script>\n'
             '<script src="../viewer/upload.js"></script>\n'
             '<script src="s2.js"></script>\n'
             '<script src="zip.js"></script>\n'
             '<script src="builder.js"></script>\n'
             '<script src="capture.js"></script>\n'
-            '<script src="publish.js"></script>')
+            '<script src="publish.js"></script>\n'
+            '<script src="guide.js"></script>')
     assert tags in idx, "no se encontraron las etiquetas <script> esperadas en app/index.html"
     single = idx.replace(
         tags,
-        "<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>",
+        "<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 

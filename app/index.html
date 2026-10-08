@@ -189,6 +189,26 @@
   footer{padding:6px 16px; background:var(--panel); border-top:1px solid #000; color:var(--dim); font-size:11px; display:flex; gap:14px; flex-wrap:wrap;}
   .overlay{position:fixed; inset:0; background:#000a; z-index:45; align-items:center; justify-content:center; padding:20px;}
   #pubCard{max-width:560px; width:100%;}
+  #helpCard{max-width:520px; width:100%; max-height:92vh; overflow:auto;}
+  #helpCard .actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  #helpGuides{display:flex; flex-direction:column; gap:8px;}
+  #helpGuides button{text-align:left; padding:10px 12px; display:flex; flex-direction:column; gap:2px;}
+  #helpGuides button span{font-size:12px; color:var(--dim); font-weight:400;}
+  #fbText{width:100%; margin-top:8px; background:var(--panel2); color:var(--text); border:1px solid #333; border-radius:6px; padding:8px 10px; font:13px system-ui,sans-serif; resize:vertical;}
+  /* guía: un foco sobre el elemento real y una tarjeta al lado; no tapa los clics */
+  #guideSpot{position:fixed; z-index:60; border-radius:10px; pointer-events:none; outline:2px solid var(--accent); box-shadow:0 0 0 9999px #000a; transition:all .15s ease;}
+  #guideCard{position:fixed; z-index:61; width:min(380px, calc(100vw - 24px)); background:var(--panel); border:1px solid var(--accent); border-radius:12px; padding:12px 14px; box-shadow:0 8px 30px #000c;}
+  #guideCard.free{left:50% !important; top:50% !important; transform:translate(-50%,-50%);}
+  #guideCount{font-size:11px; color:var(--dim); margin-bottom:4px;}
+  #guideText{font-size:14px; line-height:1.45; margin:0 0 10px;}
+  #guideCard .actions{display:flex; gap:8px; flex-wrap:wrap;}
+  #guideCard .actions #guideExit{margin-left:auto;}
+  @media (prefers-reduced-motion:reduce){ #guideSpot{transition:none;} }
+  @media (max-width:700px){
+    #guideCard, #guideCard.free{left:8px !important; right:8px; top:auto !important; bottom:8px; width:auto; transform:none;}
+    #guideCard .actions button, #helpCard .actions button, #helpGuides button{min-height:44px;}
+    #fbText{font-size:16px;}
+  }
   #pubCard .actions{display:flex; gap:8px; margin-top:14px;}
   @media (max-width:820px), (pointer:coarse) and (max-height:520px){
     .advwrap{flex-direction:column;}
@@ -278,6 +298,7 @@
       <button id="obStart" class="primary">Crear comparación</button>
       <button id="obDemo">Ver un ejemplo</button>
       <button id="obLoad" title="Abre el ejemplo como proyecto para editarlo">Editar el ejemplo</button>
+      <button id="obGuide" title="Guías paso a paso sobre la pantalla">Guíame paso a paso</button>
       <label class="obskip"><input type="checkbox" id="obDontShow"> no mostrar de nuevo</label>
     </div>
   </div>
@@ -286,17 +307,17 @@
 <header>
   <h1><span class="brand" role="img" aria-label="gatos.pics"><span class="brand-gato" aria-hidden="true">gatos</span><span class="brand-track"><span class="brand-dot" aria-hidden="true"></span></span><span class="brand-pics" aria-hidden="true">pics</span></span> <span class="dim">creador</span></h1>
   <nav class="tabs">
-    <button id="tabBasic">Básico</button>
+    <button id="tabBasic" data-guide="tab-basic">Básico</button>
     <button id="tabVideo">Video</button>
     <button id="tabAdv">Avanzado</button>
   </nav>
   <span class="spacer"></span>
   <button id="btnOpen" title="Abrir un proyecto .cmp (también puedes soltarlo en cualquier parte)">Abrir</button>
-  <button id="btnPublish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
+  <button id="btnPublish" data-guide="publish" title="Subir las imágenes y los datos de esta comparación a gatos.pics">Publicar</button>
   <button id="btnUpdate" title="Reemplazar el contenido de una página ya publicada con este proyecto, sin cambiar su enlace">Actualizar página</button>
   <button id="btnSave" title="Guardar el proyecto como .cmp (Ctrl+S)">Guardar</button>
   <button id="btnHelp" aria-label="Ayuda">Ayuda</button>
-  <button id="btnPreviewTop" class="primary">Vista previa</button>
+  <button id="btnPreviewTop" data-guide="preview" class="primary">Vista previa</button>
   <input type="file" id="openFile" accept=".cmp,application/json" style="display:none">
 </header>
 
@@ -316,13 +337,13 @@
       Si no, llena cada versión por separado: «Elegir sus imágenes» (o suéltalas sobre su nombre) las pone en fila, en orden de nombre.
       Datos por versión (códec, comando, métricas): usa Avanzado.
     </p>
-    <div class="drop" id="basicDrop" role="button" tabindex="0" aria-label="Elegir imágenes">
+    <div class="drop" id="basicDrop" data-guide="drop" role="button" tabindex="0" aria-label="Elegir imágenes">
       <div class="big">Suelta imágenes aquí</div>
       <div class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
       <div class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
     </div>
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
-    <div id="pairList"></div>
+    <div id="pairList" data-guide="rows"></div>
     <div id="basicFoot"></div>
   </section>
 
@@ -480,6 +501,30 @@
   <span class="hint">suelta un archivo .cmp en cualquier parte de la ventana para importarlo · con un proyecto abierto, te pedimos confirmación</span>
 </footer>
 
+<!-- ayuda: guías paso a paso y comentarios (guide.js) -->
+<div id="helpFrame" class="overlay" style="display:none;">
+  <div class="card" id="helpCard" role="dialog" aria-label="Ayuda">
+    <h2 style="font-size:16px; margin-bottom:6px;">¿Qué quieres hacer?</h2>
+    <p class="hint" style="margin-bottom:10px;">Elige tu caso y te lo mostramos paso a paso sobre la pantalla, con capturas de ejemplo.</p>
+    <div id="helpGuides"></div>
+    <h2 style="font-size:14px; margin:16px 0 4px;">Enviar comentarios</h2>
+    <p class="hint">¿Algo no funciona, falta o se puede mejorar? Cuéntanos. No pedimos ningún dato; si quieres respuesta, deja tu usuario de Discord en el mensaje.</p>
+    <textarea id="fbText" rows="4" maxlength="2000" aria-label="Tu comentario" placeholder="Escribe aquí…"></textarea>
+    <div class="actions">
+      <button id="fbSend" class="primary">Enviar comentario</button>
+      <button id="helpWelcome">Ver la bienvenida</button>
+      <button id="helpClose">Cerrar</button>
+    </div>
+    <p class="hint" id="fbStatus" role="status" style="margin-top:8px;"></p>
+  </div>
+</div>
+<div id="guideSpot" hidden></div>
+<div id="guideCard" role="dialog" aria-label="Guía" aria-live="polite" hidden>
+  <div id="guideCount"></div>
+  <p id="guideText"></p>
+  <div class="actions"><button id="guideBack">Atrás</button><button id="guideNext" class="primary">Siguiente</button><button id="guideExit">Salir de la guía</button></div>
+</div>
+
 <!-- resultado de publicacion -->
 <div id="pubFrame" class="overlay" style="display:none;">
   <div class="card" id="pubCard">
@@ -527,5 +572,6 @@
 <script src="builder.js"></script>
 <script src="capture.js"></script>
 <script src="publish.js"></script>
+<script src="guide.js"></script>
 </body>
 </html>
