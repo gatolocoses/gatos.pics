@@ -121,6 +121,10 @@ Sin framework, sin build system en uso, sin CDN: HTML, CSS y JS planos.
 Después de tocar `viewer/` o `app/`: `python3 tools/build_app.py` (ver
 [desarrollo](docs/desarrollo.md)).
 
+El método de trabajo con el que se desarrolla (issues, gate de pruebas, pull
+requests y una persona que aprueba) está descrito en
+[ai-dev-workflow](https://github.com/gatolocoses/ai-dev-workflow).
+
 ## Licencia
 
 MIT · ver [LICENSE](LICENSE).
