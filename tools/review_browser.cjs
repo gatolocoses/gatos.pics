@@ -84,6 +84,11 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     [{names:['Source','Encode A','WEB-DL'], rows:[['Source - 1001.png','Encode A - 1001.png','WEB-DL - 1001.png']]}, {names:['src','enc'], rows:[['src (1).png','enc (1).png'],['src (2).png','enc (2).png']]}]);
   ok('basic reads number-first names', await dump(['01_fuente.png','01_encode.png','01_web.png','02_fuente.png','02_encode.png','02_web.png']),
     {names:['fuente','encode','web'], rows:[['01_fuente.png','01_encode.png','01_web.png'],['02_fuente.png','02_encode.png','02_web.png']]});
+  // ops#166: el cuadro puede traer separadores o terminar en número pegado
+  ok('basic cuts at the separator that completes the table', [await dump(['lat_E02_830.png','av1_E02_830.png','lat_E12_130.png','av1_E12_130.png']), await dump(['k4_frame1c1.png','p1440_lanczos_frame1c1.png','k4_frame1c2.png','p1440_lanczos_frame1c2.png']), await dump(['E02_830_fuente.png','E02_830_enc.png','E12_130_fuente.png','E12_130_enc.png'])],
+    [{names:['av1','lat'], rows:[['av1_E02_830.png','lat_E02_830.png'],['av1_E12_130.png','lat_E12_130.png']]},
+     {names:['k4','p1440_lanczos'], rows:[['k4_frame1c1.png','p1440_lanczos_frame1c1.png'],['k4_frame1c2.png','p1440_lanczos_frame1c2.png']]},
+     {names:['fuente','enc'], rows:[['E02_830_fuente.png','E02_830_enc.png'],['E12_130_fuente.png','E12_130_enc.png']]}]);
   ok('basic leaves a visible hole when a version is missing', await dump(['fuente_1.png','enc_1.png','web_1.png','fuente_2.png','enc_2.png']).then(r=>r.rows[1]), ['fuente_2.png','enc_2.png',null]);
   ok('incomplete frame blocks sharing', await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(()=>'ok',e=>e.message)), 'Completa todas las versiones de cada cuadro antes de compartir.');
   await page.locator('#basicFile').setInputFiles([{name:'web_2.png',mimeType:'image/png',buffer:png}]);

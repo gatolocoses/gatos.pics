@@ -1286,22 +1286,38 @@ function basicDropColumn(c){
   state.pairs = state.pairs.filter(row => row.some(Boolean));
 }
 
-/* Nombre -> {variante, cuadro}. Tres lecturas; gana la que arma la tabla más
-   completa (ops#164):
-     under: <variante>_<cuadro>      fuente_intro.png, x265_crf18_0042.png
-     tail:  <variante> <número>      Fuente - 1001.png, encode (2).png, src01.png
-     head:  <número> <variante>      01_fuente.png, 1001 - encode.png */
+/* Nombre -> {variante, cuadro}. Se prueban varias lecturas y gana la que arma
+   la tabla más completa (ops#164, ops#166):
+     corte en cada separador, contando desde el final o desde el principio:
+       fuente_intro · x265_crf18_0042 · lat_E02_830 (cuadro "E02_830")
+     lo mismo con el cuadro adelante:        01_fuente · E02_830_lat
+     número pegado al final o al principio:  src01 · encode (2) · 01fuente */
+const BASIC_SEP = /[\s_.\-]+/g;
+function basicCut(stem, k, fromEnd){
+  const seps = [...stem.matchAll(BASIC_SEP)].filter(m => m.index > 0 && m.index + m[0].length < stem.length);
+  const m = fromEnd ? seps[seps.length - k] : seps[k - 1];
+  return m ? [stem.slice(0, m.index), stem.slice(m.index + m[0].length)] : null;
+}
+const flip = pair => pair && [pair[1], pair[0]];
 const BASIC_READS = {
-  under: stem => { const cut = stem.lastIndexOf('_'); return cut > 0 && cut < stem.length-1 ? [stem.slice(0, cut), stem.slice(cut+1)] : null; },
+  under: stem => basicCut(stem, 1, true),
   tail:  stem => { const m = /^(.*?[^\d\s_.\-(\[#])[\s_.\-]*[(\[#]?(\d+)[)\]]?$/.exec(stem); return m ? [m[1], m[2]] : null; },
   head:  stem => { const m = /^[(\[#]?(\d+)[)\]]?[\s_.\-]*([^\d\s_.\-)\]].*)$/.exec(stem); return m ? [m[2], m[1]] : null; },
+  first: stem => basicCut(stem, 1, false),
+  last2: stem => basicCut(stem, 2, true),  first2: stem => basicCut(stem, 2, false),
+  last3: stem => basicCut(stem, 3, true),  first3: stem => basicCut(stem, 3, false),
+  // cuadro adelante
+  ffirst: stem => flip(basicCut(stem, 1, false)), flast: stem => flip(basicCut(stem, 1, true)),
+  ffirst2: stem => flip(basicCut(stem, 2, false)), flast2: stem => flip(basicCut(stem, 2, true)),
 };
+const isRefName = v => REFERENCE_RE.test(v.split(' ')[0]) || /^blu ?ray\b/.test(v);
 const REFERENCE_RE = /^(fuente|src|source|master|original|orig|remux|bd|bluray|raw)$/i;
-const basicSlug = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const basicSlug = t => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const frameSlug = t => /^\d+$/.test(t) ? String(parseInt(t, 10)) : basicSlug(t);
 function basicMatch(imgs, known = new Set()){
-  let best = null;
+  let best = null, rank = 0;
   for (const [mode, read] of Object.entries(BASIC_READS)){
+    rank++;
     const groups = new Map();   // cuadro -> Map(variante -> archivo)
     const names = new Map(), keys = new Map();
     for (const f of imgs){
@@ -1321,8 +1337,12 @@ function basicMatch(imgs, known = new Set()){
     const variants = [...new Set(usable.flatMap(([, g]) => [...g.keys()]))];
     const covered = usable.reduce((n, [, g]) => n + g.size, 0);
     const full = covered === imgs.length && usable.every(([, g]) => g.size === variants.length);
-    const numeric = usable.every(([k]) => /^\d+$/.test(k)) && !variants.every(v => /^\d+$/.test(v));
-    const score = (full ? 2e6 : 0) + (numeric ? 1e6 : 0) + covered;
+    // el número pegado (tail/head) no suma por numérico: si un corte en separador
+    // ya arma la tabla completa, manda ese (k4_frame1c1 es cuadro "frame1c1", no "1")
+    const numeric = mode !== 'tail' && mode !== 'head' && usable.every(([k]) => /^\d+$/.test(k)) && !variants.every(v => /^\d+$/.test(v));
+    // tabla completa > cuadros numéricos > una versión con nombre de referencia;
+    // a igualdad, la lectura más simple (el orden de BASIC_READS)
+    const score = (full ? 4e6 : 0) + (numeric ? 2e6 : 0) + (variants.some(isRefName) ? 1e6 : 0) + covered * 100 - rank;
     if (!best || score > best.score) best = {mode, score, usable, variants, names, keys};
   }
   return best;
@@ -1340,7 +1360,7 @@ function addBasicFiles(files){
   // cada versión en su columna. La referencia (fuente/src/master...) a la izquierda.
   const match = basicMatch(imgs, new Set(state.pairs.map(r => r.key).filter(k => k !== undefined)));
   if (match){
-    const isRef = v => REFERENCE_RE.test(v.split(' ')[0]) || /^blu ?ray\b/.test(v);
+    const isRef = isRefName;
     const order = [...match.variants].sort((x, y) => (isRef(y) - isRef(x)) || x.localeCompare(y, 'es', {numeric:true}));
     const fresh = !state.pairs.length;
     if (fresh) state.basicNames = [];
