@@ -100,6 +100,10 @@
   .slot.empty:hover{border-color:var(--accent); color:var(--accent);}
   .pair .tools{display:flex; gap:4px; margin-left:auto;}
   .pair .tools button{padding:2px 8px; font-size:11px;}
+  .pairhead{background:none; border-color:transparent; padding-top:0; padding-bottom:0;}
+  .vname{width:150px; display:flex; gap:4px;}
+  .vname input{flex:1; min-width:0; width:0; font-size:12px; padding:4px 6px;}
+  .vname button{padding:2px 7px; font-size:11px;}
   .markchip{
     display:inline-block; background:var(--panel2); border:1px solid #333; border-radius:14px;
     padding:3px 10px; font-size:12px; cursor:pointer; margin:2px 4px 2px 0;
@@ -213,6 +217,9 @@
     .pair .no,.pair .tools{grid-column:1 / -1}
     .pair .no{width:auto}
     .slot{width:100%;height:auto;aspect-ratio:16 / 9}
+    .vname{width:100%;min-width:0}
+    .vname button{min-width:44px;min-height:44px;font-size:14px}
+    .pairhead{padding-left:0;padding-right:0}
     .pair .tools{margin-left:0;justify-content:flex-end;gap:6px}
     .pair .tools button{min-width:44px;min-height:44px;font-size:14px}
     .exp{flex:1 1 100%}
@@ -298,15 +305,15 @@
   </div>
   <!-- ======================= BÁSICO ======================= -->
   <section id="basicView">
-    <h2 style="font-size:20px;">Compara dos imágenes</h2>
+    <h2 style="font-size:20px;">Compara imágenes</h2>
     <p class="hint" style="margin:4px 0 14px;">
-      Agrega dos capturas del mismo momento. Se ordenan por nombre: la primera va a la izquierda y la segunda a la derecha.
-      Para comparar más de dos versiones, usa Avanzado.
+      Suelta todas las capturas de una vez. Si los nombres dicen la versión y el cuadro, se agrupan solas: cada cuadro con todas sus versiones.
+      Si no, se ordenan por nombre y se emparejan de dos en dos. Datos por versión (códec, comando, métricas): usa Avanzado.
     </p>
     <div class="drop" id="basicDrop" role="button" tabindex="0" aria-label="Elegir imágenes">
       <div class="big">Suelta imágenes aquí</div>
       <div class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
-      <div class="hint">nombres <span class="mono">variante_frame</span> se emparejan por frame: la referencia (fuente, src, máster) queda a la izquierda contra cada variante.</div>
+      <div class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
     </div>
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
     <div id="pairList"></div>
@@ -1046,7 +1053,8 @@ const state = {
   cells: new Map(),      // "vid|fkey" -> File
   unassigned: [],        // {file, why}
   /* básico */
-  pairs: [],             // [File|null, File|null]
+  pairs: [],             // filas: un File|null por versión (con .key/.label si el nombre trajo el cuadro)
+  basicNames: ['A','B'], // nombre de cada columna (versión)
 };
 let nextVar = 1, nextFrame = 1;
 let busy = false;   // un lote de captura de video posee el estado compartido: nada más puede guardarlo ni reemplazarlo
@@ -1080,10 +1088,10 @@ $('obDemo').addEventListener('click', () => {
 });
 $('obLoad').addEventListener('click', () => runAction(async () => {
   // cargar el ejemplo como proyecto básico para poder tocarlo
-  if (state.pairs.some(p => p[0] || p[1]) && !confirm('Cargar el ejemplo descarta tu proyecto actual. ¿Continuar?')) return;
+  if (state.pairs.some(p => p.some(Boolean)) && !confirm('Cargar el ejemplo descarta tu proyecto actual. ¿Continuar?')) return;
   const pkg = await makeDemoPackage();
   setMode('basic');
-  state.pairs = [];
+  resetBasic();
   for (const f of pkg.manifest.frames){
     const fa = pkg.images['src_'+f], fb = pkg.images['enc_'+f];
     const toFile = async du => {
@@ -1265,61 +1273,112 @@ basicFile.addEventListener('change', () => { addBasicFiles([...basicFile.files])
 basicDrop.addEventListener('drop', e => addBasicFiles([...e.dataTransfer.files]));
 
 let pairWarns = [];   // avisos del último emparejamiento por nombre
+const basicBlank = () => state.basicNames.map(() => null);
+function resetBasic(){ state.pairs = []; state.basicNames = ['A','B']; pairWarns = []; }
+function basicAddColumn(name){
+  state.basicNames.push(name);
+  for (const row of state.pairs) row.push(null);
+  return state.basicNames.length - 1;
+}
+function basicDropColumn(c){
+  state.basicNames.splice(c, 1);
+  for (const row of state.pairs) row.splice(c, 1);
+  state.pairs = state.pairs.filter(row => row.some(Boolean));
+}
+
+/* Nombre -> {variante, cuadro}. Tres lecturas; gana la que arma la tabla más
+   completa (ops#164):
+     under: <variante>_<cuadro>      fuente_intro.png, x265_crf18_0042.png
+     tail:  <variante> <número>      Fuente - 1001.png, encode (2).png, src01.png
+     head:  <número> <variante>      01_fuente.png, 1001 - encode.png */
+const BASIC_READS = {
+  under: stem => { const cut = stem.lastIndexOf('_'); return cut > 0 && cut < stem.length-1 ? [stem.slice(0, cut), stem.slice(cut+1)] : null; },
+  tail:  stem => { const m = /^(.*?[^\d\s_.\-(\[#])[\s_.\-]*[(\[#]?(\d+)[)\]]?$/.exec(stem); return m ? [m[1], m[2]] : null; },
+  head:  stem => { const m = /^[(\[#]?(\d+)[)\]]?[\s_.\-]*([^\d\s_.\-)\]].*)$/.exec(stem); return m ? [m[2], m[1]] : null; },
+};
+const REFERENCE_RE = /^(fuente|src|source|master|original|orig|remux|bd|bluray|raw)$/i;
+const basicSlug = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const frameSlug = t => /^\d+$/.test(t) ? String(parseInt(t, 10)) : basicSlug(t);
+function basicMatch(imgs, known = new Set()){
+  let best = null;
+  for (const [mode, read] of Object.entries(BASIC_READS)){
+    const groups = new Map();   // cuadro -> Map(variante -> archivo)
+    const names = new Map(), keys = new Map();
+    for (const f of imgs){
+      const hit = read(f.name.replace(/\.[^.]+$/, '').trim());
+      if (!hit) continue;
+      const v = basicSlug(hit[0]), k = frameSlug(hit[1].trim());
+      if (!v || !k) continue;
+      if (!names.has(v)) names.set(v, hit[0].replace(/[\s_.\-]+$/, '').trim());
+      if (!keys.has(k)) keys.set(k, hit[1].trim());
+      if (!groups.has(k)) groups.set(k, new Map());
+      if (!groups.get(k).has(v)) groups.get(k).set(v, f);   // repetido: queda suelto
+    }
+    // un cuadro sirve si junta al menos dos versiones distintas, o si su fila
+    // ya existe (soltar después la versión que faltaba)
+    const usable = [...groups].filter(([k, g]) => g.size >= 2 || known.has(k));
+    if (!usable.length) continue;
+    const variants = [...new Set(usable.flatMap(([, g]) => [...g.keys()]))];
+    const covered = usable.reduce((n, [, g]) => n + g.size, 0);
+    const full = covered === imgs.length && usable.every(([, g]) => g.size === variants.length);
+    const numeric = usable.every(([k]) => /^\d+$/.test(k)) && !variants.every(v => /^\d+$/.test(v));
+    const score = (full ? 2e6 : 0) + (numeric ? 1e6 : 0) + covered;
+    if (!best || score > best.score) best = {mode, score, usable, variants, names, keys};
+  }
+  return best;
+}
+
 function addBasicFiles(files){
   $('builderStatus').textContent = '';
   pairWarns = [];
   const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
   imgs.forEach(probeDims);
-  const loose = [...imgs];
+  let loose = [...imgs];
+  if (!state.pairs.some(row => row.some(Boolean))) resetBasic();
 
-  // emparejamiento por nombre: <variante>_<frame> comparte frame. La referencia
-  // (fuente/src/master...) queda a la izquierda contra cada otra variante.
-  const REFERENCE_RE = /^(fuente|src|source|master|original|orig|remux|bd|bluray)$/i;
-  const prefixOf = f => { const stem = f.name.replace(/\.[^.]+$/, ''); const cut = stem.lastIndexOf('_'); return cut > 0 ? stem.slice(0, cut).toLowerCase() : null; };
-  const groups = new Map();
-  for (const f of loose){
-    const pre = prefixOf(f);
-    if (pre === null) continue;
-    const stem = f.name.replace(/\.[^.]+$/, '');
-    const g = stem.slice(stem.lastIndexOf('_') + 1).toLowerCase();
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(f);
-  }
-  const sameVariant = (a, b) => prefixOf(a) && prefixOf(a) === prefixOf(b);
-  const usable = [...groups.entries()].filter(([,g]) => g.length >= 2 && new Set(g.map(prefixOf)).size >= 2);
-  if (usable.length){
-    const patterned = new Set(usable.flatMap(([,g]) => g));
-    for (const [suffix, g] of usable){
-      // la referencia se detecta por el token inicial del prefijo: master_shot_001 -> master
-      let ref = g.find(f => REFERENCE_RE.test(prefixOf(f).split('_')[0]));
-      if (!ref){
-        ref = [...g].sort((a, b) => prefixOf(a).localeCompare(prefixOf(b)))[0];
-        pairWarns.push(`Ningún archivo del grupo «${suffix}» parece la referencia (fuente, src, máster): el lado izquierdo es una suposición. Revísalo.`);
-      }
-      for (const other of g){
-        if (other === ref) continue;
-        state.pairs.push([ref, other]);
-      }
+  // emparejamiento por nombre: los archivos del mismo cuadro van a la misma fila,
+  // cada versión en su columna. La referencia (fuente/src/master...) a la izquierda.
+  const match = basicMatch(imgs, new Set(state.pairs.map(r => r.key).filter(k => k !== undefined)));
+  if (match){
+    const isRef = v => REFERENCE_RE.test(v.split(' ')[0]) || /^blu ?ray\b/.test(v);
+    const order = [...match.variants].sort((x, y) => (isRef(y) - isRef(x)) || x.localeCompare(y, 'es', {numeric:true}));
+    const fresh = !state.pairs.length;
+    if (fresh) state.basicNames = [];
+    const have = new Map(state.basicNames.map((n, i) => [basicSlug(n), i]));
+    const col = new Map();
+    for (const v of order) col.set(v, have.has(v) ? have.get(v) : basicAddColumn(match.names.get(v)));
+    if (fresh && !order.some(isRef))
+      pairWarns.push('Ningún nombre parece la referencia (fuente, src, máster): la columna izquierda es una suposición. Revísala.');
+    const placed = new Set();
+    for (const [k, g] of match.usable.sort((x, y) => x[0].localeCompare(y[0], 'es', {numeric:true}))){
+      let row = state.pairs.find(r => r.key === k);
+      if (!row){ row = basicBlank(); row.key = k; row.label = match.keys.get(k); state.pairs.push(row); }
+      for (const [v, f] of g){ row[col.get(v)] = f; placed.add(f); }
     }
-    loose.length = 0;
-    loose.push(...imgs.filter(f => !patterned.has(f)));
+    loose = imgs.filter(f => !placed.has(f));
+    const holes = state.pairs.filter(r => r.key !== undefined && r.some(f => !f)).length;
+    if (holes) pairWarns.push(`${holes} cuadro${holes>1?'s':''} no tiene${holes>1?'n':''} todas las versiones: completa los huecos o quita la fila.`);
   }
 
-  // completa primero el par cojo del final
-  for (let i = state.pairs.length-1; i >= 0; i--){
-    const p = state.pairs[i];
-    if (p[0] && !p[1] && loose.length){
-      const b = loose.shift();
-      if (sameVariant(p[0], b)) pairWarns.push(`${p[0].name} y ${b.name} parecen la misma variante: se completó el par por orden. Revísalo.`);
-      p[1] = b;
+  // sin pista en el nombre: por orden. Primero los huecos de la última fila a medias
+  const n = state.basicNames.length;
+  const sameVariant = (x, y) => { const px = BASIC_READS.under(x.name.replace(/\.[^.]+$/, '')), py = BASIC_READS.under(y.name.replace(/\.[^.]+$/, '')); return px && py && px[0].toLowerCase() === py[0].toLowerCase(); };
+  if (!match) for (let i = state.pairs.length-1; i >= 0 && loose.length; i--){
+    const row = state.pairs[i];
+    if (!row.some(Boolean) || row.every(Boolean)) continue;
+    for (let c = 0; c < n && loose.length; c++) if (!row[c]){
+      const f = loose.shift();
+      if (n === 2 && row[1-c] && sameVariant(row[1-c], f)) pairWarns.push(`${row[1-c].name} y ${f.name} parecen la misma variante: se completó el par por orden. Revísalo.`);
+      row[c] = f;
     }
+    break;
   }
-  while (loose.length >= 2){
-    const a = loose.shift(), b = loose.shift();
-    if (sameVariant(a, b)) pairWarns.push(`${a.name} y ${b.name} parecen la misma variante: se emparejaron por orden. Revísalos.`);
-    state.pairs.push([a, b]);
+  while (loose.length){
+    const row = basicBlank();
+    for (let c = 0; c < n && loose.length; c++) row[c] = loose.shift();
+    if (n === 2 && row[0] && row[1] && sameVariant(row[0], row[1])) pairWarns.push(`${row[0].name} y ${row[1].name} parecen la misma variante: se emparejaron por orden. Revísalos.`);
+    state.pairs.push(row);
   }
-  if (loose.length) state.pairs.push([loose.shift(), null]);
   renderPairs();
   countLossy(imgs).then(n => { if (n) $('basicFoot').insertAdjacentHTML('beforeend', lossyWarnHTML(n)); });
 }
@@ -1327,46 +1386,79 @@ function addBasicFiles(files){
 function renderPairs(){
   const host = $('pairList');
   host.innerHTML = '';
+  const names = state.basicNames, n = names.length, two = n === 2;
+  const unit = two ? 'par' : 'cuadro';
+  if (state.pairs.length){
+    // nombres de las versiones: se pueden corregir, y con más de dos, quitar
+    const head = document.createElement('div');
+    head.className = 'pair pairhead';
+    head.innerHTML = '<span class="no">versiones</span>';
+    names.forEach((name, c) => {
+      const box = document.createElement('div');
+      box.className = 'vname';
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = name; inp.maxLength = 40; inp.setAttribute('aria-label', `Nombre de la versión ${c+1}`);
+      inp.onchange = () => { names[c] = inp.value.trim() || String.fromCharCode(65 + c % 26); renderPairs(); };
+      box.appendChild(inp);
+      if (n > 2){
+        const x = document.createElement('button'); x.textContent = '×'; x.title = 'Quitar esta versión';
+        x.setAttribute('aria-label', `Quitar la versión ${name}`);
+        x.onclick = () => { if (confirm(`¿Quitar la versión «${name}» y sus imágenes?`)){ basicDropColumn(c); renderPairs(); } };
+        box.appendChild(x);
+      }
+      head.appendChild(box);
+    });
+    const add = document.createElement('button');
+    add.id = 'basicAddVersion'; add.textContent = '+ versión'; add.title = 'Agregar otra versión a cada cuadro';
+    add.onclick = () => { basicAddColumn(String.fromCharCode(65 + n % 26)); renderPairs(); };
+    const tools = document.createElement('div'); tools.className = 'tools'; tools.appendChild(add);
+    head.appendChild(tools);
+    host.appendChild(head);
+  }
   state.pairs.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'pair';
     const mk = (f, side) => {
+      const where = two ? (side ? 'Derecha' : 'Izquierda') : names[side];
       const s = document.createElement('div');
       s.className = 'slot ' + (f ? 'filled' : 'empty');
       s.setAttribute('role', 'button'); s.tabIndex = 0;
-      s.setAttribute('aria-label', `${side ? 'Derecha' : 'Izquierda'}, par ${i+1}: ${f ? f.name : 'elegir imagen'}`);
-      s.innerHTML = f ? `<img src="${thumb(f)}" alt="${esc(f.name)}">` : (side ? 'Derecha: elegir imagen' : 'Izquierda: elegir imagen');
+      s.setAttribute('aria-label', `${where}, ${unit} ${i+1}: ${f ? f.name : 'elegir imagen'}`);
+      if (f) s.innerHTML = `<img src="${thumb(f)}" alt="${esc(f.name)}">`; else s.textContent = `${where}: elegir imagen`;
       s.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); s.click(); } });
       s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : 'clic para elegir una imagen';
       s.addEventListener('click', () => pickOne(file => { state.pairs[i][side] = file; probeDims(file); renderPairs(); }));
       return s;
     };
-    row.innerHTML = `<span class="no">par ${i+1}</span>`;
-    row.appendChild(mk(p[0], 0));
-    row.appendChild(mk(p[1], 1));
+    row.innerHTML = `<span class="no">${unit} ${i+1}</span>`;
+    p.forEach((f, side) => row.appendChild(mk(f, side)));
     const tools = document.createElement('div');
     tools.className = 'tools';
     const up = document.createElement('button'); up.textContent='↑'; up.title='subir';
     up.onclick = () => { if (i>0){ [state.pairs[i-1], state.pairs[i]] = [state.pairs[i], state.pairs[i-1]]; renderPairs(); } };
     const dn = document.createElement('button'); dn.textContent='↓'; dn.title='bajar';
     dn.onclick = () => { if (i<state.pairs.length-1){ [state.pairs[i+1], state.pairs[i]] = [state.pairs[i], state.pairs[i+1]]; renderPairs(); } };
-    const rm = document.createElement('button'); rm.textContent='×'; rm.title='quitar par';
-    rm.onclick = () => { state.pairs.splice(i,1); renderPairs(); };
-    const swap = document.createElement('button'); swap.textContent='↔'; swap.title='Intercambiar izquierda y derecha';
-    swap.onclick = () => { [p[0],p[1]] = [p[1],p[0]]; renderPairs(); };
-    tools.append(swap, up, dn, rm);
+    const rm = document.createElement('button'); rm.textContent='×'; rm.title=`quitar ${unit}`;
+    rm.onclick = () => { state.pairs.splice(i,1); if (!state.pairs.length) resetBasic(); renderPairs(); };
+    if (two){
+      const swap = document.createElement('button'); swap.textContent='↔'; swap.title='Intercambiar izquierda y derecha';
+      swap.onclick = () => { [p[0],p[1]] = [p[1],p[0]]; renderPairs(); };
+      tools.append(swap);
+    }
+    tools.append(up, dn, rm);
     row.appendChild(tools);
     host.appendChild(row);
   });
   const foot = $('basicFoot');
-  const half = state.pairs.some(p => !p[0] || !p[1]);
+  const half = state.pairs.some(p => p.some(f => !f));
   const dims = new Set([...state.pairs.flat()].filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
   let h = '';
-  if (half) h += `<div class="warn">Completa el par vacío antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
+  if (half) h += `<div class="warn">Completa ${two ? 'el par vacío' : 'los huecos'} antes de compartir. Puedes guardar el proyecto para seguir después.</div>`;
   if (dims.size > 1) h += `<div class="warn">Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.</div>`;
   for (const w of pairWarns) h += `<div class="warn">${esc(w)}</div>`;
   if (state.pairs.length && !half){
-    h += `<div class="okline">${state.pairs.length} par${state.pairs.length>1?'es':''} listo${state.pairs.length>1?'s':''} · y exporta cuando quieras:</div>`;
+    const k = state.pairs.length;
+    h += `<div class="okline">${k} ${unit}${k>1?(two?'es':'s'):''} listo${k>1?'s':''}${two ? '' : ` · ${n} versiones en cada uno`} · y exporta cuando quieras:</div>`;
     h += `<div class="exports" style="margin-top:8px;">
       <button id="bExpHtml">Descargar .html</button>
       <button id="bExpZip">Descargar .zip</button>
@@ -1389,22 +1481,20 @@ function pickOne(cb){
 /* básico -> núcleo: manifest listo + File por clave canónica. Sin dataURLs:
    la representación única del proyecto son los archivos (gatos.pics#29) */
 async function basicCore(cancelled = () => false){
-  const pairs = state.pairs;
+  const pairs = state.pairs, names = state.basicNames;
+  // ids estables por columna: a, b, c… (a/b son los de siempre con dos versiones)
+  const ids = names.map((_, c) => c < 26 ? String.fromCharCode(97 + c) : 'v' + (c+1));
   const manifest = {
     title: 'Comparación',
     version: state.version,
     frames: pairs.map((_, i) => i+1),
-    frame_labels: Object.fromEntries(pairs.map((_, i) => [String(i+1), String(i+1)])),
-    variants: [
-      {id:'a', name:'A', color:PALETTE[0]},
-      {id:'b', name:'B', color:PALETTE[1]},
-    ],
+    frame_labels: Object.fromEntries(pairs.map((row, i) => [String(i+1), String(row.label || i+1)])),
+    variants: names.map((name, c) => ({id: ids[c], name, color: PALETTE[c % PALETTE.length]})),
   };
   const entries = [];
   for (let i = 0; i < pairs.length; i++){
     if (cancelled()) throw new Error('Preparación cancelada.');
-    if (pairs[i][0]) entries.push(['a_'+(i+1), pairs[i][0]]);
-    if (pairs[i][1]) entries.push(['b_'+(i+1), pairs[i][1]]);
+    pairs[i].forEach((f, c) => { if (f) entries.push([ids[c]+'_'+(i+1), f]); });
   }
   return {format: FORMAT, manifest, entries};
 }
@@ -1849,7 +1939,7 @@ function packageMode(){
   /* Guardar/publicar el modo que TIENE trabajo: la pestaña activa es la última
      tocada, no la del proyecto real (6 pares en Básico + toque en Video no debe
      guardar el avanzado sembrado y vacío). */
-  const basicWork = state.pairs.some(p => p[0] || p[1]);
+  const basicWork = state.pairs.some(p => p.some(Boolean));
   const advWork = state.cells.size > 0;
   return basicWork === advWork ? state.mode : (basicWork ? 'basic' : 'advanced');
 }
@@ -1859,7 +1949,7 @@ async function packageCore({complete = false, cancelled = () => false} = {}){
   if (complete){
     let problems;
     if (mode === 'basic'){
-      problems = !state.pairs.length || state.pairs.some(p => !p[0] || !p[1]) ? ['Agrega dos imágenes a cada par antes de compartir.'] : [];
+      problems = !state.pairs.length || state.pairs.some(p => p.some(f => !f)) ? [state.basicNames.length === 2 ? 'Agrega dos imágenes a cada par antes de compartir.' : 'Completa todas las versiones de cada cuadro antes de compartir.'] : [];
       // igual que avanzado: dimensiones mezcladas rompen el diff y los recortes 1:1
       const dims = new Set(state.pairs.flat().filter(Boolean).map(f => fileDims.get(f)).filter(Boolean));
       if (dims.size > 1) problems.push(`Tamaños de imagen mezclados (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`);
@@ -2122,7 +2212,7 @@ async function importCmp(file){
       state.manifestExtras = {...pkg.manifest};
       state.variants = variants; state.frames = frames; state.cells = cells;
       state.importedCells = new Map(cells);
-      state.unassigned = []; state.pairs = [];
+      state.unassigned = []; resetBasic();
       $('builderStatus').textContent = '';
       setMode('advanced'); $('onboard').hidden = true;
       state.cells.forEach(probeDims);
@@ -2156,7 +2246,7 @@ showOnboard(false);
 if (new URLSearchParams(location.search).get('demo') === '1') $('obDemo').click();
 window.addEventListener('beforeunload', e => {
   /* marcas y archivos sin asignar también son trabajo que se pierde */
-  const hasWork = state.pairs.some(p => p[0] || p[1]) || state.cells.size || state.unassigned.length || vidState.marks.length;
+  const hasWork = state.pairs.some(p => p.some(Boolean)) || state.cells.size || state.unassigned.length || vidState.marks.length;
   if (hasWork){ e.preventDefault(); e.returnValue = ''; }
 });
 window.addEventListener('pagehide', () => { for (const u of fileURLs.values()) URL.revokeObjectURL(u); });

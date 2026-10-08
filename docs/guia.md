@@ -27,15 +27,21 @@ y abre `app/index.html`.
 
 ## 2. Modo Básico
 
-Para cuando solo quieres comparar pares de imágenes y nada más.
+Para cuando solo quieres comparar imágenes y nada más.
 
-1. Suelta tus capturas en la zona grande (o haz clic para explorar).
-2. Cada **dos imágenes** forman un par: la primera queda a la izquierda, la
-   segunda a la derecha. Se ordenan por nombre, así que llámalas
-   `01-fuente.png`, `01-encode.png`, `02-fuente.png`… y los pares salen solos.
-3. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltela: completa
-   el par cojo automáticamente.
-4. **Vista previa** arriba a la derecha, y exporta con los botones que aparecen
+1. Suelta **todas** tus capturas de una vez en la zona grande (o haz clic para
+   explorar).
+2. Si los nombres dicen la versión y el cuadro, se agrupan solas: una fila por
+   cuadro con todas sus versiones, sean 2, 3 o más. Sirven `fuente_01.png`,
+   `Encode - 01.png`, `encode (1).png` o `01_encode.png`. La referencia
+   (fuente, src, máster) queda a la izquierda. Los nombres de las versiones
+   se pueden corregir arriba de las filas, y con **+ versión** agregas otra a
+   mano.
+3. Si los nombres no dan pista, se ordenan por nombre y cada **dos imágenes**
+   forman un par: la primera a la izquierda, la segunda a la derecha.
+4. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltala: completa
+   el hueco de la última fila automáticamente.
+5. **Vista previa** arriba a la derecha, y exporta con los botones que aparecen
    cuando los pares están completos.
 
 Si dejas un par a medias, la página te avisa antes de exportar. Si mezclas

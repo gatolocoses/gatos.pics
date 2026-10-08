@@ -138,6 +138,22 @@ inválido (422) o demasiado grande (413) la página anterior queda intacta.
   quitaste) se borran.
 - La imagen compartida `/s/<token>.png` no se toca: se reemplaza aparte, como
   siempre.
+
+## Imagen compartida de una página publicada por la API
+
+Una página publicada con `POST /api/upload` nace sin imagen compartida:
+`/s/<token>.png` responde 404 y el BBCode
+`[url=…/p/<token>/][img]…/s/<token>.png[/img][/url]` muestra una imagen rota
+hasta que se sube una. La respuesta de la publicación lo dice
+(`"share_image": null`) y trae la dirección de subida (`share_image_upload`).
+
+- Con la imagen del visor, sin abrir un navegador a mano:
+  `GATOS_DELETE_KEY=<llave> node tools/share_image.cjs https://gatos.pics/p/<token>/`.
+  Abre la página en un navegador sin ventana, toma la misma imagen que dibuja
+  "Compartir" (vista partida, etiquetas, insignia) y la sube. La URL puede
+  llevar el `#…` de una vista concreta. Necesita Playwright.
+- Con una imagen propia: `POST /api/shot/<token>` con el PNG crudo como cuerpo
+  y el encabezado `x-delete-key`. Máximo 16 MiB y 8000 px por lado.
 - No cuenta contra el cupo de páginas.
 
 ## Sumar, reemplazar o quitar variantes sin reenviar las demás

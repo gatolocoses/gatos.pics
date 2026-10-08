@@ -100,6 +100,10 @@
   .slot.empty:hover{border-color:var(--accent); color:var(--accent);}
   .pair .tools{display:flex; gap:4px; margin-left:auto;}
   .pair .tools button{padding:2px 8px; font-size:11px;}
+  .pairhead{background:none; border-color:transparent; padding-top:0; padding-bottom:0;}
+  .vname{width:150px; display:flex; gap:4px;}
+  .vname input{flex:1; min-width:0; width:0; font-size:12px; padding:4px 6px;}
+  .vname button{padding:2px 7px; font-size:11px;}
   .markchip{
     display:inline-block; background:var(--panel2); border:1px solid #333; border-radius:14px;
     padding:3px 10px; font-size:12px; cursor:pointer; margin:2px 4px 2px 0;
@@ -213,6 +217,9 @@
     .pair .no,.pair .tools{grid-column:1 / -1}
     .pair .no{width:auto}
     .slot{width:100%;height:auto;aspect-ratio:16 / 9}
+    .vname{width:100%;min-width:0}
+    .vname button{min-width:44px;min-height:44px;font-size:14px}
+    .pairhead{padding-left:0;padding-right:0}
     .pair .tools{margin-left:0;justify-content:flex-end;gap:6px}
     .pair .tools button{min-width:44px;min-height:44px;font-size:14px}
     .exp{flex:1 1 100%}
@@ -298,15 +305,15 @@
   </div>
   <!-- ======================= BÁSICO ======================= -->
   <section id="basicView">
-    <h2 style="font-size:20px;">Compara dos imágenes</h2>
+    <h2 style="font-size:20px;">Compara imágenes</h2>
     <p class="hint" style="margin:4px 0 14px;">
-      Agrega dos capturas del mismo momento. Se ordenan por nombre: la primera va a la izquierda y la segunda a la derecha.
-      Para comparar más de dos versiones, usa Avanzado.
+      Suelta todas las capturas de una vez. Si los nombres dicen la versión y el cuadro, se agrupan solas: cada cuadro con todas sus versiones.
+      Si no, se ordenan por nombre y se emparejan de dos en dos. Datos por versión (códec, comando, métricas): usa Avanzado.
     </p>
     <div class="drop" id="basicDrop" role="button" tabindex="0" aria-label="Elegir imágenes">
       <div class="big">Suelta imágenes aquí</div>
       <div class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
-      <div class="hint">nombres <span class="mono">variante_frame</span> se emparejan por frame: la referencia (fuente, src, máster) queda a la izquierda contra cada variante.</div>
+      <div class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
     </div>
     <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
     <div id="pairList"></div>

@@ -72,6 +72,28 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   const fpath=path.join(OUT,'fixture.cmp');fs.writeFileSync(fpath,JSON.stringify(fixture));
   const png=Buffer.from(fixture.images.source_intro.split(',')[1],'base64');
   await page.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png},{name:'a.png',mimeType:'image/png',buffer:png},{name:'c.png',mimeType:'image/png',buffer:png}]);
+  // ops#164: soltar N versiones x M cuadros arma M filas de N, con varios estilos de nombre
+  const dump = async names => {
+    await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];});
+    await page.locator('#basicFile').setInputFiles(names.map(name=>({name,mimeType:'image/png',buffer:png})));
+    return page.evaluate(()=>({names:BUILDER.state.basicNames, rows:BUILDER.state.pairs.map(p=>p.map(f=>f?.name||null))}));
+  };
+  ok('basic groups 4 versions x 2 frames, reference first', await dump(['x265_2.png','fuente_2.png','av1_1.png','x264_1.png','fuente_1.png','x265_1.png','av1_2.png','x264_2.png']),
+    {names:['fuente','av1','x264','x265'], rows:[['fuente_1.png','av1_1.png','x264_1.png','x265_1.png'],['fuente_2.png','av1_2.png','x264_2.png','x265_2.png']]});
+  ok('basic reads "Name - number" and "name (number)"', [await dump(['Source - 1001.png','Encode A - 1001.png','WEB-DL - 1001.png']), await dump(['src (1).png','enc (1).png','src (2).png','enc (2).png'])],
+    [{names:['Source','Encode A','WEB-DL'], rows:[['Source - 1001.png','Encode A - 1001.png','WEB-DL - 1001.png']]}, {names:['src','enc'], rows:[['src (1).png','enc (1).png'],['src (2).png','enc (2).png']]}]);
+  ok('basic reads number-first names', await dump(['01_fuente.png','01_encode.png','01_web.png','02_fuente.png','02_encode.png','02_web.png']),
+    {names:['fuente','encode','web'], rows:[['01_fuente.png','01_encode.png','01_web.png'],['02_fuente.png','02_encode.png','02_web.png']]});
+  ok('basic leaves a visible hole when a version is missing', await dump(['fuente_1.png','enc_1.png','web_1.png','fuente_2.png','enc_2.png']).then(r=>r.rows[1]), ['fuente_2.png','enc_2.png',null]);
+  ok('incomplete frame blocks sharing', await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(()=>'ok',e=>e.message)), 'Completa todas las versiones de cada cuadro antes de compartir.');
+  await page.locator('#basicFile').setInputFiles([{name:'web_2.png',mimeType:'image/png',buffer:png}]);
+  ok('a later file joins its frame', await page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f?.name||null))), [['fuente_1.png','enc_1.png','web_1.png'],['fuente_2.png','enc_2.png','web_2.png']]);
+  ok('basic package carries every version', await page.evaluate(()=>BUILDER.currentPackage({complete:true}).then(p=>({v:p.manifest.variants.map(v=>v.id+':'+v.name),labels:p.manifest.frame_labels,images:Object.keys(p.images).sort()}))),
+    {v:['a:fuente','b:enc','c:web'],labels:{1:'1',2:'2'},images:['a_1','a_2','b_1','b_2','c_1','c_2']});
+  ok('version names and add/remove controls', await page.evaluate(()=>({inputs:[...document.querySelectorAll('.vname input')].map(i=>i.value),remove:document.querySelectorAll('.vname button').length,add:!!document.getElementById('basicAddVersion')})), {inputs:['fuente','enc','web'],remove:3,add:true});
+  ok('names without a clue still pair by order', await dump(['crf18.png','crf20.png','crf22.png']).then(r=>r.rows), [['crf18.png','crf20.png'],['crf22.png',null]]);
+  await page.evaluate(()=>{BUILDER.state.pairs=[];BUILDER.state.basicNames=['A','B'];});
+  await page.locator('#basicFile').setInputFiles([{name:'b.png',mimeType:'image/png',buffer:png},{name:'a.png',mimeType:'image/png',buffer:png},{name:'c.png',mimeType:'image/png',buffer:png}]);
   ok('basic files use the documented filename order', await page.evaluate(()=>BUILDER.state.pairs.map(p=>p.map(f=>f?.name||null))), [['a.png','b.png'],['c.png',null]]);
   const draftDownload=page.waitForEvent('download');await page.locator('#btnSave').click();
   const draft=await draftDownload;const draftPath=path.join(OUT,'draft.cmp');await draft.saveAs(draftPath);
