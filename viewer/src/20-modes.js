@@ -170,7 +170,8 @@ function setBlink(on, quiet){
 }
 blinkBtn.addEventListener('click', () => setBlink(!blinkMode));
 
-/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ---------- */
+/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ----------
+   Ya no tiene botón propio: lo usa la prueba ciega (45-test.js, gatos-ops#198). */
 let blindMode = false;
 let blindOrder = null;
 function sessionBlindOrder(){
@@ -199,9 +200,6 @@ function setBlind(on){
     varA = blindOrder[0]?.id; varB = blindOrder[1]?.id || varA;
   }
   blindMode = on;
-  blindBtn.classList.toggle('blind-on', on);
-  blindBtn.setAttribute('aria-pressed', String(on));
-  $('revealBtn').hidden = !on;
   pageTitle.textContent = on ? T('Comparación a ciegas') : originalTitle;
   document.title = pageTitle.textContent;
   if (on) hideTip();
@@ -210,8 +208,6 @@ function setBlind(on){
   updateMeta();
   writeHash();
 }
-blindBtn.addEventListener('click', () => setBlind(!blindMode));
-$('revealBtn').addEventListener('click', () => setBlind(false));
 
 /* ---------- curva solar: revela banding ---------- */
 let solarMode = false;

@@ -4,7 +4,7 @@
 
 Compara capturas de encodes, remuxes, versiones de streaming o cualquier par de
 imágenes con divisor arrastrable, diff
-amplificado, recortes 1:1, zoom hasta 800 %, modo ciego y puntaje S2. Todo corre
+amplificado, recortes 1:1, zoom hasta 800 %, prueba ciega y puntaje S2. Todo corre
 en tu computadora. Las imágenes solo se suben cuando eliges Publicar.
 
 - Sin cuentas ni registros: el creador corre completo en tu navegador.
@@ -68,7 +68,7 @@ de tu propio proceso de extracción.
 ## El visor
 
 - Divisor vertical arrastrable · **diff amplificado ×5–×40** con modo calor.
-- **Parpadeo A/B** a 2 Hz · **modo ciego** que oculta qué variante es cuál.
+- **Parpadeo A/B** a 2 Hz · **prueba ciega**: todas las versiones de a pares, sin saber cuál es cuál.
 - **Curva solar** que convierte el banding en acantilados visibles.
 - **Recortes 1:1** de todas las variantes en el punto que elijas.
 - Zoom hasta 800 % anclado al cursor, arrastre, escala en píxeles nítidos.

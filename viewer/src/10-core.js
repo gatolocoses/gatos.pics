@@ -17,7 +17,6 @@ const modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropP
 const cropRows = $('cropRows'), cropTitle = $('cropTitle');
 const diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');
 const pixBtn = $('pixBtn');
-const blindBtn = $('blindBtn');
 const solarBtn = $('solarBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
 let originalTitle = T('Comparación');
@@ -154,11 +153,22 @@ function setSideMissing(side, on){
 // comparan identidad para descartar carreras) y la fuente http, que no
 // cachea, no genera promesas nuevos en cada llamada.
 const srcCache = new Map();
+// A ciegas la imagen llega como blob: su dirección ya no dice de qué versión
+// es (img/x264_33295.webp se leía con «guardar imagen como», «abrir en otra
+// pestaña» o arrastrándola). Si la descarga falla (file://) queda la dirección
+// de siempre. Al salir del modo se sueltan (dropBlindSrc).
+const blindSrc = new Map(), blindMade = [];
+let blindGen = 0;   // una descarga que termina después de salir del modo no deja un blob suelto
 function srcFor(id, f){
   const key = id+'_'+f;
   if (!srcCache.has(key)) srcCache.set(key, Promise.resolve(SOURCE.srcFor(id, f)));
-  return srcCache.get(key);
+  if (!blindMode) return srcCache.get(key);
+  const gen = blindGen;
+  if (!blindSrc.has(key)) blindSrc.set(key, srcCache.get(key).then(u => /^(blob|data):/.test(u) ? u
+    : fetch(u).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.blob(); }).then(b => { if (gen !== blindGen) return u; const o = URL.createObjectURL(b); blindMade.push(o); return o; }).catch(() => u)));
+  return blindSrc.get(key);
 }
+function dropBlindSrc(){ blindGen++; for (const u of blindMade.splice(0)) URL.revokeObjectURL(u); blindSrc.clear(); }
 // gana la última petición de cada lado: la resolución tardía de una petición
 // vieja no puede sobreescribir el par que el usuario ya pidió
 const sideReq = {A:0, B:0};

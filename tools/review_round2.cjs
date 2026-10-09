@@ -117,7 +117,7 @@ const hash=buf=>createHash('sha256').update(buf).digest('hex');
   // Fixed seed yields a reproducible, nonidentity permutation for this fixture.
   await page.goto(base+'/p/'+TOKEN+'/');await loaded(page);
   await page.evaluate(()=>sessionStorage.setItem('gatosBlind:'+location.pathname+':'+originalTitle+':'+VARIANTS.map(v=>v.id).join(','),'1'));
-  await page.locator('#blindBtn').click();await loaded(page);
+  await page.evaluate(()=>setBlind(true));await loaded(page);
   const order=await page.evaluate(()=>blindOrder.map(v=>v.id));
   ok('blind mode shuffles actual pane contents',await page.evaluate(()=>[varA,varB]),[order[0],order[1]]);
   ok('known seed changes original order',order.join(',')!=='src,enc,third');
@@ -149,10 +149,10 @@ const hash=buf=>createHash('sha256').update(buf).digest('hex');
   await page.locator('#shotRetry').click();await page.locator('#shareCodes').waitFor();
   ok('shot retry resolves to canonical URL',await page.locator('#shareCodes textarea').last().inputValue(),base+'/s/'+TOKEN+'.png');
   await page.locator('#shareClose').click();
-  const panes=await page.evaluate(()=>[varA,varB]);await page.locator('#revealBtn').click();
+  const panes=await page.evaluate(()=>[varA,varB]);await page.evaluate(()=>setBlind(false));
   ok('Reveal preserves selected pane contents and restores names',await page.evaluate(()=>({panes:[varA,varB],blind:blindMode,title:document.title})),{panes,blind:false,title:'Proyecto secreto'});
   await page.reload();await loaded(page);ok('blind is not enabled by a shared URL',await page.evaluate(()=>blindMode),false);
-  await page.locator('#blindBtn').click();ok('session assignment survives reload',await page.evaluate(()=>blindOrder.map(v=>v.id)),order);
+  await page.evaluate(()=>setBlind(true));ok('session assignment survives reload',await page.evaluate(()=>blindOrder.map(v=>v.id)),order);
   for(const width of [320,390,820,1440]){
     await page.setViewportSize({width,height:844});
     ok('mobile-visible help trigger at '+width,await page.locator('#helpBtn').isVisible());

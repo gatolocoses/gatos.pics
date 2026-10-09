@@ -1,35 +1,61 @@
-/* ---------- prueba ciega: todos contra todos (gatos-ops#196) ----------
+/* ---------- prueba ciega: ordenar las versiones a ciegas (gatos-ops#196, #200) ----------
    Cada versión recibe un número al azar al empezar y así se llama toda la
    prueba («Variante 3»): se sabe qué número se está juzgando, nunca qué es.
-   Se comparan todas las versiones de a pares, cada par en hasta TEST_FRAMES
-   cuadros (los mismos para todos, al azar), con los lados sorteados. Al final
-   salen los puestos con los nombres revelados, y en una página publicada el
-   resultado se suma solo a la tabla de todos (/api/vote/<token>): la
-   introducción lo avisa antes de empezar. Un navegador suma una vez por página.
-   Usa el modo ciego del visor: blindOrder ES la numeración de la prueba. */
+
+   La prueba no recorre todos los pares: ORDENA las versiones con lo que se va
+   respondiendo (inserción binaria). Cada versión nueva se compara contra la
+   del medio de las ya ordenadas, y según gane o pierda, contra la mitad que
+   corresponde: con 4 versiones son 4 o 5 duelos, no 6; con 5, de 6 a 8, no 10.
+   Lo que no se comparó se deduce: si A le gana a B y B a C, A va antes que C.
+   Un duelo se juega cuadro a cuadro (hasta TEST_FRAMES, los mismos para todos,
+   al azar) y se corta en cuanto está decidido: 2-0, o a puntos al tercero
+   (ganar 1, empate ½). Un duelo empatado deja a las dos en el mismo puesto.
+
+   Al final salen los puestos con los nombres revelados, y en una página
+   publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
+   la introducción lo avisa antes de empezar. Un navegador suma una vez por
+   página. Usa el modo ciego del visor: blindOrder ES la numeración. */
 const TEST_MAX = 5, TEST_FRAMES = 3;
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
+const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, TEST_FRAMES);
 // se ofrece con 2 a 5 versiones y solo si cada par comparte al menos un cuadro
-const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => FRAMES.some(f => hasFrame(a, f) && hasFrame(b, f)));
-function testGames(){
-  const frames = shuffled(FRAMES), games = [];
-  for (const [a, b] of testPairs())
-    for (const f of frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, TEST_FRAMES)) games.push(Math.random() < .5 ? {a, b, f} : {a: b, b: a, f});
-  return shuffled(games);
-}
-// puntos (ganar 1, empate ½), ganadas/empatadas/perdidas y puesto; el mismo cálculo que service/lib/votes.mjs
-function testTally(games){
-  const row = Object.fromEntries(VARIANTS.map(v => [v.id, {pts: 0, w: 0, t: 0, l: 0}]));
-  for (const [a, b, , r] of games){
-    if (r === 't'){ row[a].t++; row[b].t++; row[a].pts += .5; row[b].pts += .5; }
-    else { const win = r === 'a' ? a : b, lose = r === 'a' ? b : a; row[win].w++; row[win].pts++; row[lose].l++; }
+const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
+// duelos que, como mucho, pide la inserción binaria con n versiones: la suma de ceil(log2 k)
+const testDuels = n => { let max = 0; for (let k = 2; k <= n; k++) max += Math.ceil(Math.log2(k)); return max; };
+
+/* El plan es un generador: entrega la comparación que toca ({a, b, f}: izquierda,
+   derecha, cuadro) y recibe la respuesta ('a', 'b' o 't'). Es determinista dado
+   `run` (orden de entrada, cuadros y lados ya sorteados), así «Atrás» lo rehace
+   desde el principio con las respuestas anteriores. Devuelve los grupos, de
+   mejor a peor; un grupo de varias = empatadas. */
+function* testDuel(run, x, y){
+  const frames = testShared(x, y, run.frames);
+  let d = 0;   // puntos de x menos puntos de y
+  for (let i = 0; i < frames.length; i++){
+    const key = [x, y].sort().join('|') + '|' + frames[i];
+    if (!run.flips.has(key)) run.flips.set(key, Math.random() < .5);
+    const flip = run.flips.get(key), r = yield flip ? {a: y, b: x, f: frames[i]} : {a: x, b: y, f: frames[i]};
+    if (r !== 't') d += (r === 'a') !== flip ? 1 : -1;
+    if (Math.abs(d) > frames.length - 1 - i) break;   // los cuadros que quedan ya no lo cambian
   }
-  for (const v of VARIANTS) row[v.id].place = 1 + VARIANTS.filter(o => row[o.id].pts > row[v.id].pts).length;
-  return row;
+  return d;
+}
+function* testPlan(run){
+  const groups = [];
+  for (const x of run.order){
+    let lo = 0, hi = groups.length, tied = false;
+    while (lo < hi && !tied){
+      const mid = (lo + hi) >> 1, d = yield* testDuel(run, x, groups[mid][0]);
+      if (d === 0){ groups[mid].push(x); tied = true; }
+      else if (d > 0) hi = mid; else lo = mid + 1;
+    }
+    if (!tied) groups.splice(lo, 0, [x]);
+  }
+  return groups;
 }
 const testEsc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const testName = id => `<b style="color:${testEsc(variant(id).color || '#e8e8f0')}">${testEsc(variant(id).name || id)}</b>`;
@@ -39,10 +65,10 @@ function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'f
 function testClose(){ if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
 function testIntro(){
-  const n = VARIANTS.length, games = testPairs().reduce((s, [a, b]) => s + Math.min(TEST_FRAMES, FRAMES.filter(f => hasFrame(a, f) && hasFrame(b, f)).length), 0);
+  const n = VARIANTS.length, hi = testDuels(n) * Math.min(TEST_FRAMES, FRAMES.length);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
-    <p>${T`Vas a comparar las ${n} versiones de a pares, sin saber cuál es cuál: ${games} comparaciones. Cada versión recibe un número al azar y lo conserva toda la prueba.`}</p>
-    <p>${T('En cada comparación eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo. Al final ves los puestos con los nombres.')}</p>
+    <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. Cada una recibe un número al azar y lo conserva toda la prueba.`}</p>
+    <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
     ${testHttp() ? `<p>${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}`);
@@ -51,34 +77,44 @@ function testStart(){
   testClose();
   if (cropMode){ setCropMode(false); closeCrop(); }
   blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
-  testRun = {games: testGames(), i: 0, picks: [], before: {varA, varB, frame}};
+  // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
+  testRun = {order: shuffled(VARIANTS.map(v => v.id)), frames: shuffled(FRAMES), flips: new Map(), answers: [], games: [], before: {varA, varB, frame}};
+  testRun.max = testDuels(VARIANTS.length) * Math.min(TEST_FRAMES, FRAMES.length);
   blindMode = true;
   document.body.classList.add('testing');
   $('testBar').hidden = false;
   pageTitle.textContent = T('Prueba ciega'); document.title = pageTitle.textContent;
   hideTip();
-  testShow();
+  testReplay();
   computeFit(); applyTransform();
 }
+// rehace el plan con las respuestas dadas y deja en pantalla la comparación que toca (o termina)
+function testReplay(){
+  const run = testRun, gen = testPlan(run);
+  run.games = [];
+  let step = gen.next();
+  for (const r of run.answers){ run.games.push([step.value.a, step.value.b, String(step.value.f), r]); step = gen.next(r); }
+  run.gen = gen;
+  if (step.done) testFinish(step.value); else { run.cur = step.value; testShow(); }
+}
 function testShow(){
-  const g = testRun.games[testRun.i];
+  const g = testRun.cur;
   varA = g.a; varB = g.b; frame = g.f;
-  $('testStep').textContent = T`Comparación ${testRun.i + 1} de ${testRun.games.length} · ¿cuál se ve mejor?`;
+  $('testStep').textContent = T`Comparación ${testRun.answers.length + 1} · como mucho ${testRun.max} · ¿cuál se ve mejor?`;
   $('testLeft').textContent = '← ' + variantName(g.a);
   $('testRight').textContent = variantName(g.b) + ' →';
-  $('testBack').disabled = testRun.i === 0;
+  $('testBack').disabled = !testRun.answers.length;
   loadImg();
-  // la siguiente comparación ya viene en camino: el cambio no delata nada por lo que tarda en cargar
-  const next = testRun.games[testRun.i + 1];
-  if (next) for (const id of [next.a, next.b]) srcFor(id, next.f).then(u => { new Image().src = u; });
 }
 function testPick(r){
   if (!testRun) return;
-  testRun.picks[testRun.i] = r;
-  if (++testRun.i < testRun.games.length) testShow(); else testFinish();
+  const run = testRun, g = run.cur;
+  run.answers.push(r); run.games.push([g.a, g.b, String(g.f), r]);
+  const step = run.gen.next(r);
+  if (step.done) testFinish(step.value); else { run.cur = step.value; testShow(); }
 }
-function testBackOne(){ if (testRun && testRun.i > 0){ testRun.i--; testShow(); } }
-// sale del modo: vuelve la vista de antes y se olvida la numeración (un «Ciego» posterior sortea la suya)
+function testBackOne(){ if (testRun && testRun.answers.length){ testRun.answers.pop(); testReplay(); } }
+// sale del modo: vuelve la vista de antes, se olvida la numeración y se sueltan las imágenes sin nombre
 function testLeave(){
   const before = testRun.before;
   testRun = null; blindOrder = null;
@@ -86,14 +122,14 @@ function testLeave(){
   $('testBar').hidden = true;
   ({varA, varB, frame} = before);
   setBlind(false);
+  dropBlindSrc();
   computeFit(); applyTransform();
 }
 function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
-function testFinish(){
-  const games = testRun.games.map((g, i) => [g.a, g.b, String(g.f), testRun.picks[i]]);
-  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+function testFinish(rank){
+  const games = testRun.games, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
   testLeave();
-  testMine = {games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
+  testMine = {rank, games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -102,7 +138,7 @@ async function testSend(){
   const mine = testMine;
   mine.state = 'sending'; if (testMine === mine && testBody.querySelector('#testNote')) testResult();
   try {
-    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify({games: mine.games})});
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify({rank: mine.rank, games: mine.games})});
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
     try { localStorage.setItem('gatosVoted:' + testToken, '1'); } catch(e){}
@@ -111,23 +147,26 @@ async function testSend(){
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
 }
 function testResult(){
-  const row = testTally(testMine.games);
-  const order = [...VARIANTS].sort((a, b) => row[a.id].place - row[b.id].place || testMine.num.get(a.id) - testMine.num.get(b.id));
   const st = testMine.state, http = testHttp();
   const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
     sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
+  // lo que respondiste sobre cada versión: comparaciones ganadas, empatadas y perdidas
+  const row = Object.fromEntries(VARIANTS.map(v => [v.id, {w: 0, t: 0, l: 0}]));
+  for (const [a, b, , r] of testMine.games){ if (r === 't'){ row[a].t++; row[b].t++; } else { row[r === 'a' ? a : b].w++; row[r === 'a' ? b : a].l++; } }
+  let place = 1;
+  const lines = testMine.rank.map(g => { const p = place; place += g.length;
+    return g.map(id => `<tr><td>${p}º</td><td>${T`Variante ${testMine.num.get(id)}`}</td><td>${testName(id)}</td><td>${row[id].w}-${row[id].t}-${row[id].l}</td></tr>`).join(''); }).join('');
   testOpen(`<h2>${T('Tu resultado')}</h2>
-    <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Era')}</th><th>${T('Versión')}</th><th>${T('Puntos')}</th><th title="${T('ganadas, empatadas, perdidas')}">${T('G-E-P')}</th></tr>
-    ${order.map(v => { const r = row[v.id]; return `<tr><td>${r.place}º</td><td>${T`Variante ${testMine.num.get(v.id)}`}</td><td>${testName(v.id)}</td><td>${r.pts}</td><td>${r.w}-${r.t}-${r.l}</td></tr>`; }).join('')}</table>
+    <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Era')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
+    <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
     <p class="hint" id="testNote" role="status">${testEsc(note)}</p>
     <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="start">${T('Repetir la prueba')}</button><button data-test="close">${T('Cerrar')}</button></div>`);
 }
 function testStandings(j){
-  const pct = s => s == null ? '—' : Math.round(s * 100) + ' %';
   testOpen(`<h2>${T('Tabla de todos')}</h2>
-    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('«Gana» es la parte de sus comparaciones que ganó; un empate cuenta la mitad.')}</p>
-    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th>${T('Gana')}</th><th>${T('G-E-P')}</th><th>${T('Puestos en cada prueba')}</th></tr>
-    ${j.standings.map((s, i) => `<tr><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${pct(s.share)}</td><td>${s.w}-${s.t}-${s.l}</td><td>${s.places.map((n, p) => n ? `${p + 1}º ×${n}` : '').filter(Boolean).join(' · ')}</td></tr>`).join('')}</table>` : ''}
+    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('Ordenada por el puesto medio en que quedó cada versión: cuanto más bajo, mejor.')}</p>
+    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th>${T('Puesto medio')}</th><th>${T('Puestos en cada prueba')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>
+    ${j.standings.map((s, i) => `<tr><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${s.mean == null ? '—' : s.mean.toFixed(2)}</td><td>${s.places.map((n, p) => n ? `${p + 1}º ×${n}` : '').filter(Boolean).join(' · ')}</td><td>${s.w}-${s.t}-${s.l}</td></tr>`).join('')}</table>` : ''}
     <div class="acts">${testMine ? `<button data-test="mine">${T('Volver a mi resultado')}</button>` : `<button class="xbtn" data-test="start">${T('Hacer la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
 async function testAll(){

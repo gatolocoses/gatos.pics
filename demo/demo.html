@@ -188,11 +188,16 @@
   .modal-box{background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; width:100%;}
   #reportPanel .modal-box{max-width:440px;}
   /* prueba ciega (#196) */
-  #testBar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
+  /* los tres botones van al centro exacto de la página, sobre el divisor: Empate queda encima de la línea */
+  #testBar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
   #testBar[hidden]{display:none;}
-  #testBar .spacer{flex:1;}
-  #testStep{font-weight:600; margin-right:6px;}
-  body.testing :is(.hrow-panes, .frame-tools .group, #blindBtn, #revealBtn, #shareBtn, #reportBtn, #testBtn, #cropBtn){display:none !important;}
+  #testBar .tpick{display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;}
+  #testBar .tpick #testLeft{justify-self:end;}
+  #testBar .tpick #testRight{justify-self:start;}
+  #testBar .tside{display:flex; gap:8px; justify-self:end;}
+  #testStep{font-weight:600;}
+  @media (max-width:820px){ #testBar{grid-template-columns:1fr; justify-items:center; text-align:center;} #testBar .tside{justify-self:center;} }
+  body.testing :is(.hrow-panes, .frame-tools .group, #shareBtn, #reportBtn, #testBtn, #cropBtn){display:none !important;}
   body.testing footer .kh{display:none;}
   #testPanel .modal-box{max-width:600px; max-height:86%; overflow:auto;}
   #testBody h2{font-size:16px; margin-bottom:8px;}
@@ -289,14 +294,12 @@
   <button data-nt id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
   <span id="diffTools" hidden><label data-t for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button data-t id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
   <button data-t id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
-  <button data-t id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
-  <button data-t id="revealBtn" hidden title="Mostrar las identidades de esta asignación (R)">Revelar</button>
+  <button data-t id="testBtn" hidden title="Prueba ciega: compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana (G)">Prueba ciega</button>
   <button data-nt id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
   <button data-t id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button data-t id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button data-t id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
-  <button data-t id="testBtn" hidden title="Compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana">Prueba ciega</button>
   <button data-t id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
   <button data-t id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
@@ -311,12 +314,15 @@
 
 <div id="testBar" role="group" aria-label="Prueba ciega" hidden>
   <span id="testStep" role="status"></span>
-  <button id="testLeft" class="xbtn" title="Se ve mejor la de la izquierda (←)"></button>
-  <button data-t id="testTie" title="No veo diferencia (↑)">Empate</button>
-  <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
-  <span class="spacer"></span>
-  <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
-  <button data-t id="testQuit">Salir de la prueba</button>
+  <div class="tpick">
+    <button id="testLeft" class="xbtn" title="Se ve mejor la de la izquierda (←)"></button>
+    <button data-t id="testTie" title="No veo diferencia (↑)">Empate</button>
+    <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
+  </div>
+  <div class="tside">
+    <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
+    <button data-t id="testQuit">Salir de la prueba</button>
+  </div>
 </div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -365,7 +371,7 @@
   <span data-t><kbd>H</kbd> calor</span>
   <span data-t><kbd>Espacio</kbd> siguiente variante</span>
   <span data-t><kbd>N</kbd> nítido</span>
-  <span data-t><kbd>G</kbd> ciego</span>
+  <span data-t><kbd>G</kbd> prueba ciega</span>
   <span data-t><kbd>L</kbd> solar</span>
   <span data-t><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
   <span data-t>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
@@ -385,8 +391,7 @@
     <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd data-t>Aumentar o reducir la intensidad del diff.</dd>
     <dt><kbd>H</kbd></dt><dd data-t>Activar o desactivar el mapa de calor del diff.</dd>
     <dt><kbd>B</kbd></dt><dd data-t>Activar o desactivar el parpadeo A/B.</dd>
-    <dt><kbd>G</kbd></dt><dd data-t>Entrar al modo ciego o revelar las identidades.</dd>
-    <dt><kbd>R</kbd></dt><dd data-t>Revelar las identidades en modo ciego.</dd>
+    <dt><kbd>G</kbd></dt><dd data-t>Abrir la prueba ciega: todas las versiones de a pares, sin saber cuál es cuál.</dd>
     <dt><kbd>L</kbd></dt><dd data-t>Activar o desactivar la curva solar.</dd>
     <dt><kbd>C</kbd></dt><dd data-t>Elegir un punto para ver recortes 1:1. Con el modo activo, las flechas siembran y mueven el punto; con Shift, en pasos de 10 px.</dd>
     <dt><kbd>O</kbd></dt><dd data-t>Ver un píxel de imagen por píxel del dispositivo.</dd>
@@ -644,10 +649,7 @@ I18N.add({
   'Calor': 'Heat',
   'Parpadeo izquierda/derecha (B)': 'Blink left/right (B)',
   'Parpadeo': 'Blink',
-  'Modo ciego: oculta qué variante es cuál (G)': 'Blind mode: hides which variant is which (G)',
   'Ciego': 'Blind',
-  'Mostrar las identidades de esta asignación (R)': 'Show which variant is which (R)',
-  'Revelar': 'Reveal',
   'Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)': 'Pick a point and inspect 1:1 crops of every variant (C)',
   'Recortes': 'Crops',
   '1:1 real en píxeles del dispositivo (O)': 'True 1:1 in device pixels (O)',
@@ -689,7 +691,6 @@ I18N.add({
   'H calor': '<kbd>H</kbd> heat',
   'Espacio siguiente variante': '<kbd>Space</kbd> next variant',
   'N nítido': '<kbd>N</kbd> sharp',
-  'G ciego': '<kbd>G</kbd> blind',
   'L solar': '<kbd>L</kbd> solar',
   ',/. divisor': '<kbd>,</kbd>/<kbd>.</kbd> divider',
   'zoom con rueda/pellizco · arrastra para mover · doble clic ajusta': 'wheel or pinch to zoom · drag to move · double click to fit',
@@ -706,8 +707,6 @@ I18N.add({
   'Aumentar o reducir la intensidad del diff.': 'Raise or lower the diff gain.',
   'Activar o desactivar el mapa de calor del diff.': 'Turn the diff heat map on or off.',
   'Activar o desactivar el parpadeo A/B.': 'Turn A/B blink on or off.',
-  'Entrar al modo ciego o revelar las identidades.': 'Enter blind mode, or reveal which variant is which.',
-  'Revelar las identidades en modo ciego.': 'Reveal which variant is which in blind mode.',
   'Activar o desactivar la curva solar.': 'Turn the solar curve on or off.',
   'Elegir un punto para ver recortes 1:1. Con el modo activo, las flechas siembran y mueven el punto; con Shift, en pasos de 10 px.': 'Pick a point to see 1:1 crops. While the mode is on, the arrow keys place and move the point; with Shift, in 10 px steps.',
   'Ver un píxel de imagen por píxel del dispositivo.': 'Show one image pixel per device pixel.',
@@ -765,7 +764,9 @@ I18N.add({
   'No se puede compartir el diff: revisa las dimensiones de las imágenes.': 'Cannot share the diff: check the image dimensions.',
   // prueba ciega
   'Prueba ciega': 'Blind test',
-  'Compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana': 'Compare every version in pairs without knowing which is which, and see which one wins',
+  'Prueba ciega: compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana (G)': 'Blind test: compare every version in pairs without knowing which is which, and see which one wins (G)',
+  'G prueba ciega': '<kbd>G</kbd> blind test',
+  'Abrir la prueba ciega: todas las versiones de a pares, sin saber cuál es cuál.': 'Open the blind test: every version in pairs, without knowing which is which.',
   'Se ve mejor la de la izquierda (←)': 'The left one looks better (←)',
   'Se ve mejor la de la derecha (→)': 'The right one looks better (→)',
   'No veo diferencia (↑)': 'I see no difference (↑)',
@@ -774,20 +775,24 @@ I18N.add({
   'Atrás': 'Back',
   'Salir de la prueba': 'Leave the test',
   'Variante {}': 'Variant {}',
-  'Vas a comparar las {} versiones de a pares, sin saber cuál es cuál: {} comparaciones. Cada versión recibe un número al azar y lo conserva toda la prueba.': 'You will compare the {} versions in pairs, without knowing which is which: {} comparisons. Each version gets a random number and keeps it for the whole test.',
-  'En cada comparación eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo. Al final ves los puestos con los nombres.': 'In each comparison you pick the one that looks better, or a tie. You can use zoom, diff and blink. At the end you see the placings with the names.',
+  'Vas a ordenar las {} versiones de mejor a peor sin saber cuál es cuál. Cada una recibe un número al azar y lo conserva toda la prueba.': 'You will rank the {} versions from best to worst without knowing which is which. Each one gets a random number and keeps it for the whole test.',
+  'En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.': 'In each one you pick the one that looks better, or a tie. You can use zoom, diff and blink.',
+  'Comparación {} · como mucho {} · ¿cuál se ve mejor?': 'Comparison {} · {} at most · which looks better?',
+  'comparaciones ganadas, empatadas y perdidas': 'comparisons won, tied and lost',
+  'Respondiste {} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.': 'You answered {} comparisons. The pairs you did not see were ordered from your answers: if one beats another and that one beats a third, the first goes ahead.',
+  'Ordenada por el puesto medio en que quedó cada versión: cuanto más bajo, mejor.': 'Sorted by the average place each version finished in: the lower, the better.',
+  'Puesto medio': 'Average place',
+  'Son como mucho {} comparaciones.': 'It takes {} comparisons at most.',
+  'Son como mucho {} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.': 'It takes {} comparisons at most, and usually far fewer: the test picks each one from your answers so far and stops when the order is settled.',
   'Empezar': 'Start',
   'Ver la tabla de todos': 'See everyone\'s standings',
   'Cancelar': 'Cancel',
   'Ver la tabla antes de hacer la prueba condiciona tu juicio.': 'Seeing the standings before taking the test will bias your judgment.',
-  'Comparación {} de {} · ¿cuál se ve mejor?': 'Comparison {} of {} · which looks better?',
   '¿Salir de la prueba? Se pierde lo que llevas.': 'Leave the test? Your answers so far will be lost.',
   'Tu resultado': 'Your result',
   'Puesto': 'Place',
   'Era': 'Was',
   'Versión': 'Version',
-  'Puntos': 'Points',
-  'ganadas, empatadas, perdidas': 'won, tied, lost',
   'G-E-P': 'W-T-L',
   'Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.': 'You already sent a result for this page from this browser: this test will not be added again.',
   'Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.': 'When you finish, your result is added to everyone\'s standings. Nothing about you is stored.',
@@ -801,8 +806,6 @@ I18N.add({
   'Tabla de todos': 'Everyone\'s standings',
   '1 prueba enviada.': '1 test sent.',
   '{} pruebas enviadas.': '{} tests sent.',
-  '«Gana» es la parte de sus comparaciones que ganó; un empate cuenta la mitad.': '"Wins" is the share of its comparisons it won; a tie counts as half.',
-  'Gana': 'Wins',
   'Puestos en cada prueba': 'Placings in each test',
   'Volver a mi resultado': 'Back to my result',
   'Hacer la prueba': 'Take the test',
@@ -865,7 +868,6 @@ const modeBadge = $('modeBadge'), cropHint = $('cropHint'), cropPanel = $('cropP
 const cropRows = $('cropRows'), cropTitle = $('cropTitle');
 const diffBtn = $('diffBtn'), blinkBtn = $('blinkBtn'), cropBtn = $('cropBtn');
 const pixBtn = $('pixBtn');
-const blindBtn = $('blindBtn');
 const solarBtn = $('solarBtn');
 const metaLine = $('metaLine'), pageTitle = $('pageTitle');
 let originalTitle = T('Comparación');
@@ -1002,11 +1004,22 @@ function setSideMissing(side, on){
 // comparan identidad para descartar carreras) y la fuente http, que no
 // cachea, no genera promesas nuevos en cada llamada.
 const srcCache = new Map();
+// A ciegas la imagen llega como blob: su dirección ya no dice de qué versión
+// es (img/x264_33295.webp se leía con «guardar imagen como», «abrir en otra
+// pestaña» o arrastrándola). Si la descarga falla (file://) queda la dirección
+// de siempre. Al salir del modo se sueltan (dropBlindSrc).
+const blindSrc = new Map(), blindMade = [];
+let blindGen = 0;   // una descarga que termina después de salir del modo no deja un blob suelto
 function srcFor(id, f){
   const key = id+'_'+f;
   if (!srcCache.has(key)) srcCache.set(key, Promise.resolve(SOURCE.srcFor(id, f)));
-  return srcCache.get(key);
+  if (!blindMode) return srcCache.get(key);
+  const gen = blindGen;
+  if (!blindSrc.has(key)) blindSrc.set(key, srcCache.get(key).then(u => /^(blob|data):/.test(u) ? u
+    : fetch(u).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.blob(); }).then(b => { if (gen !== blindGen) return u; const o = URL.createObjectURL(b); blindMade.push(o); return o; }).catch(() => u)));
+  return blindSrc.get(key);
 }
+function dropBlindSrc(){ blindGen++; for (const u of blindMade.splice(0)) URL.revokeObjectURL(u); blindSrc.clear(); }
 // gana la última petición de cada lado: la resolución tardía de una petición
 // vieja no puede sobreescribir el par que el usuario ya pidió
 const sideReq = {A:0, B:0};
@@ -1367,7 +1380,8 @@ function setBlink(on, quiet){
 }
 blinkBtn.addEventListener('click', () => setBlink(!blinkMode));
 
-/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ---------- */
+/* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ----------
+   Ya no tiene botón propio: lo usa la prueba ciega (45-test.js, gatos-ops#198). */
 let blindMode = false;
 let blindOrder = null;
 function sessionBlindOrder(){
@@ -1396,9 +1410,6 @@ function setBlind(on){
     varA = blindOrder[0]?.id; varB = blindOrder[1]?.id || varA;
   }
   blindMode = on;
-  blindBtn.classList.toggle('blind-on', on);
-  blindBtn.setAttribute('aria-pressed', String(on));
-  $('revealBtn').hidden = !on;
   pageTitle.textContent = on ? T('Comparación a ciegas') : originalTitle;
   document.title = pageTitle.textContent;
   if (on) hideTip();
@@ -1407,8 +1418,6 @@ function setBlind(on){
   updateMeta();
   writeHash();
 }
-blindBtn.addEventListener('click', () => setBlind(!blindMode));
-$('revealBtn').addEventListener('click', () => setBlind(false));
 
 /* ---------- curva solar: revela banding ---------- */
 let solarMode = false;
@@ -1913,8 +1922,7 @@ window.addEventListener('keydown', e => {
     loadImg();
   } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }
   else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }
-  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ setBlind(!blindMode); }
-  else if (!e.repeat && (e.key === 'r' || e.key === 'R') && blindMode){ setBlind(false); }
+  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ if (!$('testBtn').hidden) testIntro(); }
   else if (!e.repeat && (e.key === 'l' || e.key === 'L')){ setSolar(!solarMode); }
   else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }
   else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }
@@ -2272,38 +2280,64 @@ function closeShareIfOpen(){ if (sharePanel.style.display === 'flex'){ sharePane
 for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
   sharePanel.addEventListener(ev, e => e.stopPropagation());
 
-/* ---------- prueba ciega: todos contra todos (gatos-ops#196) ----------
+/* ---------- prueba ciega: ordenar las versiones a ciegas (gatos-ops#196, #200) ----------
    Cada versión recibe un número al azar al empezar y así se llama toda la
    prueba («Variante 3»): se sabe qué número se está juzgando, nunca qué es.
-   Se comparan todas las versiones de a pares, cada par en hasta TEST_FRAMES
-   cuadros (los mismos para todos, al azar), con los lados sorteados. Al final
-   salen los puestos con los nombres revelados, y en una página publicada el
-   resultado se suma solo a la tabla de todos (/api/vote/<token>): la
-   introducción lo avisa antes de empezar. Un navegador suma una vez por página.
-   Usa el modo ciego del visor: blindOrder ES la numeración de la prueba. */
+
+   La prueba no recorre todos los pares: ORDENA las versiones con lo que se va
+   respondiendo (inserción binaria). Cada versión nueva se compara contra la
+   del medio de las ya ordenadas, y según gane o pierda, contra la mitad que
+   corresponde: con 4 versiones son 4 o 5 duelos, no 6; con 5, de 6 a 8, no 10.
+   Lo que no se comparó se deduce: si A le gana a B y B a C, A va antes que C.
+   Un duelo se juega cuadro a cuadro (hasta TEST_FRAMES, los mismos para todos,
+   al azar) y se corta en cuanto está decidido: 2-0, o a puntos al tercero
+   (ganar 1, empate ½). Un duelo empatado deja a las dos en el mismo puesto.
+
+   Al final salen los puestos con los nombres revelados, y en una página
+   publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
+   la introducción lo avisa antes de empezar. Un navegador suma una vez por
+   página. Usa el modo ciego del visor: blindOrder ES la numeración. */
 const TEST_MAX = 5, TEST_FRAMES = 3;
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
+const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, TEST_FRAMES);
 // se ofrece con 2 a 5 versiones y solo si cada par comparte al menos un cuadro
-const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => FRAMES.some(f => hasFrame(a, f) && hasFrame(b, f)));
-function testGames(){
-  const frames = shuffled(FRAMES), games = [];
-  for (const [a, b] of testPairs())
-    for (const f of frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, TEST_FRAMES)) games.push(Math.random() < .5 ? {a, b, f} : {a: b, b: a, f});
-  return shuffled(games);
-}
-// puntos (ganar 1, empate ½), ganadas/empatadas/perdidas y puesto; el mismo cálculo que service/lib/votes.mjs
-function testTally(games){
-  const row = Object.fromEntries(VARIANTS.map(v => [v.id, {pts: 0, w: 0, t: 0, l: 0}]));
-  for (const [a, b, , r] of games){
-    if (r === 't'){ row[a].t++; row[b].t++; row[a].pts += .5; row[b].pts += .5; }
-    else { const win = r === 'a' ? a : b, lose = r === 'a' ? b : a; row[win].w++; row[win].pts++; row[lose].l++; }
+const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
+// duelos que, como mucho, pide la inserción binaria con n versiones: la suma de ceil(log2 k)
+const testDuels = n => { let max = 0; for (let k = 2; k <= n; k++) max += Math.ceil(Math.log2(k)); return max; };
+
+/* El plan es un generador: entrega la comparación que toca ({a, b, f}: izquierda,
+   derecha, cuadro) y recibe la respuesta ('a', 'b' o 't'). Es determinista dado
+   `run` (orden de entrada, cuadros y lados ya sorteados), así «Atrás» lo rehace
+   desde el principio con las respuestas anteriores. Devuelve los grupos, de
+   mejor a peor; un grupo de varias = empatadas. */
+function* testDuel(run, x, y){
+  const frames = testShared(x, y, run.frames);
+  let d = 0;   // puntos de x menos puntos de y
+  for (let i = 0; i < frames.length; i++){
+    const key = [x, y].sort().join('|') + '|' + frames[i];
+    if (!run.flips.has(key)) run.flips.set(key, Math.random() < .5);
+    const flip = run.flips.get(key), r = yield flip ? {a: y, b: x, f: frames[i]} : {a: x, b: y, f: frames[i]};
+    if (r !== 't') d += (r === 'a') !== flip ? 1 : -1;
+    if (Math.abs(d) > frames.length - 1 - i) break;   // los cuadros que quedan ya no lo cambian
   }
-  for (const v of VARIANTS) row[v.id].place = 1 + VARIANTS.filter(o => row[o.id].pts > row[v.id].pts).length;
-  return row;
+  return d;
+}
+function* testPlan(run){
+  const groups = [];
+  for (const x of run.order){
+    let lo = 0, hi = groups.length, tied = false;
+    while (lo < hi && !tied){
+      const mid = (lo + hi) >> 1, d = yield* testDuel(run, x, groups[mid][0]);
+      if (d === 0){ groups[mid].push(x); tied = true; }
+      else if (d > 0) hi = mid; else lo = mid + 1;
+    }
+    if (!tied) groups.splice(lo, 0, [x]);
+  }
+  return groups;
 }
 const testEsc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const testName = id => `<b style="color:${testEsc(variant(id).color || '#e8e8f0')}">${testEsc(variant(id).name || id)}</b>`;
@@ -2313,10 +2347,10 @@ function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'f
 function testClose(){ if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
 function testIntro(){
-  const n = VARIANTS.length, games = testPairs().reduce((s, [a, b]) => s + Math.min(TEST_FRAMES, FRAMES.filter(f => hasFrame(a, f) && hasFrame(b, f)).length), 0);
+  const n = VARIANTS.length, hi = testDuels(n) * Math.min(TEST_FRAMES, FRAMES.length);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
-    <p>${T`Vas a comparar las ${n} versiones de a pares, sin saber cuál es cuál: ${games} comparaciones. Cada versión recibe un número al azar y lo conserva toda la prueba.`}</p>
-    <p>${T('En cada comparación eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo. Al final ves los puestos con los nombres.')}</p>
+    <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. Cada una recibe un número al azar y lo conserva toda la prueba.`}</p>
+    <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
     ${testHttp() ? `<p>${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}`);
@@ -2325,34 +2359,44 @@ function testStart(){
   testClose();
   if (cropMode){ setCropMode(false); closeCrop(); }
   blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
-  testRun = {games: testGames(), i: 0, picks: [], before: {varA, varB, frame}};
+  // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
+  testRun = {order: shuffled(VARIANTS.map(v => v.id)), frames: shuffled(FRAMES), flips: new Map(), answers: [], games: [], before: {varA, varB, frame}};
+  testRun.max = testDuels(VARIANTS.length) * Math.min(TEST_FRAMES, FRAMES.length);
   blindMode = true;
   document.body.classList.add('testing');
   $('testBar').hidden = false;
   pageTitle.textContent = T('Prueba ciega'); document.title = pageTitle.textContent;
   hideTip();
-  testShow();
+  testReplay();
   computeFit(); applyTransform();
 }
+// rehace el plan con las respuestas dadas y deja en pantalla la comparación que toca (o termina)
+function testReplay(){
+  const run = testRun, gen = testPlan(run);
+  run.games = [];
+  let step = gen.next();
+  for (const r of run.answers){ run.games.push([step.value.a, step.value.b, String(step.value.f), r]); step = gen.next(r); }
+  run.gen = gen;
+  if (step.done) testFinish(step.value); else { run.cur = step.value; testShow(); }
+}
 function testShow(){
-  const g = testRun.games[testRun.i];
+  const g = testRun.cur;
   varA = g.a; varB = g.b; frame = g.f;
-  $('testStep').textContent = T`Comparación ${testRun.i + 1} de ${testRun.games.length} · ¿cuál se ve mejor?`;
+  $('testStep').textContent = T`Comparación ${testRun.answers.length + 1} · como mucho ${testRun.max} · ¿cuál se ve mejor?`;
   $('testLeft').textContent = '← ' + variantName(g.a);
   $('testRight').textContent = variantName(g.b) + ' →';
-  $('testBack').disabled = testRun.i === 0;
+  $('testBack').disabled = !testRun.answers.length;
   loadImg();
-  // la siguiente comparación ya viene en camino: el cambio no delata nada por lo que tarda en cargar
-  const next = testRun.games[testRun.i + 1];
-  if (next) for (const id of [next.a, next.b]) srcFor(id, next.f).then(u => { new Image().src = u; });
 }
 function testPick(r){
   if (!testRun) return;
-  testRun.picks[testRun.i] = r;
-  if (++testRun.i < testRun.games.length) testShow(); else testFinish();
+  const run = testRun, g = run.cur;
+  run.answers.push(r); run.games.push([g.a, g.b, String(g.f), r]);
+  const step = run.gen.next(r);
+  if (step.done) testFinish(step.value); else { run.cur = step.value; testShow(); }
 }
-function testBackOne(){ if (testRun && testRun.i > 0){ testRun.i--; testShow(); } }
-// sale del modo: vuelve la vista de antes y se olvida la numeración (un «Ciego» posterior sortea la suya)
+function testBackOne(){ if (testRun && testRun.answers.length){ testRun.answers.pop(); testReplay(); } }
+// sale del modo: vuelve la vista de antes, se olvida la numeración y se sueltan las imágenes sin nombre
 function testLeave(){
   const before = testRun.before;
   testRun = null; blindOrder = null;
@@ -2360,14 +2404,14 @@ function testLeave(){
   $('testBar').hidden = true;
   ({varA, varB, frame} = before);
   setBlind(false);
+  dropBlindSrc();
   computeFit(); applyTransform();
 }
 function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
-function testFinish(){
-  const games = testRun.games.map((g, i) => [g.a, g.b, String(g.f), testRun.picks[i]]);
-  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+function testFinish(rank){
+  const games = testRun.games, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
   testLeave();
-  testMine = {games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
+  testMine = {rank, games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -2376,7 +2420,7 @@ async function testSend(){
   const mine = testMine;
   mine.state = 'sending'; if (testMine === mine && testBody.querySelector('#testNote')) testResult();
   try {
-    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify({games: mine.games})});
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify({rank: mine.rank, games: mine.games})});
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
     try { localStorage.setItem('gatosVoted:' + testToken, '1'); } catch(e){}
@@ -2385,23 +2429,26 @@ async function testSend(){
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
 }
 function testResult(){
-  const row = testTally(testMine.games);
-  const order = [...VARIANTS].sort((a, b) => row[a.id].place - row[b.id].place || testMine.num.get(a.id) - testMine.num.get(b.id));
   const st = testMine.state, http = testHttp();
   const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
     sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
+  // lo que respondiste sobre cada versión: comparaciones ganadas, empatadas y perdidas
+  const row = Object.fromEntries(VARIANTS.map(v => [v.id, {w: 0, t: 0, l: 0}]));
+  for (const [a, b, , r] of testMine.games){ if (r === 't'){ row[a].t++; row[b].t++; } else { row[r === 'a' ? a : b].w++; row[r === 'a' ? b : a].l++; } }
+  let place = 1;
+  const lines = testMine.rank.map(g => { const p = place; place += g.length;
+    return g.map(id => `<tr><td>${p}º</td><td>${T`Variante ${testMine.num.get(id)}`}</td><td>${testName(id)}</td><td>${row[id].w}-${row[id].t}-${row[id].l}</td></tr>`).join(''); }).join('');
   testOpen(`<h2>${T('Tu resultado')}</h2>
-    <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Era')}</th><th>${T('Versión')}</th><th>${T('Puntos')}</th><th title="${T('ganadas, empatadas, perdidas')}">${T('G-E-P')}</th></tr>
-    ${order.map(v => { const r = row[v.id]; return `<tr><td>${r.place}º</td><td>${T`Variante ${testMine.num.get(v.id)}`}</td><td>${testName(v.id)}</td><td>${r.pts}</td><td>${r.w}-${r.t}-${r.l}</td></tr>`; }).join('')}</table>
+    <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Era')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
+    <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
     <p class="hint" id="testNote" role="status">${testEsc(note)}</p>
     <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="start">${T('Repetir la prueba')}</button><button data-test="close">${T('Cerrar')}</button></div>`);
 }
 function testStandings(j){
-  const pct = s => s == null ? '—' : Math.round(s * 100) + ' %';
   testOpen(`<h2>${T('Tabla de todos')}</h2>
-    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('«Gana» es la parte de sus comparaciones que ganó; un empate cuenta la mitad.')}</p>
-    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th>${T('Gana')}</th><th>${T('G-E-P')}</th><th>${T('Puestos en cada prueba')}</th></tr>
-    ${j.standings.map((s, i) => `<tr><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${pct(s.share)}</td><td>${s.w}-${s.t}-${s.l}</td><td>${s.places.map((n, p) => n ? `${p + 1}º ×${n}` : '').filter(Boolean).join(' · ')}</td></tr>`).join('')}</table>` : ''}
+    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('Ordenada por el puesto medio en que quedó cada versión: cuanto más bajo, mejor.')}</p>
+    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th>${T('Puesto medio')}</th><th>${T('Puestos en cada prueba')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>
+    ${j.standings.map((s, i) => `<tr><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${s.mean == null ? '—' : s.mean.toFixed(2)}</td><td>${s.places.map((n, p) => n ? `${p + 1}º ×${n}` : '').filter(Boolean).join(' · ')}</td><td>${s.w}-${s.t}-${s.l}</td></tr>`).join('')}</table>` : ''}
     <div class="acts">${testMine ? `<button data-test="mine">${T('Volver a mi resultado')}</button>` : `<button class="xbtn" data-test="start">${T('Hacer la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
 async function testAll(){

@@ -188,11 +188,16 @@
   .modal-box{background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; width:100%;}
   #reportPanel .modal-box{max-width:440px;}
   /* prueba ciega (#196) */
-  #testBar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
+  /* los tres botones van al centro exacto de la página, sobre el divisor: Empate queda encima de la línea */
+  #testBar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
   #testBar[hidden]{display:none;}
-  #testBar .spacer{flex:1;}
-  #testStep{font-weight:600; margin-right:6px;}
-  body.testing :is(.hrow-panes, .frame-tools .group, #blindBtn, #revealBtn, #shareBtn, #reportBtn, #testBtn, #cropBtn){display:none !important;}
+  #testBar .tpick{display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;}
+  #testBar .tpick #testLeft{justify-self:end;}
+  #testBar .tpick #testRight{justify-self:start;}
+  #testBar .tside{display:flex; gap:8px; justify-self:end;}
+  #testStep{font-weight:600;}
+  @media (max-width:820px){ #testBar{grid-template-columns:1fr; justify-items:center; text-align:center;} #testBar .tside{justify-self:center;} }
+  body.testing :is(.hrow-panes, .frame-tools .group, #shareBtn, #reportBtn, #testBtn, #cropBtn){display:none !important;}
   body.testing footer .kh{display:none;}
   #testPanel .modal-box{max-width:600px; max-height:86%; overflow:auto;}
   #testBody h2{font-size:16px; margin-bottom:8px;}
@@ -289,14 +294,12 @@
   <button data-nt id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
   <span id="diffTools" hidden><label data-t for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button data-t id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
   <button data-t id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
-  <button data-t id="blindBtn" title="Modo ciego: oculta qué variante es cuál (G)">Ciego</button>
-  <button data-t id="revealBtn" hidden title="Mostrar las identidades de esta asignación (R)">Revelar</button>
+  <button data-t id="testBtn" hidden title="Prueba ciega: compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana (G)">Prueba ciega</button>
   <button data-nt id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
   <button data-t id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button data-t id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button data-t id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
-  <button data-t id="testBtn" hidden title="Compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana">Prueba ciega</button>
   <button data-t id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
   <button data-t id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
@@ -311,12 +314,15 @@
 
 <div id="testBar" role="group" aria-label="Prueba ciega" hidden>
   <span id="testStep" role="status"></span>
-  <button id="testLeft" class="xbtn" title="Se ve mejor la de la izquierda (←)"></button>
-  <button data-t id="testTie" title="No veo diferencia (↑)">Empate</button>
-  <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
-  <span class="spacer"></span>
-  <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
-  <button data-t id="testQuit">Salir de la prueba</button>
+  <div class="tpick">
+    <button id="testLeft" class="xbtn" title="Se ve mejor la de la izquierda (←)"></button>
+    <button data-t id="testTie" title="No veo diferencia (↑)">Empate</button>
+    <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
+  </div>
+  <div class="tside">
+    <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
+    <button data-t id="testQuit">Salir de la prueba</button>
+  </div>
 </div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -365,7 +371,7 @@
   <span data-t><kbd>H</kbd> calor</span>
   <span data-t><kbd>Espacio</kbd> siguiente variante</span>
   <span data-t><kbd>N</kbd> nítido</span>
-  <span data-t><kbd>G</kbd> ciego</span>
+  <span data-t><kbd>G</kbd> prueba ciega</span>
   <span data-t><kbd>L</kbd> solar</span>
   <span data-t><kbd>,</kbd>/<kbd>.</kbd> divisor</span>
   <span data-t>zoom con rueda/pellizco &middot; arrastra para mover &middot; doble clic ajusta</span>
@@ -385,8 +391,7 @@
     <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd data-t>Aumentar o reducir la intensidad del diff.</dd>
     <dt><kbd>H</kbd></dt><dd data-t>Activar o desactivar el mapa de calor del diff.</dd>
     <dt><kbd>B</kbd></dt><dd data-t>Activar o desactivar el parpadeo A/B.</dd>
-    <dt><kbd>G</kbd></dt><dd data-t>Entrar al modo ciego o revelar las identidades.</dd>
-    <dt><kbd>R</kbd></dt><dd data-t>Revelar las identidades en modo ciego.</dd>
+    <dt><kbd>G</kbd></dt><dd data-t>Abrir la prueba ciega: todas las versiones de a pares, sin saber cuál es cuál.</dd>
     <dt><kbd>L</kbd></dt><dd data-t>Activar o desactivar la curva solar.</dd>
     <dt><kbd>C</kbd></dt><dd data-t>Elegir un punto para ver recortes 1:1. Con el modo activo, las flechas siembran y mueven el punto; con Shift, en pasos de 10 px.</dd>
     <dt><kbd>O</kbd></dt><dd data-t>Ver un píxel de imagen por píxel del dispositivo.</dd>

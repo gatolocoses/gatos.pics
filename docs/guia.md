@@ -146,7 +146,7 @@ La página que se lleva quien abre tu export.
 | `S` | intercambiar izquierda y derecha |
 | `D` | **diff amplificado**: dónde golpea el encode |
 | `B` | **parpadeo** A/B a 2 Hz |
-| `G` | **modo ciego**: oculta qué variante es cuál |
+| `G` | **prueba ciega**: todas las versiones de a pares, sin saber cuál es cuál |
 | `L` | **curva solar**: revela banding |
 | `C` | **recortes 1:1**: clic en un punto, todas las variantes píxel a píxel |
 | `O` / `F` | 1:1 real / ajustar a la ventana |
@@ -154,7 +154,6 @@ La página que se lleva quien abre tu export.
 | `+` / `−` | ganancia del diff |
 | `H` | modo calor del diff |
 | `?` / `Esc` | abrir ayuda / cerrar el panel abierto |
-| `R` | revelar identidades en modo ciego |
 | `,` / `.` | mover el divisor (con `Shift` da saltos) |
 | rueda / pellizco | zoom anclado al cursor · arrastrar = mover · doble clic = ajustar |
 | deslizar (teléfono) | con la vista ajustada, cambia de frame; las flechas junto a la tira hacen lo mismo |
@@ -162,31 +161,40 @@ La página que se lleva quien abre tu export.
 - **Diff**: la diferencia entre las dos variantes amplificada ×5–×40; el color
   indica el canal que difiere. Con `H`, lo que supera cierto umbral se pinta
   rojo.
-- **Ciego**: mezcla el orden de las variantes y les asigna números estables
-  durante la sesión de esta pestaña, también en los recortes y atajos.
-  Oculta nombres, notas, estadísticas, comandos y metadatos. Usa **Revelar**,
-  `R` o `G` para ver las identidades de las imágenes elegidas.
-  La asignación ciega no se incluye en el enlace. El PNG conserva las etiquetas
-  anónimas; quien abra el enlace podrá ver las identidades. Las imágenes y el
-  manifiesto siguen siendo inspeccionables: es una ayuda para juzgar sin sesgo.
+- **Prueba ciega** (`G`): compara todas las versiones de a pares sin saber
+  cuál es cuál; ver la sección de abajo. Reemplazó al botón «Ciego».
 - **Solar**: curva no lineal que convierte degradados suaves en escalones
   gigantes: el banding salta a la vista.
-- Fuera del modo ciego, el estado (frame, variantes, zoom, divisor, modo) vive
-  en la URL: cópiala para compartir la vista.
+- El estado (frame, variantes, zoom, divisor, modo) vive en la URL: cópiala
+  para compartir la vista.
 
-### Prueba ciega: todas contra todas
+### Prueba ciega: ordenar sin saber cuál es cuál
 
 En una página con 2 a 5 versiones, el botón **Prueba ciega** arma una prueba
 completa. Cada versión recibe un número al azar («Variante 3») y lo conserva
-toda la prueba: sabes qué número estás juzgando, nunca qué es. Se comparan
-todas las versiones de a pares, cada par en hasta tres cuadros, con los lados
-sorteados. En cada comparación eliges la que se ve mejor (`←` o `→`) o empate
-(`↑`); `Retroceso` vuelve una. Sirven el zoom, el diff y el parpadeo.
+toda la prueba: sabes qué número estás juzgando, nunca qué es. En cada
+comparación eliges la que se ve mejor (`←` o `→`) o empate (`↑`); `Retroceso`
+vuelve una. Sirven el zoom, el diff y el parpadeo.
 
-Al terminar ves los puestos, del 1º al último, con los nombres revelados:
-ganar da un punto y empatar medio. En una página publicada el resultado se
-suma solo a la **tabla de todos**, que muestra qué versión gana más entre
-quienes hicieron la prueba. Un navegador suma una vez por página.
+La prueba no te hace comparar todo contra todo: **ordena** las versiones con lo
+que vas respondiendo. Cada versión nueva se enfrenta a la del medio de las ya
+ordenadas y, según gane o pierda, a la mitad que corresponde. Lo que no viste
+se deduce: si una le gana a otra y esa a una tercera, la primera va antes.
+Cada duelo se juega cuadro a cuadro, con los lados sorteados, y se corta en
+cuanto está decidido: dos seguidas para la misma, o a puntos al tercer cuadro
+(ganar 1, empate ½). Con respuestas claras, 4 versiones piden unas 9
+comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24).
+
+Al terminar ves los puestos, del 1º al último, con los nombres revelados; un
+duelo empatado deja a las dos en el mismo puesto. En una página publicada el
+resultado se suma solo a la **tabla de todos**, ordenada por el puesto medio
+de cada versión entre quienes hicieron la prueba. Un navegador suma una vez
+por página.
+
+Durante la prueba las imágenes se cargan sin su nombre: «guardar imagen como»
+o abrirla en otra pestaña no dice de qué versión es. No es a prueba de quien
+abra las herramientas del navegador: es una ayuda para juzgar sin sesgo, no un
+candado.
 
 ### La imagen para compartir se crea sola
 
