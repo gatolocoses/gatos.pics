@@ -256,7 +256,7 @@ function variantButtonItems(){
   return orderedVariants().map((v, vi) => ({...variantItem(v, vi), dim: !blindMode && !hasFrame(v.id, frame)}));
 }
 function variantItem(v, vi){
-  if (blindMode) return {id: v.id, main: 'Variante '+(vi+1), sub: '', cmd: null};
+  if (blindMode) return {id: v.id, main: T`Variante ${vi+1}`, sub: '', cmd: null};
   const cmd = v.cmd || null;
   if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
   const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
@@ -294,11 +294,12 @@ function refreshVariantButtons(){
   if (cmdPinned && cmdFor && cmdFor.classList.contains('vcmd')) hideTip();
 }
 function stepFrame(d){
+  if (testRun) return;   // en la prueba ciega el cuadro lo pone la prueba
   const i = FRAMES.indexOf(frame)+d;
   if (i >= 0 && i < FRAMES.length){ frame = FRAMES[i]; loadImg(); }
 }
 document.querySelectorAll('.fnav').forEach(b => b.addEventListener('click', () => stepFrame(Number(b.dataset.fdir))));
-function swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }
+function swapAB(){ if (testRun) return; [varA, varB] = [varB, varA]; loadImg(); }
 function nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }
 
 $('oneBtn').addEventListener('click', oneToOne);
@@ -331,6 +332,7 @@ window.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeShareIfOpen();
     return;
   }
+  if (testKeys(e)) return;   // prueba ciega: sus teclas, y su panel bloquea las demás
   const CROP_ARROWS = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
   if (CROP_ARROWS[e.key] && (cropMode || cropUV)){
     // con el modo recortes activo las flechas son del punto (gatolocoses/gatos.pics#10):

@@ -187,6 +187,21 @@
   .modal{position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;}
   .modal-box{background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; width:100%;}
   #reportPanel .modal-box{max-width:440px;}
+  /* prueba ciega (#196) */
+  #testBar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
+  #testBar[hidden]{display:none;}
+  #testBar .spacer{flex:1;}
+  #testStep{font-weight:600; margin-right:6px;}
+  body.testing :is(.hrow-panes, .frame-tools .group, #blindBtn, #revealBtn, #shareBtn, #reportBtn, #testBtn, #cropBtn){display:none !important;}
+  body.testing footer .kh{display:none;}
+  #testPanel .modal-box{max-width:600px; max-height:86%; overflow:auto;}
+  #testBody h2{font-size:16px; margin-bottom:8px;}
+  #testBody p{font-size:13px; color:var(--dim); margin-bottom:8px;}
+  #testBody .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .ttable{width:100%; border-collapse:collapse; font-size:13px; margin:6px 0;}
+  .ttable :is(th,td){text-align:left; padding:6px 8px; border-bottom:1px solid #2a2a36;}
+  .ttable th{color:var(--dim); font-weight:400; font-size:12px;}
+  @media (pointer:coarse){ #testBar button, #testBody button{min-height:44px;} }
   #sharePanel .modal-box{max-width:560px; max-height:86%; overflow:auto;}
   @media (prefers-reduced-motion:reduce){ .hrow-panes .variants{scroll-behavior:auto;} }
   @media (pointer:coarse){
@@ -281,6 +296,7 @@
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button data-t id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button data-t id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
+  <button data-t id="testBtn" hidden title="Compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana">Prueba ciega</button>
   <button data-t id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
   <button data-t id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
@@ -292,6 +308,16 @@
     <div class="group r"><span data-t class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><button class="vcmd" data-nt data-pane="varB" hidden title="Comando del encoder" aria-label="Ver el comando de la variante derecha">cmd</button><select class="vsel" id="selB" aria-label="Variante derecha"></select></div>
   </div>
 </header>
+
+<div id="testBar" role="group" aria-label="Prueba ciega" hidden>
+  <span id="testStep" role="status"></span>
+  <button id="testLeft" class="xbtn" title="Se ve mejor la de la izquierda (←)"></button>
+  <button data-t id="testTie" title="No veo diferencia (↑)">Empate</button>
+  <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
+  <span class="spacer"></span>
+  <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
+  <button data-t id="testQuit">Salir de la prueba</button>
+</div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <filter id="solarCurve" color-interpolation-filters="sRGB">
@@ -392,6 +418,9 @@
     </div>
     <div id="reportStatus" class="hint" style="margin-top:8px; min-height:14px;"></div>
   </div>
+</div>
+<div id="testPanel" class="modal" role="dialog" aria-modal="true" aria-label="Prueba ciega" style="display:none;">
+  <div class="modal-box" id="testBody"></div>
 </div>
 <div id="sharePanel" class="modal" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none;">
   <div class="modal-box">
@@ -734,6 +763,50 @@ I18N.add({
   'No se puede compartir: una imagen no cargó.': 'Cannot share: an image did not load.',
   'Espera a que terminen de cargar las dos imágenes.': 'Wait for both images to finish loading.',
   'No se puede compartir el diff: revisa las dimensiones de las imágenes.': 'Cannot share the diff: check the image dimensions.',
+  // prueba ciega
+  'Prueba ciega': 'Blind test',
+  'Compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana': 'Compare every version in pairs without knowing which is which, and see which one wins',
+  'Se ve mejor la de la izquierda (←)': 'The left one looks better (←)',
+  'Se ve mejor la de la derecha (→)': 'The right one looks better (→)',
+  'No veo diferencia (↑)': 'I see no difference (↑)',
+  'Empate': 'Tie',
+  'Volver a la comparación anterior (Retroceso)': 'Go back to the previous comparison (Backspace)',
+  'Atrás': 'Back',
+  'Salir de la prueba': 'Leave the test',
+  'Variante {}': 'Variant {}',
+  'Vas a comparar las {} versiones de a pares, sin saber cuál es cuál: {} comparaciones. Cada versión recibe un número al azar y lo conserva toda la prueba.': 'You will compare the {} versions in pairs, without knowing which is which: {} comparisons. Each version gets a random number and keeps it for the whole test.',
+  'En cada comparación eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo. Al final ves los puestos con los nombres.': 'In each comparison you pick the one that looks better, or a tie. You can use zoom, diff and blink. At the end you see the placings with the names.',
+  'Empezar': 'Start',
+  'Ver la tabla de todos': 'See everyone\'s standings',
+  'Cancelar': 'Cancel',
+  'Ver la tabla antes de hacer la prueba condiciona tu juicio.': 'Seeing the standings before taking the test will bias your judgment.',
+  'Comparación {} de {} · ¿cuál se ve mejor?': 'Comparison {} of {} · which looks better?',
+  '¿Salir de la prueba? Se pierde lo que llevas.': 'Leave the test? Your answers so far will be lost.',
+  'Tu resultado': 'Your result',
+  'Puesto': 'Place',
+  'Era': 'Was',
+  'Versión': 'Version',
+  'Puntos': 'Points',
+  'ganadas, empatadas, perdidas': 'won, tied, lost',
+  'G-E-P': 'W-T-L',
+  'Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.': 'You already sent a result for this page from this browser: this test will not be added again.',
+  'Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.': 'When you finish, your result is added to everyone\'s standings. Nothing about you is stored.',
+  'Esta copia no está publicada en gatos.pics: el resultado no se envía.': 'This copy is not published on gatos.pics: the result is not sent.',
+  'Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.': 'You had already sent a result for this page from this browser: this one was not added.',
+  'Sumando tu resultado a la tabla de todos…': 'Adding your result to everyone\'s standings…',
+  'Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.': 'Your result was added to everyone\'s standings. Nothing about you was stored.',
+  'No se pudo enviar tu resultado: {}': 'Could not send your result: {}',
+  'Reintentar el envío': 'Retry sending',
+  'Repetir la prueba': 'Take the test again',
+  'Tabla de todos': 'Everyone\'s standings',
+  '1 prueba enviada.': '1 test sent.',
+  '{} pruebas enviadas.': '{} tests sent.',
+  '«Gana» es la parte de sus comparaciones que ganó; un empate cuenta la mitad.': '"Wins" is the share of its comparisons it won; a tie counts as half.',
+  'Gana': 'Wins',
+  'Puestos en cada prueba': 'Placings in each test',
+  'Volver a mi resultado': 'Back to my result',
+  'Hacer la prueba': 'Take the test',
+  'No se pudo leer la tabla: {}': 'Could not read the standings: {}',
   // estado y modos
   'Comparación': 'Comparison',
   'Comparación a ciegas': 'Blind comparison',
@@ -906,7 +979,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }
 function variantName(id){
   const v = variant(id);
-  if (blindMode) return 'Variante '+(blindOrder.findIndex(x => x.id === id)+1);
+  if (blindMode) return T`Variante ${blindOrder.findIndex(x => x.id === id)+1}`;
   return v.name;
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }
@@ -1740,7 +1813,7 @@ function variantButtonItems(){
   return orderedVariants().map((v, vi) => ({...variantItem(v, vi), dim: !blindMode && !hasFrame(v.id, frame)}));
 }
 function variantItem(v, vi){
-  if (blindMode) return {id: v.id, main: 'Variante '+(vi+1), sub: '', cmd: null};
+  if (blindMode) return {id: v.id, main: T`Variante ${vi+1}`, sub: '', cmd: null};
   const cmd = v.cmd || null;
   if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
   const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
@@ -1778,11 +1851,12 @@ function refreshVariantButtons(){
   if (cmdPinned && cmdFor && cmdFor.classList.contains('vcmd')) hideTip();
 }
 function stepFrame(d){
+  if (testRun) return;   // en la prueba ciega el cuadro lo pone la prueba
   const i = FRAMES.indexOf(frame)+d;
   if (i >= 0 && i < FRAMES.length){ frame = FRAMES[i]; loadImg(); }
 }
 document.querySelectorAll('.fnav').forEach(b => b.addEventListener('click', () => stepFrame(Number(b.dataset.fdir))));
-function swapAB(){ [varA, varB] = [varB, varA]; loadImg(); }
+function swapAB(){ if (testRun) return; [varA, varB] = [varB, varA]; loadImg(); }
 function nudgeDivider(delta){ dividerPos = clamp(dividerPos+delta, 0, 1); applyTransform(); writeHash(); }
 
 $('oneBtn').addEventListener('click', oneToOne);
@@ -1815,6 +1889,7 @@ window.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeShareIfOpen();
     return;
   }
+  if (testKeys(e)) return;   // prueba ciega: sus teclas, y su panel bloquea las demás
   const CROP_ARROWS = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
   if (CROP_ARROWS[e.key] && (cropMode || cropUV)){
     // con el modo recortes activo las flechas son del punto (gatolocoses/gatos.pics#10):
@@ -2197,6 +2272,176 @@ function closeShareIfOpen(){ if (sharePanel.style.display === 'flex'){ sharePane
 for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
   sharePanel.addEventListener(ev, e => e.stopPropagation());
 
+/* ---------- prueba ciega: todos contra todos (gatos-ops#196) ----------
+   Cada versión recibe un número al azar al empezar y así se llama toda la
+   prueba («Variante 3»): se sabe qué número se está juzgando, nunca qué es.
+   Se comparan todas las versiones de a pares, cada par en hasta TEST_FRAMES
+   cuadros (los mismos para todos, al azar), con los lados sorteados. Al final
+   salen los puestos con los nombres revelados, y en una página publicada el
+   resultado se suma solo a la tabla de todos (/api/vote/<token>): la
+   introducción lo avisa antes de empezar. Un navegador suma una vez por página.
+   Usa el modo ciego del visor: blindOrder ES la numeración de la prueba. */
+const TEST_MAX = 5, TEST_FRAMES = 3;
+let testRun = null, testMine = null;
+const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
+const testPanel = $('testPanel'), testBody = $('testBody');
+const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
+// se ofrece con 2 a 5 versiones y solo si cada par comparte al menos un cuadro
+const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => FRAMES.some(f => hasFrame(a, f) && hasFrame(b, f)));
+function testGames(){
+  const frames = shuffled(FRAMES), games = [];
+  for (const [a, b] of testPairs())
+    for (const f of frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, TEST_FRAMES)) games.push(Math.random() < .5 ? {a, b, f} : {a: b, b: a, f});
+  return shuffled(games);
+}
+// puntos (ganar 1, empate ½), ganadas/empatadas/perdidas y puesto; el mismo cálculo que service/lib/votes.mjs
+function testTally(games){
+  const row = Object.fromEntries(VARIANTS.map(v => [v.id, {pts: 0, w: 0, t: 0, l: 0}]));
+  for (const [a, b, , r] of games){
+    if (r === 't'){ row[a].t++; row[b].t++; row[a].pts += .5; row[b].pts += .5; }
+    else { const win = r === 'a' ? a : b, lose = r === 'a' ? b : a; row[win].w++; row[win].pts++; row[lose].l++; }
+  }
+  for (const v of VARIANTS) row[v.id].place = 1 + VARIANTS.filter(o => row[o.id].pts > row[v.id].pts).length;
+  return row;
+}
+const testEsc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const testName = id => `<b style="color:${testEsc(variant(id).color || '#e8e8f0')}">${testEsc(variant(id).name || id)}</b>`;
+const testHttp = () => !!testToken && location.protocol !== 'file:';
+const testVoted = () => { try { return localStorage.getItem('gatosVoted:' + testToken) === '1'; } catch(e){ return false; } };
+function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'flex'; const b = testBody.querySelector('button'); if (b) b.focus(); }
+function testClose(){ if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
+
+function testIntro(){
+  const n = VARIANTS.length, games = testPairs().reduce((s, [a, b]) => s + Math.min(TEST_FRAMES, FRAMES.filter(f => hasFrame(a, f) && hasFrame(b, f)).length), 0);
+  testOpen(`<h2>${T('Prueba ciega')}</h2>
+    <p>${T`Vas a comparar las ${n} versiones de a pares, sin saber cuál es cuál: ${games} comparaciones. Cada versión recibe un número al azar y lo conserva toda la prueba.`}</p>
+    <p>${T('En cada comparación eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo. Al final ves los puestos con los nombres.')}</p>
+    ${testHttp() ? `<p>${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
+    <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
+    ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}`);
+}
+function testStart(){
+  testClose();
+  if (cropMode){ setCropMode(false); closeCrop(); }
+  blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
+  testRun = {games: testGames(), i: 0, picks: [], before: {varA, varB, frame}};
+  blindMode = true;
+  document.body.classList.add('testing');
+  $('testBar').hidden = false;
+  pageTitle.textContent = T('Prueba ciega'); document.title = pageTitle.textContent;
+  hideTip();
+  testShow();
+  computeFit(); applyTransform();
+}
+function testShow(){
+  const g = testRun.games[testRun.i];
+  varA = g.a; varB = g.b; frame = g.f;
+  $('testStep').textContent = T`Comparación ${testRun.i + 1} de ${testRun.games.length} · ¿cuál se ve mejor?`;
+  $('testLeft').textContent = '← ' + variantName(g.a);
+  $('testRight').textContent = variantName(g.b) + ' →';
+  $('testBack').disabled = testRun.i === 0;
+  loadImg();
+  // la siguiente comparación ya viene en camino: el cambio no delata nada por lo que tarda en cargar
+  const next = testRun.games[testRun.i + 1];
+  if (next) for (const id of [next.a, next.b]) srcFor(id, next.f).then(u => { new Image().src = u; });
+}
+function testPick(r){
+  if (!testRun) return;
+  testRun.picks[testRun.i] = r;
+  if (++testRun.i < testRun.games.length) testShow(); else testFinish();
+}
+function testBackOne(){ if (testRun && testRun.i > 0){ testRun.i--; testShow(); } }
+// sale del modo: vuelve la vista de antes y se olvida la numeración (un «Ciego» posterior sortea la suya)
+function testLeave(){
+  const before = testRun.before;
+  testRun = null; blindOrder = null;
+  document.body.classList.remove('testing');
+  $('testBar').hidden = true;
+  ({varA, varB, frame} = before);
+  setBlind(false);
+  computeFit(); applyTransform();
+}
+function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
+function testFinish(){
+  const games = testRun.games.map((g, i) => [g.a, g.b, String(g.f), testRun.picks[i]]);
+  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+  testLeave();
+  testMine = {games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
+  testResult();
+  if (testMine.state === 'sending') testSend();
+}
+// el resultado se suma solo al terminar; si falla queda el botón para reintentar
+async function testSend(){
+  const mine = testMine;
+  mine.state = 'sending'; if (testMine === mine && testBody.querySelector('#testNote')) testResult();
+  try {
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify({games: mine.games})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+    try { localStorage.setItem('gatosVoted:' + testToken, '1'); } catch(e){}
+    mine.state = 'sent';
+  } catch (e){ mine.state = 'failed'; mine.error = e.message; }
+  if (testMine === mine && testBody.querySelector('#testNote')) testResult();
+}
+function testResult(){
+  const row = testTally(testMine.games);
+  const order = [...VARIANTS].sort((a, b) => row[a.id].place - row[b.id].place || testMine.num.get(a.id) - testMine.num.get(b.id));
+  const st = testMine.state, http = testHttp();
+  const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
+    sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
+  testOpen(`<h2>${T('Tu resultado')}</h2>
+    <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Era')}</th><th>${T('Versión')}</th><th>${T('Puntos')}</th><th title="${T('ganadas, empatadas, perdidas')}">${T('G-E-P')}</th></tr>
+    ${order.map(v => { const r = row[v.id]; return `<tr><td>${r.place}º</td><td>${T`Variante ${testMine.num.get(v.id)}`}</td><td>${testName(v.id)}</td><td>${r.pts}</td><td>${r.w}-${r.t}-${r.l}</td></tr>`; }).join('')}</table>
+    <p class="hint" id="testNote" role="status">${testEsc(note)}</p>
+    <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="start">${T('Repetir la prueba')}</button><button data-test="close">${T('Cerrar')}</button></div>`);
+}
+function testStandings(j){
+  const pct = s => s == null ? '—' : Math.round(s * 100) + ' %';
+  testOpen(`<h2>${T('Tabla de todos')}</h2>
+    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('«Gana» es la parte de sus comparaciones que ganó; un empate cuenta la mitad.')}</p>
+    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th>${T('Gana')}</th><th>${T('G-E-P')}</th><th>${T('Puestos en cada prueba')}</th></tr>
+    ${j.standings.map((s, i) => `<tr><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${pct(s.share)}</td><td>${s.w}-${s.t}-${s.l}</td><td>${s.places.map((n, p) => n ? `${p + 1}º ×${n}` : '').filter(Boolean).join(' · ')}</td></tr>`).join('')}</table>` : ''}
+    <div class="acts">${testMine ? `<button data-test="mine">${T('Volver a mi resultado')}</button>` : `<button class="xbtn" data-test="start">${T('Hacer la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
+}
+async function testAll(){
+  const btn = testBody.querySelector('[data-test="all"]');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/vote/' + testToken, {headers: {'accept-language': I18N.lang}});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+    testStandings(j);
+  } catch (e){
+    const n = testBody.querySelector('.hint'); if (n) n.textContent = T`No se pudo leer la tabla: ${e.message}`;
+    if (btn) btn.disabled = false;
+  }
+}
+testBody.addEventListener('click', e => {
+  const b = e.target.closest('[data-test]'); if (!b) return;
+  const act = b.dataset.test;
+  if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult();
+  else if (act === 'send') testSend(); else if (act === 'all') testAll();
+});
+$('testBtn').addEventListener('click', testIntro);
+$('testLeft').addEventListener('click', () => testPick('a'));
+$('testRight').addEventListener('click', () => testPick('b'));
+$('testTie').addEventListener('click', () => testPick('t'));
+$('testBack').addEventListener('click', testBackOne);
+$('testQuit').addEventListener('click', testQuit);
+// teclas de la prueba: ← y → eligen lado, ↑/↓/0 empate, Retroceso vuelve una. Las
+// que cambiarían el par o lo revelarían (números, espacio, G, R, S, C) no hacen nada
+function testKeys(e){
+  if (testPanel.style.display === 'flex'){ if (e.key === 'Escape'){ e.preventDefault(); testClose(); } return true; }
+  if (!testRun) return false;
+  if (e.key === 'ArrowLeft') testPick('a'); else if (e.key === 'ArrowRight') testPick('b');
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === '0') testPick('t');
+  else if (e.key === 'Backspace') testBackOne(); else if (e.key === 'Escape') testQuit();
+  else if (!(e.key === ' ' || /^[1-9]$/.test(e.key) || /^Digit[1-9]$/.test(e.code) || 'gGrRsScC'.includes(e.key))) return false;
+  e.preventDefault();
+  return true;
+}
+
 /* ---------- init ---------- */
 function applyManifest(m){
   // un manifest truncado o mano-editado no es un fallo de transporte: sin
@@ -2214,6 +2459,7 @@ function applyManifest(m){
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
+  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 5 versiones
   computeFit();
   loadImg();
   applyTransform();

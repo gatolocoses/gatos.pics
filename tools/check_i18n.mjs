@@ -201,7 +201,7 @@ export function report(results){
 const p = (...parts) => path.join(PRODUCT, ...parts);
 export const PRODUCT_SURFACES = [
   { name: 'visor', html: [p('viewer', 'index.html')],
-    js: ['10-core.js', '20-modes.js', '30-ui.js', '40-share.js', '50-boot.js'].map(f => p('viewer', 'src', f)).concat(p('viewer', 'upload.js')),
+    js: ['10-core.js', '20-modes.js', '30-ui.js', '40-share.js', '45-test.js', '50-boot.js'].map(f => p('viewer', 'src', f)).concat(p('viewer', 'upload.js')),
     dicts: [p('viewer', 'src', '06-lang-upload.js'), p('viewer', 'src', '07-lang.js')], ident: ['gatos.pics', 'A', 'B'] },
   { name: 'creador', html: [p('app', 'index.html')],
     js: ['assets.js', 'builder.js', 'capture.js', 'publish.js', 'guide.js', 'zip.js', 's2.js'].map(f => p('app', f)).concat(p('viewer', 'upload.js')),

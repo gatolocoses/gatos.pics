@@ -187,6 +187,21 @@
   .modal{position:fixed; inset:0; z-index:70; background:#000c; align-items:center; justify-content:center; padding:18px;}
   .modal-box{background:var(--panel); border:1px solid #2a2a36; border-radius:12px; padding:16px 18px; width:100%;}
   #reportPanel .modal-box{max-width:440px;}
+  /* prueba ciega (#196) */
+  #testBar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
+  #testBar[hidden]{display:none;}
+  #testBar .spacer{flex:1;}
+  #testStep{font-weight:600; margin-right:6px;}
+  body.testing :is(.hrow-panes, .frame-tools .group, #blindBtn, #revealBtn, #shareBtn, #reportBtn, #testBtn, #cropBtn){display:none !important;}
+  body.testing footer .kh{display:none;}
+  #testPanel .modal-box{max-width:600px; max-height:86%; overflow:auto;}
+  #testBody h2{font-size:16px; margin-bottom:8px;}
+  #testBody p{font-size:13px; color:var(--dim); margin-bottom:8px;}
+  #testBody .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .ttable{width:100%; border-collapse:collapse; font-size:13px; margin:6px 0;}
+  .ttable :is(th,td){text-align:left; padding:6px 8px; border-bottom:1px solid #2a2a36;}
+  .ttable th{color:var(--dim); font-weight:400; font-size:12px;}
+  @media (pointer:coarse){ #testBar button, #testBody button{min-height:44px;} }
   #sharePanel .modal-box{max-width:560px; max-height:86%; overflow:auto;}
   @media (prefers-reduced-motion:reduce){ .hrow-panes .variants{scroll-behavior:auto;} }
   @media (pointer:coarse){
@@ -281,6 +296,7 @@
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
   <button data-t id="pixBtn" title="Escala con píxeles nítidos al hacer zoom (N)">Nítido</button>
     <button data-t id="resetBtn" title="Reiniciar zoom (F)">Ajustar</button>
+  <button data-t id="testBtn" hidden title="Compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana">Prueba ciega</button>
   <button data-t id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
   <button data-t id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
@@ -292,6 +308,16 @@
     <div class="group r"><span data-t class="glabel">Derecha</span><button class="vscroll" data-scroll="varB" data-dir="-1" title="Desplazar la lista">&lsaquo;</button><div class="variants" id="varB"></div><button class="vscroll" data-scroll="varB" data-dir="1" title="Desplazar la lista">&rsaquo;</button><button class="vcmd" data-nt data-pane="varB" hidden title="Comando del encoder" aria-label="Ver el comando de la variante derecha">cmd</button><select class="vsel" id="selB" aria-label="Variante derecha"></select></div>
   </div>
 </header>
+
+<div id="testBar" role="group" aria-label="Prueba ciega" hidden>
+  <span id="testStep" role="status"></span>
+  <button id="testLeft" class="xbtn" title="Se ve mejor la de la izquierda (←)"></button>
+  <button data-t id="testTie" title="No veo diferencia (↑)">Empate</button>
+  <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
+  <span class="spacer"></span>
+  <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
+  <button data-t id="testQuit">Salir de la prueba</button>
+</div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <filter id="solarCurve" color-interpolation-filters="sRGB">
@@ -392,6 +418,9 @@
     </div>
     <div id="reportStatus" class="hint" style="margin-top:8px; min-height:14px;"></div>
   </div>
+</div>
+<div id="testPanel" class="modal" role="dialog" aria-modal="true" aria-label="Prueba ciega" style="display:none;">
+  <div class="modal-box" id="testBody"></div>
 </div>
 <div id="sharePanel" class="modal" role="dialog" aria-modal="true" aria-label="Compartir comparación" style="display:none;">
   <div class="modal-box">

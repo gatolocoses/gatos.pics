@@ -131,7 +131,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }
 function variantName(id){
   const v = variant(id);
-  if (blindMode) return 'Variante '+(blindOrder.findIndex(x => x.id === id)+1);
+  if (blindMode) return T`Variante ${blindOrder.findIndex(x => x.id === id)+1}`;
   return v.name;
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }

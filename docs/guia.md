@@ -174,6 +174,20 @@ La página que se lleva quien abre tu export.
 - Fuera del modo ciego, el estado (frame, variantes, zoom, divisor, modo) vive
   en la URL: cópiala para compartir la vista.
 
+### Prueba ciega: todas contra todas
+
+En una página con 2 a 5 versiones, el botón **Prueba ciega** arma una prueba
+completa. Cada versión recibe un número al azar («Variante 3») y lo conserva
+toda la prueba: sabes qué número estás juzgando, nunca qué es. Se comparan
+todas las versiones de a pares, cada par en hasta tres cuadros, con los lados
+sorteados. En cada comparación eliges la que se ve mejor (`←` o `→`) o empate
+(`↑`); `Retroceso` vuelve una. Sirven el zoom, el diff y el parpadeo.
+
+Al terminar ves los puestos, del 1º al último, con los nombres revelados:
+ganar da un punto y empatar medio. En una página publicada el resultado se
+suma solo a la **tabla de todos**, que muestra qué versión gana más entre
+quienes hicieron la prueba. Un navegador suma una vez por página.
+
 ### La imagen para compartir se crea sola
 
 Al publicar, el creador dibuja la imagen de «Compartir» (vista partida del
@@ -284,6 +298,11 @@ procesan en memoria y se embeben en el HTML que tú descargas. Sin telemetría,
 sin analítica, sin llamadas a ningún servidor. Si quieres comprobarlo, abre el
 archivo y léelo: son unos miles de líneas de JS plano sin una sola dirección
 remota.
+
+Las páginas publicadas en gatos.pics guardan dos cosas, y ninguna dice quién:
+cuántas veces se abrió cada página, y las respuestas de quienes terminan una
+prueba ciega (qué versión eligieron en cada comparación). Sin cuentas, sin
+direcciones, sin rastreo.
 
 ## 9. Preguntas frecuentes
 
