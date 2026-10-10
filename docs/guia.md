@@ -191,10 +191,13 @@ resultado se suma solo a la **tabla de todos**, ordenada por el puesto medio
 de cada versión entre quienes hicieron la prueba. Un navegador suma una vez
 por página.
 
-Durante la prueba las imágenes se cargan sin su nombre: «guardar imagen como»
-o abrirla en otra pestaña no dice de qué versión es. No es a prueba de quien
-abra las herramientas del navegador: es una ayuda para juzgar sin sesgo, no un
-candado.
+Durante la prueba nada dice de qué versión es cada imagen. En una página
+publicada el servidor sortea la numeración y sirve las imágenes bajo
+direcciones al azar: ni «guardar imagen como», ni abrirla en otra pestaña, ni
+las herramientas del navegador muestran un nombre, y la propia página solo
+conoce números hasta que terminas. No es un candado: quien compare los
+archivos con los de la página normal puede deducirlo. Es una ayuda para juzgar
+sin sesgo.
 
 ### La imagen para compartir se crea sola
 

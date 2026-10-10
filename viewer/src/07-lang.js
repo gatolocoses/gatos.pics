@@ -166,6 +166,7 @@ I18N.add({
   'Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.': 'Your result was added to everyone\'s standings. Nothing about you was stored.',
   'No se pudo enviar tu resultado: {}': 'Could not send your result: {}',
   'Reintentar el envío': 'Retry sending',
+  'Enviando tus respuestas para saber qué versión era cada número…': 'Sending your answers to find out which version each number was…',
   'Repetir la prueba': 'Take the test again',
   'Tabla de todos': 'Everyone\'s standings',
   '1 prueba enviada.': '1 test sent.',

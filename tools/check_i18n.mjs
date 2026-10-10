@@ -154,8 +154,10 @@ export function scanHtml(src, where, problems, { mark = false } = {}){
 /* ---------- diccionarios ---------- */
 // Evalúa el runtime real con los diccionarios y devuelve lo que add() juntó.
 export function loadDict(sources, where, problems){
+  // documento y navegador de mentira: el chequeo corre en Node, y `navigator` no
+  // existe como global antes de Node 21 (el CI horario usa el Node del sistema)
   const fake = { documentElement: {}, title: '', querySelectorAll: () => [] };
-  try { return new Function('document', sources.join('\n;') + '\n;return I18N.dict;')(fake); }
+  try { return new Function('document', 'navigator', 'location', 'localStorage', sources.join('\n;') + '\n;return I18N.dict;')(fake, { languages: ['en'] }, { search: '', href: 'http://localhost/' }, { getItem: () => null }); }
   catch (e){ problems.push(`${where}: el diccionario no se pudo evaluar: ${e.message}`); return {}; }
 }
 

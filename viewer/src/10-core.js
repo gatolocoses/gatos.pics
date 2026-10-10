@@ -158,10 +158,15 @@ const srcCache = new Map();
 // pestaña» o arrastrándola). Si la descarga falla (file://) queda la dirección
 // de siempre. Al salir del modo se sueltan (dropBlindSrc).
 const blindSrc = new Map(), blindMade = [];
+// En una página publicada la prueba ciega va más lejos (gatos-ops#207): el
+// servidor reparte direcciones al azar y aquí solo se conocen números:
+// blindPics = { <id de mentira>: { <cuadro>: <alias> } } y la imagen es b/<alias>.
+let blindPics = null;
 let blindGen = 0;   // una descarga que termina después de salir del modo no deja un blob suelto
 function srcFor(id, f){
   const key = id+'_'+f;
   if (!srcCache.has(key)) srcCache.set(key, Promise.resolve(SOURCE.srcFor(id, f)));
+  if (blindPics && blindPics[id]) return Promise.resolve('b/' + blindPics[id][String(f)]);
   if (!blindMode) return srcCache.get(key);
   const gen = blindGen;
   if (!blindSrc.has(key)) blindSrc.set(key, srcCache.get(key).then(u => /^(blob|data):/.test(u) ? u

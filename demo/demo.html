@@ -802,6 +802,7 @@ I18N.add({
   'Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.': 'Your result was added to everyone\'s standings. Nothing about you was stored.',
   'No se pudo enviar tu resultado: {}': 'Could not send your result: {}',
   'Reintentar el envío': 'Retry sending',
+  'Enviando tus respuestas para saber qué versión era cada número…': 'Sending your answers to find out which version each number was…',
   'Repetir la prueba': 'Take the test again',
   'Tabla de todos': 'Everyone\'s standings',
   '1 prueba enviada.': '1 test sent.',
@@ -1009,10 +1010,15 @@ const srcCache = new Map();
 // pestaña» o arrastrándola). Si la descarga falla (file://) queda la dirección
 // de siempre. Al salir del modo se sueltan (dropBlindSrc).
 const blindSrc = new Map(), blindMade = [];
+// En una página publicada la prueba ciega va más lejos (gatos-ops#207): el
+// servidor reparte direcciones al azar y aquí solo se conocen números:
+// blindPics = { <id de mentira>: { <cuadro>: <alias> } } y la imagen es b/<alias>.
+let blindPics = null;
 let blindGen = 0;   // una descarga que termina después de salir del modo no deja un blob suelto
 function srcFor(id, f){
   const key = id+'_'+f;
   if (!srcCache.has(key)) srcCache.set(key, Promise.resolve(SOURCE.srcFor(id, f)));
+  if (blindPics && blindPics[id]) return Promise.resolve('b/' + blindPics[id][String(f)]);
   if (!blindMode) return srcCache.get(key);
   const gen = blindGen;
   if (!blindSrc.has(key)) blindSrc.set(key, srcCache.get(key).then(u => /^(blob|data):/.test(u) ? u
@@ -2296,7 +2302,16 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    Al final salen los puestos con los nombres revelados, y en una página
    publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
    la introducción lo avisa antes de empezar. Un navegador suma una vez por
-   página. Usa el modo ciego del visor: blindOrder ES la numeración. */
+   página. Usa el modo ciego del visor: blindOrder ES la numeración.
+
+   En una página publicada la numeración la sortea el SERVIDOR (#207): el
+   visor abre una sesión (/api/blind/<token>) y recibe solo números y
+   direcciones al azar para las imágenes. Mientras dura la prueba VARIANTS son
+   versiones de mentira («n1», «n2»…): ni este código ni las herramientas del
+   navegador saben cuál es cuál. Al terminar manda las respuestas en números y
+   el servidor contesta qué versión era cada uno. Sin sesión (copia sin
+   publicar, o el servidor no responde) la numeración se sortea aquí y las
+   imágenes van como blob. */
 const TEST_MAX = 5, TEST_FRAMES = 3;
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
@@ -2355,12 +2370,27 @@ function testIntro(){
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}`);
 }
-function testStart(){
+let testOpening = false;
+async function testStart(){
+  if (testRun || testOpening) return;
   testClose();
   if (cropMode){ setCropMode(false); closeCrop(); }
-  blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
+  let session = null;
+  if (testHttp()){
+    testOpening = true;
+    try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}}); if (r.ok) session = await r.json(); } catch(e){}
+    testOpening = false;
+  }
+  const real = VARIANTS, before = {varA, varB, frame};
+  if (session){
+    // versiones de mentira: la «Variante k» es n<k>, y de cada una solo se sabe qué cuadros tiene
+    VARIANTS = Array.from({length: session.n}, (_, k) => ({id: 'n' + (k + 1), name: '', color: '#e8e8f0', frames: Object.keys(session.pics[k + 1])}));
+    blindPics = Object.fromEntries(VARIANTS.map((v, k) => [v.id, session.pics[k + 1]]));
+    blindOrder = VARIANTS;
+  } else blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
   // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
-  testRun = {order: shuffled(VARIANTS.map(v => v.id)), frames: shuffled(FRAMES), flips: new Map(), answers: [], games: [], before: {varA, varB, frame}};
+  const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined) : shuffled(FRAMES);
+  testRun = {sid: session && session.sid, real, order: shuffled(VARIANTS.map(v => v.id)), frames, flips: new Map(), answers: [], games: [], before};
   testRun.max = testDuels(VARIANTS.length) * Math.min(TEST_FRAMES, FRAMES.length);
   blindMode = true;
   document.body.classList.add('testing');
@@ -2399,6 +2429,7 @@ function testBackOne(){ if (testRun && testRun.answers.length){ testRun.answers.
 // sale del modo: vuelve la vista de antes, se olvida la numeración y se sueltan las imágenes sin nombre
 function testLeave(){
   const before = testRun.before;
+  if (testRun.sid){ VARIANTS = testRun.real; blindPics = null; }   // vuelven las versiones de verdad
   testRun = null; blindOrder = null;
   document.body.classList.remove('testing');
   $('testBar').hidden = true;
@@ -2409,9 +2440,13 @@ function testLeave(){
 }
 function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
 function testFinish(rank){
-  const games = testRun.games, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+  const games = testRun.games, sid = testRun.sid, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
   testLeave();
-  testMine = {rank, games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
+  if (sid){
+    // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
+    const n = id => num.get(id);
+    testMine = {sid, count: !testVoted(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
+  } else testMine = {rank, games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -2420,16 +2455,29 @@ async function testSend(){
   const mine = testMine;
   mine.state = 'sending'; if (testMine === mine && testBody.querySelector('#testNote')) testResult();
   try {
-    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify({rank: mine.rank, games: mine.games})});
+    const body = mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games};
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
-    try { localStorage.setItem('gatosVoted:' + testToken, '1'); } catch(e){}
-    mine.state = 'sent';
+    if (mine.sid){   // la revelación: qué versión era cada número
+      const id = k => j.reveal[k - 1];
+      mine.rank = mine.rank.map(g => g.map(id)); mine.games = mine.games.map(([a, b, f, r]) => [id(a), id(b), f, r]);
+      mine.num = new Map(j.reveal.map((v, i) => [v, i + 1]));
+      mine.sid = null;
+    }
+    if (mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, '1'); } catch(e){}
+    mine.state = mine.count === false ? 'voted' : 'sent';
   } catch (e){ mine.state = 'failed'; mine.error = e.message; }
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
 }
 function testResult(){
   const st = testMine.state, http = testHttp();
+  if (testMine.sid){   // todavía sin revelar: solo el estado (y reintentar si falló)
+    testOpen(`<h2>${T('Tu resultado')}</h2>
+      <p class="hint" id="testNote" role="status">${st === 'failed' ? testEsc(T`No se pudo enviar tu resultado: ${testMine.error}`) : T('Enviando tus respuestas para saber qué versión era cada número…')}</p>
+      <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}<button data-test="close">${T('Cerrar')}</button></div>`);
+    return;
+  }
   const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
     sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
   // lo que respondiste sobre cada versión: comparaciones ganadas, empatadas y perdidas

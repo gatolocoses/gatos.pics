@@ -607,15 +607,17 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('a browser in another language gets English', await pt.evaluate(()=>document.documentElement.lang), 'en');
     await pctx2.close(); await ectx.close();
   }
-  // prueba ciega (gatos-ops#196, #200): ordenar a ciegas con números al azar; resultado y tabla de todos
+  // prueba ciega (gatos-ops#196, #200, #207): ordenar a ciegas con números al azar; resultado y tabla de todos.
+  // En una página publicada ni el visor sabe qué versión es cada número: la suite tampoco, así que «gana el número menor».
   { const img = fixture.images.source_intro, vids = ['webdl','av14k','av1','x264'], names = ['WEB-DL 4K','AV1 4K','AV1 1080p','H.264 1080p'], frs = ['10','20','30','40'];
     const mk = async (ids) => (await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',
       manifest:{title:'Prueba ciega',version:1,frames:frs,variants:ids.map((id,i)=>({id,name:names[i]||id}))},images:Object.fromEntries(ids.flatMap(v=>frs.map(f=>[v+'_'+f,img])))})})).json());
     const tp = await mk(vids);
-    const run = async (pg, pickBest) => {   // gana siempre la versión real de índice menor (o la que diga pickBest); devuelve cuántas comparaciones pidió
+    const started = (pg) => pg.waitForFunction(()=>!!testRun&&!!testRun.cur);
+    const run = async (pg, pickBest) => {   // gana siempre la «Variante» de número menor (o la que diga pickBest); devuelve cuántas comparaciones pidió
       let n = 0;
       for (; n < 40; n++){
-        const key = await pg.evaluate((best)=>{ if (!testRun) return null; const g=testRun.cur, idx=id=>VARIANTS.findIndex(v=>v.id===id); if (best==='tie') return 'ArrowUp'; return (idx(g.a)<idx(g.b))===(best!=='worst')?'ArrowLeft':'ArrowRight';}, pickBest);
+        const key = await pg.evaluate((best)=>{ if (!testRun) return null; const g=testRun.cur, idx=id=>blindOrder.findIndex(v=>v.id===id); if (best==='tie') return 'ArrowUp'; return (idx(g.a)<idx(g.b))===(best!=='worst')?'ArrowLeft':'ArrowRight';}, pickBest);
         if (!key) break;
         await pg.keyboard.press(key);
       }
@@ -629,14 +631,16 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.keyboard.press('g');
     ok('blind test: G opens it', await tpg.evaluate(()=>testPanel.style.display), 'flex');
     ok('blind test: the intro says how many comparisons and that the result will be added', await tpg.evaluate(()=>[/las 4 versiones/.test(testBody.textContent),/como mucho 15 comparaciones/.test(testBody.textContent),/tu resultado se suma a la tabla de todos/.test(testBody.textContent)]), [true,true,true]);
-    await tpg.locator('[data-test="start"]').click();
-    const st0 = await tpg.evaluate(()=>({max:testRun.max, enter:[...testRun.order].sort().join(), frames:testRun.frames.length,
+    const seen = []; tpg.on('request', r => seen.push(new URL(r.url()).pathname));
+    await tpg.locator('[data-test="start"]').click(); await started(tpg);
+    const st0 = await tpg.evaluate(()=>({max:testRun.max, enter:[...testRun.order].sort().join(), frames:testRun.frames.length, known:JSON.stringify([VARIANTS,blindPics,testRun.order]),
       nums:blindOrder.map(v=>v.id).sort().join(), labels:[labelAName.textContent,labelBName.textContent], btns:[testLeft.textContent,testRight.textContent], title:document.title, step:testStep.textContent,
       hidden:['.hrow-panes','#shareBtn','#testBtn','#cropBtn'].map(q=>getComputedStyle(document.querySelector(q)).display), names:['WEB-DL','AV1','H.264'].some(n=>document.querySelector('header').innerText.includes(n)||comp.innerText.includes(n)||metaLine.textContent.includes(n))}));
     ok('blind test: all 4 versions enter the sort, numbers 1 to 4, no real name on screen', [st0.max,st0.enter,st0.frames,st0.nums,st0.title,st0.hidden.every(d=>d==='none'),st0.names,/^Variante [1-4]$/.test(st0.labels[0])&&st0.btns[0]==='← '+st0.labels[0]&&st0.btns[1]===st0.labels[1]+' →',/^Comparación 1 · como mucho 15 ·/.test(st0.step)],
-      [15,'av1,av14k,webdl,x264',4,'av1,av14k,webdl,x264','Prueba ciega',true,false,true,true]);
-    await tpg.waitForFunction(()=>/^blob:/.test(imgA.src)&&/^blob:/.test(imgB.src)&&loadedUrlA===imgA.src&&loadedUrlPaneB===imgB.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
-    ok('blind test: the picture addresses say nothing about the version (save as, open in new tab)', await tpg.evaluate(()=>[imgA.src,imgB.src].map(u=>/^blob:/.test(u)&&!VARIANTS.some(v=>u.includes(v.id)))), [true,true]);
+      [15,'n1,n2,n3,n4',3,'n1,n2,n3,n4','Prueba ciega',true,false,true,true]);
+    ok('blind test: during the test the page itself only knows numbers (no real id or name in its variants)', vids.concat(names).some(x=>st0.known.includes(x)), false);
+    await tpg.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&loadedUrlPaneB===imgB.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
+    ok('blind test: pictures come from random addresses that say nothing about the version', await tpg.evaluate(()=>[imgA.src,imgB.src].map(u=>new URL(u).pathname.replace(/^\/p\/[^/]+\//,''))).then(a=>a.map(u=>/^b\/[A-Za-z0-9_-]{16}$/.test(u)&&!vids.some(v=>u.includes(v)))), [true,true]);
     ok('blind test: the three choices sit at the exact middle of the page, Tie over the divider', await tpg.evaluate(()=>{const r=testTie.getBoundingClientRect(); return [Math.abs((r.left+r.right)/2-innerWidth/2)<=1, testLeft.getBoundingClientRect().right<r.left, testRight.getBoundingClientRect().left>r.right];}), [true,true,true]);
     // teclas que revelarían o cambiarían el par no hacen nada; Retroceso vuelve una
     const g0 = await tpg.evaluate(()=>[varA,varB,String(frame)]);
@@ -647,14 +651,15 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const asked = await run(tpg);
     ok('blind test: a clear order needs far fewer comparisons than all pairs on 3 frames (18)', asked >= 8 && asked <= 10);
     await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    const mine = await rows(tpg);
-    ok('blind test: the result ranks 1st to 4th with the real names revealed, and is sent by itself', [mine.map(r=>r[0]+r[2]), mine.every(r=>/^Variante [1-4]$/.test(r[1])), new Set(mine.map(r=>r[1])).size, await tpg.locator('[data-test="send"]').count(), await tpg.evaluate(()=>[blindMode,document.body.classList.contains('testing'),testBar.hidden,document.title,localStorage.getItem('gatosVoted:'+testToken)])],
-      [['1ºWEB-DL 4K','2ºAV1 4K','3ºAV1 1080p','4ºH.264 1080p'], true, 4, 0, [false,false,true,'Prueba ciega','1']]);
+    const mine = await rows(tpg), P = mine.map(r=>r[2]);   // P: el orden real que salió (lo sorteó el servidor)
+    ok('blind test: nothing requested during the test names a version (network tab)', [seen.some(u=>/\/img\//.test(u)||vids.some(v=>u.includes(v+'_'))), seen.filter(u=>/\/b\/[A-Za-z0-9_-]+$/.test(u)).length>=2, seen.includes('/api/blind/'+tp.token)], [false,true,true]);
+    ok('blind test: the result ranks 1st to 4th with the real names revealed by the server, and is sent by itself', [mine.map(r=>r[0]+' '+r[1]), [...P].sort(), await tpg.locator('[data-test="send"]').count(), await tpg.evaluate(()=>[blindMode,document.body.classList.contains('testing'),testBar.hidden,document.title,localStorage.getItem('gatosVoted:'+testToken),VARIANTS.map(v=>v.id).join(),blindPics])],
+      [['1º Variante 1','2º Variante 2','3º Variante 3','4º Variante 4'], [...names].sort(), 0, [false,false,true,'Prueba ciega','1',vids.join(),null]]);
     ok('blind test: the result says how many comparisons were answered', new RegExp('Respondiste '+asked+' comparaciones').test(await tpg.textContent('#testBody')));
     await tpg.locator('[data-test="all"]').click(); await tpg.waitForSelector('#testBody h2:has-text("Tabla de todos")');
-    ok('blind test: everyone\'s standings after one test', [(await rows(tpg)).map(r=>r.slice(0,4)), /1 prueba enviada/.test(await tpg.textContent('#testBody'))], [[['1º','WEB-DL 4K','1.00','1º ×1'],['2º','AV1 4K','2.00','2º ×1'],['3º','AV1 1080p','3.00','3º ×1'],['4º','H.264 1080p','4.00','4º ×1']], true]);
+    ok('blind test: everyone\'s standings after one test', [(await rows(tpg)).map(r=>r.slice(0,4)), /1 prueba enviada/.test(await tpg.textContent('#testBody'))], [[['1º',P[0],'1.00','1º ×1'],['2º',P[1],'2.00','2º ×1'],['3º',P[2],'3.00','3º ×1'],['4º',P[3],'4.00','4º ×1']], true]);
     // un duelo dividido (gana una, gana la otra) pide el tercer cuadro; Atrás deshace y el plan se rehace igual
-    await tpg.locator('[data-test="mine"]').click(); await tpg.locator('[data-test="start"]').click();
+    await tpg.locator('[data-test="mine"]').click(); await tpg.locator('[data-test="start"]').click(); await started(tpg);
     const d0 = await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f)}));
     await tpg.keyboard.press('ArrowLeft');
     const d1 = await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f), left:testRun.cur.a}));
@@ -667,29 +672,40 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     // el mismo navegador repite: se ve su resultado pero no se suma otra vez
     await tpg.evaluate(()=>testStart());
     await run(tpg,'worst'); await tpg.waitForSelector('#testNote');
-    ok('blind test: a second test from the same browser is shown but not added', [/no se sumó/.test(await tpg.textContent('#testNote')), (await rows(tpg))[0][2], (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [true,'H.264 1080p',1]);
+    await tpg.waitForFunction(()=>/no se sumó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: a second test from the same browser is revealed but not added', [(await rows(tpg)).map(r=>r[0]+' '+r[1]), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [['1º Variante 4','2º Variante 3','3º Variante 2','4º Variante 1'],1]);
     // otra persona, en inglés, todo empates
     const ectx2 = await browser.newContext({locale:'en-US',viewport:{width:1280,height:800}});
     const epg = await ectx2.newPage(); epg.on('pageerror',e=>errors.push(e.message)); epg.on('dialog',d=>d.accept());
-    await epg.goto(tp.url); await loaded(epg); await epg.locator('#testBtn').click(); await epg.locator('[data-test="start"]').click();
+    await epg.goto(tp.url); await loaded(epg); await epg.locator('#testBtn').click(); await epg.locator('[data-test="start"]').click(); await started(epg);
     ok('blind test: in English', await epg.evaluate(()=>[document.title, /^Variant [1-4]$/.test(labelAName.textContent), /^Comparison 1 · 15 at most · which looks better\?$/.test(testStep.textContent), testTie.textContent]), ['Blind test',true,true,'Tie']);
     const askedTie = await run(epg,'tie'); await epg.waitForFunction(()=>/was added to everyone/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: all ties share first place (3 duels of 3 frames each)', [(await rows(epg)).map(r=>r[0]), askedTie], [['1º','1º','1º','1º'], 9]);
     await epg.locator('[data-test="all"]').click(); await epg.waitForSelector('#testBody h2:has-text("standings")');
     ok('blind test: two people add up, nothing untranslated', [(await rows(epg)).map(r=>r.slice(1,4).join(' | ')), await epg.evaluate(()=>[...I18N.miss])],
-      [['WEB-DL 4K | 1.00 | 1º ×2','AV1 4K | 1.50 | 1º ×1 · 2º ×1','AV1 1080p | 2.00 | 1º ×1 · 3º ×1','H.264 1080p | 2.50 | 1º ×1 · 4º ×1'], []]);
+      [[P[0]+' | 1.00 | 1º ×2',P[1]+' | 1.50 | 1º ×1 · 2º ×1',P[2]+' | 2.00 | 1º ×1 · 3º ×1',P[3]+' | 2.50 | 1º ×1 · 4º ×1'], []]);
     // salir a medias restaura la vista y no manda nada; «Ciego» después sortea su propio orden
     await epg.locator('[data-test="close"]').click();
     const before = await epg.evaluate(()=>[varA,varB,String(frame)]);
     await epg.evaluate(()=>testStart()); await epg.keyboard.press('ArrowLeft'); await epg.keyboard.press('Escape');
-    ok('blind test: after leaving, pictures load from their normal addresses again', await epg.evaluate(()=>new Promise(r=>setTimeout(()=>r([/^https?:/.test(imgA.src),blindSrc.size,blindMade.length]),300))), [true,0,0]);
+    ok('blind test: after leaving, pictures load from their normal addresses again', await epg.evaluate(()=>new Promise(r=>setTimeout(()=>r([/\/img\//.test(imgA.src),blindSrc.size,blindMade.length,blindPics,VARIANTS.length]),300))), [true,0,0,null,4]);
     ok('blind test: leaving midway restores the view and sends nothing', [await epg.evaluate(()=>[varA,varB,String(frame),blindMode,!!testRun,testBar.hidden,blindOrder]), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [[...before,false,false,true,null],2]);
     // teléfono: la barra cabe y los botones miden 44 px
     const mctx = await browser.newContext({locale:'es-MX',viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
     const mpg = await mctx.newPage(); await mpg.goto(tp.url); await loaded(mpg); await mpg.evaluate(()=>testStart());
     ok('blind test phone: bar fits, 44 px buttons, swipe does not change the frame', await mpg.evaluate(()=>{const f=String(frame); stepFrame(1); return [document.documentElement.scrollWidth<=innerWidth, [testLeft,testTie,testRight].every(b=>b.getBoundingClientRect().height>=44), String(frame)===f, comp.clientHeight/innerHeight>=0.5];}), [true,true,true,true]);
     await mpg.screenshot({path:path.join(OUT,'blind-test-phone.png')});
-    // más de 5 versiones: no se ofrece; copia sin publicar (vista previa): la prueba corre pero no se envía
+    // si el servidor no abre la sesión, la prueba corre igual con la numeración local y las imágenes como blob, y se suma
+    const fctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+    const fpg = await fctx.newPage(); fpg.on('pageerror',e=>errors.push(e.message)); fpg.on('dialog',d=>d.accept());
+    await fpg.route('**/api/blind/**', r => r.abort());
+    await fpg.goto(tp.url); await loaded(fpg); await fpg.evaluate(()=>testStart());
+    await fpg.waitForFunction(()=>/^blob:/.test(imgA.src)&&loadedUrlA===imgA.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
+    const fb0 = await fpg.evaluate(()=>[testRun.sid, /^blob:/.test(imgA.src), VARIANTS.map(v=>v.id).join()]);
+    await run(fpg); await fpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: without a server session it falls back to local numbering and blob pictures, and still counts', [fb0, (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [[null,true,vids.join()],3]);
+    await fctx.close();
+    // más de 5 versiones: no se ofrece
     const six = await mk(['a','b','c','d','e','f']);
     await tpg.goto(six.url); await loaded(tpg);
     ok('blind test: not offered with more than 5 versions', await tpg.locator('#testBtn').isVisible(), false);
