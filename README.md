@@ -111,7 +111,7 @@ el archivo en la ventana).
 
 ```
 viewer/   el motor (index.html + compare.js): también sirve hospedado
-app/      el creador (index.html + builder.js + s2.js + assets.js generado)
+app/      el creador (index.html + builder.js y sus partes + s2.js + assets.js generado)
 dist/     gatos.html: todo el creador en un solo archivo
 tools/    build_app.py (regenera assets.js y dist), make_demo.py
 demo/     demo sintética con S2 real, sin material ajeno

@@ -19,7 +19,10 @@ viewer/            EL MOTOR: lo que ve quien abre una comparación
   upload.js        progreso XHR, cancelación y reintento manual de subidas explícitas
 app/               EL CREADOR: lo que usa quien arma la comparación
   index.html       markup + estilos del creador
-  builder.js       estados, tres modos, exportaciones, zip STORE+CRC32
+  builder.js       estado, modo Básico, paquete, exportaciones, importar y el arranque
+  advanced.js      modo Avanzado: pasos, variantes, frames y la tabla de imágenes
+  capture.js       modo Video · publish.js publicar y su recibo · guide.js ayuda guiada · zip.js zip STORE+CRC32
+  lang.js          el inglés del creador (ver «Idiomas»)
   s2.js            SSIMULACRA2 en JS puro (puerto validado bit-exacto)
   assets.js        GENERADO: no editar a mano
 tools/

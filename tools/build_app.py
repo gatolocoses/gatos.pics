@@ -81,6 +81,7 @@ def build():
     DIST.mkdir(exist_ok=True)
     idx = (APP / "index.html").read_text(encoding="utf-8")
     builder_js = (APP / "builder.js").read_text(encoding="utf-8")
+    advanced_js = (APP / "advanced.js").read_text(encoding="utf-8")
     s2_js = (APP / "s2.js").read_text(encoding="utf-8")
     zip_js = (APP / "zip.js").read_text(encoding="utf-8")
     capture_js = (APP / "capture.js").read_text(encoding="utf-8")
@@ -97,13 +98,14 @@ def build():
             '<script src="s2.js"></script>\n'
             '<script src="zip.js"></script>\n'
             '<script src="builder.js"></script>\n'
+            '<script src="advanced.js"></script>\n'
             '<script src="capture.js"></script>\n'
             '<script src="publish.js"></script>\n'
             '<script src="guide.js"></script>')
     assert tags in idx, "no se encontraron las etiquetas <script> esperadas en app/index.html"
     single = idx.replace(
         tags,
-        "<script>\n" + i18n_js + lang_upload_js + lang_js + "</script>\n<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
+        "<script>\n" + i18n_js + lang_upload_js + lang_js + "</script>\n<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + advanced_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 
