@@ -197,8 +197,8 @@ mismos números. Lo que llevas queda guardado en tu propio navegador, no en el
 servidor, y dura unas dos horas. Salir con el botón **Salir** sí la descarta.
 
 Para invitar a alguien a la prueba sin que vea antes la comparación, usa el
-**enlace directo a la prueba ciega** del panel **Compartir** (termina en
-`#test=1`): abre la página ya en la introducción, que dice qué versiones se
+**enlace directo a la prueba ciega** del panel **Compartir**, o el botón
+**Copiar enlace a la prueba** de la introducción (termina en `#test=1`): abre la página ya en la introducción, que dice qué versiones se
 comparan pero no qué número le toca a cada una.
 
 Durante la prueba nada dice de qué versión es cada imagen. En una página

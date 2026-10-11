@@ -145,7 +145,7 @@ function testIntro(note){
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
     ${testHttp() ? `<p id="testIntroNote">${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
-    <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
+    <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
     ${typeof note === 'string' ? `<p class="hint" role="status">${testEsc(note)}</p>` : ''}`);
   // con marca y sin saber la época: se pregunta una vez, por si la tabla se reinició después
@@ -157,6 +157,15 @@ function testIntro(note){
       if (!testRun && testPanel.style.display === 'flex' && testBody.querySelector('#testIntroNote')) testIntro(note);
     }).catch(() => {});
   }
+}
+// el enlace directo a la prueba (#test=1), también desde la introducción (gatos-ops#226)
+async function testCopyLink(btn){
+  const url = location.href.split('#')[0] + '#test=1';
+  let ok = false;
+  if (navigator.clipboard && window.isSecureContext){ try { await navigator.clipboard.writeText(url); ok = true; } catch(e){} }
+  if (!ok){ prompt(T('Copia este enlace:'), url); return; }
+  btn.textContent = T('copiado ✓');
+  setTimeout(() => { if (btn.isConnected) btn.textContent = T('Copiar enlace a la prueba'); }, 1500);
 }
 let testOpening = false;
 async function testStart(saved){
@@ -361,6 +370,7 @@ testBody.addEventListener('click', e => {
   const act = b.dataset.test;
   if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult();
   else if (act === 'send') testSend(); else if (act === 'all') testAll();
+  else if (act === 'link') testCopyLink(b);
   else if (act === 'resume') testResume(); else if (act === 'fresh'){ testForget(); testIntro(); }
   else if (act === 'done'){ if (testRun && testRun.settled) testFinish(testRun.settled); } else if (act === 'more') testMore();
 });

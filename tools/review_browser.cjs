@@ -746,6 +746,9 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       await lpg.goto(tp.url+'#test=1'); await loaded(lpg);
       ok('blind test link: opens on the introduction, the comparison hidden behind an opaque background', await lpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), getComputedStyle(testPanel).backgroundColor, !!testBody.querySelector('[data-test="start"]')]), ['flex',true,'rgb(16, 16, 20)',true]);
       ok('blind test link: the introduction lists the versions by name, in the page order', await lpg.evaluate(()=>testBody.querySelector('#testNames').textContent), 'Se comparan: '+names.join(', ')+'.');
+      await lctx.grantPermissions(['clipboard-read','clipboard-write']);
+      await lpg.click('[data-test="link"]');
+      ok('blind test link: the introduction has a button that copies it', [await lpg.evaluate(()=>navigator.clipboard.readText()), await lpg.textContent('[data-test="link"]')], [tp.url.replace(/\/?$/,'/')+'#test=1', 'copiado ✓']);
       await lpg.click('[data-test="start"]'); await started(lpg);
       ok('blind test link: starting shows the test (panel closed, background back to normal)', await lpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), blindMode]), ['none',false,true]);
       // otra pestaña: cambiar solo el # de una página abierta la recarga, y eso corta la navegación de la suite
