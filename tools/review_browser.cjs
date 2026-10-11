@@ -363,7 +363,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   ok('PNG matches the rendered zoom and pan (within 2 channel levels)',comparison.worst<=2);
   fs.writeFileSync(path.join(OUT,'share.png'),Buffer.from(comparison.png.split(',')[1],'base64'));
   await page.locator('#shareBtn').click();
-  const url=await page.locator('#shareRows textarea').inputValue();
+  const url=await page.locator('#shareRows textarea').first().inputValue();
   ok('share URL retains the current view',url,publication.url+'#'+comparison.hash);
   await page.locator('#shareKey').fill(publication.delete_key);
   await page.locator('#shareUp').click();await page.locator('#shareCodes').waitFor({state:'visible'});
@@ -707,6 +707,61 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await run(fpg); await fpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: without a server session it falls back to local numbering and blob pictures, and still counts', [fb0, (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [[null,true,vids.join()],3]);
     await fctx.close();
+    // retomar (gatos-ops#222): salir de la página a media prueba no la pierde
+    {
+      const tr = await mk(vids);
+      const rctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+      const rpg = await rctx.newPage(); rpg.on('pageerror',e=>errors.push(e.message)); rpg.on('dialog',d=>d.accept());
+      const snap = () => rpg.evaluate(()=>({sid:testRun.sid, cur:[testRun.cur.a,testRun.cur.b,String(testRun.cur.f)].join(), ans:testRun.answers.join(''), order:testRun.order.join()}));
+      const kept = () => rpg.evaluate(t=>localStorage.getItem('gatosTest:'+t)!==null, tr.token);
+      await rpg.goto(tr.url); await loaded(rpg); await rpg.evaluate(()=>testStart()); await started(rpg);
+      await rpg.keyboard.press('ArrowLeft'); await rpg.keyboard.press('ArrowRight');
+      const s0 = await snap();
+      await rpg.reload(); await loaded(rpg);
+      ok('blind test resume: coming back offers to continue, and shows nothing of the test yet', await rpg.evaluate(()=>[testPanel.style.display, /con 2 respuestas/.test(testBody.textContent), !!testRun, blindMode]), ['flex',true,false,false]);
+      await rpg.click('[data-test="resume"]'); await started(rpg);
+      ok('blind test resume: same session, same numbers, same answers, same comparison', await snap(), s0);
+      ok('blind test resume: pictures still come from the random addresses', await rpg.evaluate(()=>new Promise(r=>setTimeout(()=>r([imgA.src,imgB.src].every(u=>/\/b\/[A-Za-z0-9_-]+$/.test(new URL(u).pathname))),300))), true);
+      await run(rpg); await rpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      ok('blind test resume: the resumed test counts once and is then forgotten', [(await (await fetch(BASE+'/api/vote/'+tr.token)).json()).ballots, await kept()], [1,false]);
+      // la sesión ya no está en el servidor: se dice y se empieza otra
+      await rpg.evaluate(()=>testStart()); await started(rpg); await rpg.keyboard.press('ArrowLeft');
+      await rpg.reload(); await loaded(rpg);
+      await rpg.route('**/b/**', r => r.fulfill({status:404, body:''}));
+      await rpg.click('[data-test="resume"]'); await rpg.waitForSelector('#testBody [data-test="start"]');
+      ok('blind test resume: an expired session says so and offers a new test', [/ya venció/.test(await rpg.textContent('#testBody')), await kept(), await rpg.evaluate(()=>!!testRun)], [true,false,false]);
+      await rpg.unroute('**/b/**');
+      // salir a propósito la olvida
+      await rpg.click('[data-test="start"]'); await started(rpg); await rpg.keyboard.press('ArrowLeft');
+      const mid = await kept();
+      await rpg.keyboard.press('Escape');
+      await rpg.reload(); await loaded(rpg);
+      ok('blind test resume: quitting on purpose forgets it', [mid, await kept(), await rpg.evaluate(()=>testPanel.style.display)], [true,false,'none']);
+      await rctx.close();
+    }
+    // enlace directo (gatos-ops#223): abre en la introducción, sobre fondo opaco, y dice qué versiones se comparan
+    {
+      const lctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+      const lpg = await lctx.newPage(); lpg.on('pageerror',e=>errors.push(e.message)); lpg.on('dialog',d=>d.accept());
+      await lpg.goto(tp.url+'#test=1'); await loaded(lpg);
+      ok('blind test link: opens on the introduction, the comparison hidden behind an opaque background', await lpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), getComputedStyle(testPanel).backgroundColor, !!testBody.querySelector('[data-test="start"]')]), ['flex',true,'rgb(16, 16, 20)',true]);
+      ok('blind test link: the introduction lists the versions by name, in the page order', await lpg.evaluate(()=>testBody.querySelector('#testNames').textContent), 'Se comparan: '+names.join(', ')+'.');
+      await lpg.click('[data-test="start"]'); await started(lpg);
+      ok('blind test link: starting shows the test (panel closed, background back to normal)', await lpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), blindMode]), ['none',false,true]);
+      // otra pestaña: cambiar solo el # de una página abierta la recarga, y eso corta la navegación de la suite
+      const npg = await lctx.newPage(); npg.on('pageerror',e=>errors.push(e.message));
+      await npg.goto(tp.url+'#f=20'); await loaded(npg);
+      ok('blind test link: a normal link does not open it', await npg.evaluate(()=>testPanel.style.display), 'none');
+      await npg.evaluate(()=>openShare()); await npg.waitForFunction(()=>sharePanel.style.display==='flex');
+      const links = await npg.evaluate(()=>[...shareRows.querySelectorAll('textarea')].map(t=>t.value));
+      ok('blind test link: the share panel offers it next to the link to the view', [links.length, links[1]], [2, tp.url.replace(/\/?$/,'/')+'#test=1']);
+      const cpg = await lctx.newPage(); cpg.on('pageerror',e=>errors.push(e.message));
+      await cpg.goto(links[1]); await loaded(cpg);
+      const opened = await cpg.evaluate(()=>testPanel.style.display);
+      await cpg.keyboard.press('Escape');
+      ok('blind test link: cancelling goes to the normal page', [opened, ...await cpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), blindMode])], ['flex','none',false,false]);
+      await lctx.close();
+    }
     // seguir con lo que falta (gatos-ops#220): al quedar claro el orden se ofrece seguir; el resultado final reemplaza al primero
     {
       const kctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});

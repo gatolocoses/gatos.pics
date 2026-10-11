@@ -253,6 +253,16 @@ I18N.add({
   'Con tus {} respuestas ya se pueden ordenar las versiones. Puedes ver tu resultado ahora o seguir con lo que falta de los mismos pares ({} más): si sigues, tu resultado se actualiza al terminar.': 'Your {} answers are enough to rank the versions. You can see your result now or keep going with what is left of the same pairs ({} more): if you keep going, your result is updated when you finish.',
   'Ver mi resultado': 'See my result',
   'Seguir con las que faltan': 'Keep going with the rest',
+  'Prueba ciega a medias': 'Unfinished blind test',
+  'Se comparan:': 'Being compared:',
+  'Enlace directo a la prueba ciega': 'Direct link to the blind test',
+  'Dejaste una prueba ciega sin terminar en esta página, con 1 respuesta.': 'You left a blind test unfinished on this page, with 1 answer.',
+  'Dejaste una prueba ciega sin terminar en esta página, con {} respuestas.': 'You left a blind test unfinished on this page, with {} answers.',
+  'Puedes seguir donde ibas: los números son los mismos.': 'You can carry on where you stopped: the numbers are the same.',
+  'Seguir la prueba': 'Continue the test',
+  'Empezar otra': 'Start another',
+  'Ahora no': 'Not now',
+  'La prueba que dejaste ya venció: hay que empezar otra.': 'The test you left has expired: you need to start another.',
   'Tabla de todos': 'Everyone\'s standings',
   '1 prueba enviada.': '1 test sent.',
   '{} pruebas enviadas.': '{} tests sent.',
@@ -1377,7 +1387,7 @@ window.addEventListener('keydown', e => {
     loadImg();
   } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }
   else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }
-  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ if (!$('testBtn').hidden) testIntro(); }
+  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ if (!$('testBtn').hidden) testEnter(); }
   else if (!e.repeat && (e.key === 'l' || e.key === 'L')){ setSolar(!solarMode); }
   else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }
   else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }
@@ -1560,6 +1570,7 @@ async function openShare(){
   $('shotUpload').hidden = true;
   $('shareUp').disabled = true;
   const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [[T('Enlace a esta vista'), url]];
+  if (rows.length && !blindMode && !$('testBtn').hidden) rows.push([T('Enlace directo a la prueba ciega'), location.href.split('#')[0] + '#test=1']);
   $('shareBlindNote').hidden = !blindMode;
   $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
   $('shareOwner').hidden = true;
@@ -1763,8 +1774,19 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    navegador saben cuál es cuál. Al terminar manda las respuestas en números y
    el servidor contesta qué versión era cada uno. Sin sesión (copia sin
    publicar, o el servidor no responde) la numeración se sortea aquí y las
-   imágenes van como blob. */
-const TEST_MAX = 5, TEST_BUDGET = 15;
+   imágenes van como blob.
+
+   Una prueba a medias sobrevive a salir de la página (gatos-ops#222): con
+   sesión, tras cada respuesta el navegador guarda en su propio almacenamiento
+   lo que hace falta para rehacerla (la sesión: números y direcciones al azar;
+   el orden y las respuestas). Al volver se ofrece seguir. Nada de eso dice
+   qué versión es cada número, y nada nuevo se guarda en el servidor.
+
+   Un enlace que termina en #test=1 abre la página directo en la introducción
+   (gatos-ops#223), sobre fondo opaco: la comparación normal, con sus nombres a
+   cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
+   en el orden de la página (no dice qué número le toca a cada una). */
+const TEST_MAX = 5, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
@@ -1823,35 +1845,75 @@ const testHttp = () => !!testToken && location.protocol !== 'file:';
 let testEpoch;
 const testMark = () => { try { return localStorage.getItem('gatosVoted:' + testToken); } catch(e){ return null; } };
 const testVoted = () => { const m = testMark(); return !!m && (testEpoch === undefined || m === (testEpoch || '1')); };
+const testKey = 'gatosTest:' + testToken;
+function testSave(){
+  const run = testRun; if (!run || !run.session) return;
+  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, order: run.order, flips: [...run.flips], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+}
+const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
+// la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
+function testSaved(){
+  if (!testHttp() || testRun) return null;
+  try {
+    const j = JSON.parse(localStorage.getItem(testKey));
+    if (j && j.v === 1 && j.s && j.s.sid && j.s.n === VARIANTS.length && Date.now() - j.t < TEST_KEEP_MS && (j.answers.length || j.known)) return j;
+  } catch(e){}
+  return null;
+}
 function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'flex'; const b = testBody.querySelector('button'); if (b) b.focus(); }
 function testClose(){ if (testRun && testRun.settled) return;   // hay que elegir: ver el resultado o seguir
+  testPanel.classList.remove('solid');
   if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
-function testIntro(){
+// el botón (o G): si hay una prueba a medias, primero se ofrece seguirla
+function testEnter(){ const saved = testSaved(); if (saved) testOffer(saved); else testIntro(); }
+function testOffer(saved){
+  const n = saved.answers.length + (saved.known ? saved.known.length : 0);
+  testOpen(`<h2>${T('Prueba ciega a medias')}</h2>
+    <p>${n === 1 ? T('Dejaste una prueba ciega sin terminar en esta página, con 1 respuesta.') : T`Dejaste una prueba ciega sin terminar en esta página, con ${n} respuestas.`} ${T('Puedes seguir donde ibas: los números son los mismos.')}</p>
+    <p class="hint" id="testNote" role="status"></p>
+    <div class="acts"><button class="xbtn" data-test="resume">${T('Seguir la prueba')}</button><button data-test="fresh">${T('Empezar otra')}</button><button data-test="close">${T('Ahora no')}</button></div>`);
+}
+// La sesión vive en la memoria del servidor: si venció o el servicio se
+// reinició ya no hay cómo pedir sus imágenes, y la prueba empieza de nuevo.
+async function testResume(){
+  const saved = testSaved(); if (!saved){ testIntro(); return; }
+  const btn = testBody.querySelector('[data-test="resume"]'); if (btn) btn.disabled = true;
+  let alive = false;
+  try { alive = (await fetch('b/' + Object.values(saved.s.pics[1])[0], {method: 'HEAD'})).ok; } catch(e){}
+  if (testRun) return;
+  if (alive){ testStart(saved); return; }
+  testForget();
+  testIntro(T('La prueba que dejaste ya venció: hay que empezar otra.'));
+}
+function testIntro(note){
   const n = VARIANTS.length, hi = testDuels(n) * Math.min(testFrames(n), FRAMES.length);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. Cada una recibe un número al azar y lo conserva toda la prueba.`}</p>
+    <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
     ${testHttp() ? `<p id="testIntroNote">${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
-    ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}`);
+    ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
+    ${typeof note === 'string' ? `<p class="hint" role="status">${testEsc(note)}</p>` : ''}`);
   // con marca y sin saber la época: se pregunta una vez, por si la tabla se reinició después
   if (testHttp() && testMark() && testEpoch === undefined && !testIntro.asked){
     testIntro.asked = true;
     fetch('/api/vote/' + testToken).then(r => r.ok ? r.json() : null).then(j => {
       if (!j || testEpoch !== undefined) return;
       testEpoch = j.epoch || null;
-      if (!testRun && testPanel.style.display === 'flex' && testBody.querySelector('#testIntroNote')) testIntro();
+      if (!testRun && testPanel.style.display === 'flex' && testBody.querySelector('#testIntroNote')) testIntro(note);
     }).catch(() => {});
   }
 }
 let testOpening = false;
-async function testStart(){
+async function testStart(saved){
   if (testRun || testOpening) return;
   testClose();
   if (cropMode){ setCropMode(false); closeCrop(); }
-  let session = null;
-  if (testHttp()){
+  let session = saved ? saved.s : null;
+  if (!saved) testForget();
+  if (!saved && testHttp()){
     testOpening = true;
     try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}}); if (r.ok) session = await r.json(); } catch(e){}
     testOpening = false;
@@ -1866,7 +1928,11 @@ async function testStart(){
   } else blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
   // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined) : shuffled(FRAMES);
-  testRun = {sid: session && session.sid, real, order: shuffled(VARIANTS.map(v => v.id)), frames, flips: new Map(), answers: [], games: [], before};
+  testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
+    flips: new Map(saved ? saved.flips : []), answers: saved ? saved.answers : [], games: [], before};
+  if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
+  // lo que quedó en espera ya está sumado en el servidor: no se manda otra vez
+  if (saved && saved.held !== undefined){ testRun.held = saved.held; testRun.holdP = Promise.resolve(); }
   testRun.max = testDuels(VARIANTS.length) * Math.min(testFrames(VARIANTS.length), FRAMES.length);
   blindMode = true;
   document.body.classList.add('testing');
@@ -1881,7 +1947,7 @@ function testReplay(){
   const run = testRun, gen = testPlan(run);
   run.games = [];
   let step = gen.next();
-  for (const r of run.answers) step = gen.next(r);
+  for (const r of run.answers){ if (step.done) break; step = gen.next(r); }
   run.gen = gen;
   if (step.done) testSettled(step.value); else { run.cur = step.value; testShow(); }
 }
@@ -1904,6 +1970,7 @@ function testSettled(groups){
   if (!left){ testFinish(groups); return; }
   run.settled = groups;
   if (run.sid && !run.holdP) run.holdP = testHold(run, groups);
+  testSave();
   testOpen(`<h2>${T('Ya hay suficientes respuestas')}</h2>
     <p>${T`Con tus ${run.games.length} respuestas ya se pueden ordenar las versiones. Puedes ver tu resultado ahora o seguir con lo que falta de los mismos pares (${left} más): si sigues, tu resultado se actualiza al terminar.`}</p>
     <div class="acts"><button class="xbtn" data-test="done">${T('Ver mi resultado')}</button><button data-test="more">${T('Seguir con las que faltan')}</button></div>`);
@@ -1918,6 +1985,7 @@ async function testHold(run, groups){
     if (j.epoch !== undefined) testEpoch = j.epoch;
     if (count) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
     run.held = count;   // lo que mande esta sesión al final cuenta (reemplaza) solo si esto contó
+    if (testRun === run) testSave();
   } catch(e){}
 }
 function testMore(){
@@ -1934,6 +2002,7 @@ function testShow(){
   $('testLeft').textContent = '← ' + variantName(g.a);
   $('testRight').textContent = variantName(g.b) + ' →';
   $('testBack').disabled = !testRun.answers.length;
+  testSave();
   loadImg();
 }
 function testPick(r){
@@ -1949,6 +2018,7 @@ function testLeave(){
   const before = testRun.before;
   if (testRun.sid){ VARIANTS = testRun.real; blindPics = null; }   // vuelven las versiones de verdad
   testRun = null; blindOrder = null;
+  testForget();   // terminada o abandonada a propósito: ya no hay nada que seguir
   document.body.classList.remove('testing');
   $('testBar').hidden = true;
   ({varA, varB, frame} = before);
@@ -2039,9 +2109,10 @@ testBody.addEventListener('click', e => {
   const act = b.dataset.test;
   if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult();
   else if (act === 'send') testSend(); else if (act === 'all') testAll();
+  else if (act === 'resume') testResume(); else if (act === 'fresh'){ testForget(); testIntro(); }
   else if (act === 'done'){ if (testRun && testRun.settled) testFinish(testRun.settled); } else if (act === 'more') testMore();
 });
-$('testBtn').addEventListener('click', testIntro);
+$('testBtn').addEventListener('click', testEnter);
 $('testLeft').addEventListener('click', () => testPick('a'));
 $('testRight').addEventListener('click', () => testPick('b'));
 $('testTie').addEventListener('click', () => testPick('t'));
@@ -2094,6 +2165,13 @@ function applyManifest(m){
     if (isFinite(cu) && isFinite(cv)){
       pendingCropFraction = [clamp(cu,0,1),clamp(cv,0,1)];
     }
+  }
+  // una prueba ciega que quedó a medias (gatos-ops#222) se ofrece seguirla; el
+  // enlace directo (#test=1, gatos-ops#223) abre la introducción sobre fondo opaco
+  if (!$('testBtn').hidden){
+    const link = h.get('test') === '1';
+    if (link) testPanel.classList.add('solid');
+    if (link || testSaved()) testEnter();
   }
 }
 (async () => {

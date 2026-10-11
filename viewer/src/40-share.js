@@ -167,6 +167,7 @@ async function openShare(){
   $('shotUpload').hidden = true;
   $('shareUp').disabled = true;
   const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [[T('Enlace a esta vista'), url]];
+  if (rows.length && !blindMode && !$('testBtn').hidden) rows.push([T('Enlace directo a la prueba ciega'), location.href.split('#')[0] + '#test=1']);
   $('shareBlindNote').hidden = !blindMode;
   $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
   $('shareOwner').hidden = true;

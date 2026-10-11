@@ -356,7 +356,7 @@ window.addEventListener('keydown', e => {
     loadImg();
   } else if (!e.repeat && (e.key === 'd' || e.key === 'D')){ setDiff(!diffMode); }
   else if (!e.repeat && (e.key === 'b' || e.key === 'B')){ setBlink(!blinkMode); }
-  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ if (!$('testBtn').hidden) testIntro(); }
+  else if (!e.repeat && (e.key === 'g' || e.key === 'G')){ if (!$('testBtn').hidden) testEnter(); }
   else if (!e.repeat && (e.key === 'l' || e.key === 'L')){ setSolar(!solarMode); }
   else if (!e.repeat && (e.key === 'c' || e.key === 'C')){ setCropMode(!cropMode); }
   else if (!e.repeat && (e.key === 's' || e.key === 'S')){ swapAB(); }

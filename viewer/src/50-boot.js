@@ -33,6 +33,13 @@ function applyManifest(m){
       pendingCropFraction = [clamp(cu,0,1),clamp(cv,0,1)];
     }
   }
+  // una prueba ciega que quedó a medias (gatos-ops#222) se ofrece seguirla; el
+  // enlace directo (#test=1, gatos-ops#223) abre la introducción sobre fondo opaco
+  if (!$('testBtn').hidden){
+    const link = h.get('test') === '1';
+    if (link) testPanel.classList.add('solid');
+    if (link || testSaved()) testEnter();
+  }
 }
 (async () => {
   computeFit();

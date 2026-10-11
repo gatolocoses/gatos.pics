@@ -191,6 +191,16 @@ resultado se suma solo a la **tabla de todos**, ordenada por el puesto medio
 de cada versión entre quienes hicieron la prueba. Un navegador suma una vez
 por página.
 
+Si sales de la página a media prueba (un toque de más en el teléfono), no se
+pierde: al volver, la página ofrece **seguir la prueba** donde ibas, con los
+mismos números. Lo que llevas queda guardado en tu propio navegador, no en el
+servidor, y dura unas dos horas. Salir con el botón **Salir** sí la descarta.
+
+Para invitar a alguien a la prueba sin que vea antes la comparación, usa el
+**enlace directo a la prueba ciega** del panel **Compartir** (termina en
+`#test=1`): abre la página ya en la introducción, que dice qué versiones se
+comparan pero no qué número le toca a cada una.
+
 Durante la prueba nada dice de qué versión es cada imagen. En una página
 publicada el servidor sortea la numeración y sirve las imágenes bajo
 direcciones al azar: ni «guardar imagen como», ni abrirla en otra pestaña, ni
