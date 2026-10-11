@@ -804,6 +804,10 @@ I18N.add({
   'Reintentar el envío': 'Retry sending',
   'Enviando tus respuestas para saber qué versión era cada número…': 'Sending your answers to find out which version each number was…',
   'Repetir la prueba': 'Take the test again',
+  'Ya hay suficientes respuestas': 'That is enough to rank them',
+  'Con tus {} respuestas ya se pueden ordenar las versiones. Puedes ver tu resultado ahora o seguir con lo que falta de los mismos pares ({} más): si sigues, tu resultado se actualiza al terminar.': 'Your {} answers are enough to rank the versions. You can see your result now or keep going with what is left of the same pairs ({} more): if you keep going, your result is updated when you finish.',
+  'Ver mi resultado': 'See my result',
+  'Seguir con las que faltan': 'Keep going with the rest',
   'Tabla de todos': 'Everyone\'s standings',
   '1 prueba enviada.': '1 test sent.',
   '{} pruebas enviadas.': '{} tests sent.',
@@ -2338,11 +2342,17 @@ function* testDuel(run, x, y){
   const frames = testShared(x, y, run.frames);
   let d = 0;   // puntos de x menos puntos de y
   for (let i = 0; i < frames.length; i++){
-    const key = [x, y].sort().join('|') + '|' + frames[i];
-    if (!run.flips.has(key)) run.flips.set(key, Math.random() < .5);
-    const flip = run.flips.get(key), r = yield flip ? {a: y, b: x, f: frames[i]} : {a: x, b: y, f: frames[i]};
-    if (r !== 't') d += (r === 'a') !== flip ? 1 : -1;
-    if (Math.abs(d) > frames.length - 1 - i) break;   // los cuadros que quedan ya no lo cambian
+    const key = [x, y].sort().join('|') + '|' + frames[i], had = run.known && run.known.get(key);
+    if (had !== undefined){   // ya respondida antes de «seguir» (#220): quién ganó, o 't'
+      run.games.push([x, y, String(frames[i]), had === 't' ? 't' : had === x ? 'a' : 'b']);
+      if (had !== 't') d += had === x ? 1 : -1;
+    } else {
+      if (!run.flips.has(key)) run.flips.set(key, Math.random() < .5);
+      const flip = run.flips.get(key), g = flip ? {a: y, b: x, f: frames[i]} : {a: x, b: y, f: frames[i]}, r = yield g;
+      run.games.push([g.a, g.b, String(g.f), r]);
+      if (r !== 't') d += (r === 'a') !== flip ? 1 : -1;
+    }
+    if (!run.full && Math.abs(d) > frames.length - 1 - i) break;   // los cuadros que quedan ya no lo cambian
   }
   return d;
 }
@@ -2362,18 +2372,33 @@ function* testPlan(run){
 const testEsc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const testName = id => `<b style="color:${testEsc(variant(id).color || '#e8e8f0')}">${testEsc(variant(id).name || id)}</b>`;
 const testHttp = () => !!testToken && location.protocol !== 'file:';
-const testVoted = () => { try { return localStorage.getItem('gatosVoted:' + testToken) === '1'; } catch(e){ return false; } };
+// La marca «ya envié» de este navegador vale para una época de la tabla
+// (gatos-ops#218): guarda la época en que se sumó, o '1' si la página nunca se
+// reinició. testEpoch: undefined = todavía no se sabe (entonces la marca vale).
+let testEpoch;
+const testMark = () => { try { return localStorage.getItem('gatosVoted:' + testToken); } catch(e){ return null; } };
+const testVoted = () => { const m = testMark(); return !!m && (testEpoch === undefined || m === (testEpoch || '1')); };
 function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'flex'; const b = testBody.querySelector('button'); if (b) b.focus(); }
-function testClose(){ if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
+function testClose(){ if (testRun && testRun.settled) return;   // hay que elegir: ver el resultado o seguir
+  if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
 function testIntro(){
   const n = VARIANTS.length, hi = testDuels(n) * Math.min(testFrames(n), FRAMES.length);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. Cada una recibe un número al azar y lo conserva toda la prueba.`}</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
-    ${testHttp() ? `<p>${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
+    ${testHttp() ? `<p id="testIntroNote">${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}`);
+  // con marca y sin saber la época: se pregunta una vez, por si la tabla se reinició después
+  if (testHttp() && testMark() && testEpoch === undefined && !testIntro.asked){
+    testIntro.asked = true;
+    fetch('/api/vote/' + testToken).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || testEpoch !== undefined) return;
+      testEpoch = j.epoch || null;
+      if (!testRun && testPanel.style.display === 'flex' && testBody.querySelector('#testIntroNote')) testIntro();
+    }).catch(() => {});
+  }
 }
 let testOpening = false;
 async function testStart(){
@@ -2387,6 +2412,7 @@ async function testStart(){
     testOpening = false;
   }
   const real = VARIANTS, before = {varA, varB, frame};
+  if (session && session.epoch !== undefined) testEpoch = session.epoch;
   if (session){
     // versiones de mentira: la «Variante k» es n<k>, y de cada una solo se sabe qué cuadros tiene
     VARIANTS = Array.from({length: session.n}, (_, k) => ({id: 'n' + (k + 1), name: '', color: '#e8e8f0', frames: Object.keys(session.pics[k + 1])}));
@@ -2410,27 +2436,69 @@ function testReplay(){
   const run = testRun, gen = testPlan(run);
   run.games = [];
   let step = gen.next();
-  for (const r of run.answers){ run.games.push([step.value.a, step.value.b, String(step.value.f), r]); step = gen.next(r); }
+  for (const r of run.answers) step = gen.next(r);
   run.gen = gen;
-  if (step.done) testFinish(step.value); else { run.cur = step.value; testShow(); }
+  if (step.done) testSettled(step.value); else { run.cur = step.value; testShow(); }
+}
+/* El orden ya salió de las respuestas. Si algún duelo se cortó antes de jugar
+   todos sus cuadros se ofrece seguir (gatos-ops#220): quien sigue juega los
+   cuadros que faltan de cada duelo, con la misma numeración y sin que se haya
+   revelado nada. En una página publicada el resultado se manda ya, en espera
+   (`hold`): cuenta desde ahora y el resultado final de esta sesión lo
+   reemplaza, así que irse a la mitad no pierde nada ni suma dos veces. */
+const testPairKey = (a, b) => [a, b].sort().join('|');
+function testExtra(run){
+  const n = new Map();
+  for (const [a, b] of run.games) n.set(testPairKey(a, b), (n.get(testPairKey(a, b)) || 0) + 1);
+  let left = 0;
+  for (const [k, c] of n){ const [a, b] = k.split('|'); left += testShared(a, b, run.frames).length - c; }
+  return left;
+}
+function testSettled(groups){
+  const run = testRun, left = run.full ? 0 : testExtra(run);
+  if (!left){ testFinish(groups); return; }
+  run.settled = groups;
+  if (run.sid && !run.holdP) run.holdP = testHold(run, groups);
+  testOpen(`<h2>${T('Ya hay suficientes respuestas')}</h2>
+    <p>${T`Con tus ${run.games.length} respuestas ya se pueden ordenar las versiones. Puedes ver tu resultado ahora o seguir con lo que falta de los mismos pares (${left} más): si sigues, tu resultado se actualiza al terminar.`}</p>
+    <div class="acts"><button class="xbtn" data-test="done">${T('Ver mi resultado')}</button><button data-test="more">${T('Seguir con las que faltan')}</button></div>`);
+}
+async function testHold(run, groups){
+  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = !testVoted();
+  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), count, hold: true};
+  try {
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j.epoch !== undefined) testEpoch = j.epoch;
+    if (count) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
+    run.held = count;   // lo que mande esta sesión al final cuenta (reemplaza) solo si esto contó
+  } catch(e){}
+}
+function testMore(){
+  const run = testRun; if (!run || !run.settled) return;
+  run.known = new Map(run.games.map(([a, b, f, r]) => [testPairKey(a, b) + '|' + f, r === 't' ? 't' : r === 'a' ? a : b]));
+  run.full = true; run.settled = null; run.answers = [];
+  testPanel.style.display = 'none';
+  testReplay();
 }
 function testShow(){
   const g = testRun.cur;
   varA = g.a; varB = g.b; frame = g.f;
-  $('testStep').textContent = T`Comparación ${testRun.answers.length + 1} · como mucho ${testRun.max} · ¿cuál se ve mejor?`;
+  $('testStep').textContent = T`Comparación ${(testRun.known ? testRun.known.size : 0) + testRun.answers.length + 1} · como mucho ${testRun.max} · ¿cuál se ve mejor?`;
   $('testLeft').textContent = '← ' + variantName(g.a);
   $('testRight').textContent = variantName(g.b) + ' →';
   $('testBack').disabled = !testRun.answers.length;
   loadImg();
 }
 function testPick(r){
-  if (!testRun) return;
-  const run = testRun, g = run.cur;
-  run.answers.push(r); run.games.push([g.a, g.b, String(g.f), r]);
-  const step = run.gen.next(r);
-  if (step.done) testFinish(step.value); else { run.cur = step.value; testShow(); }
+  if (!testRun || testRun.settled) return;
+  const run = testRun;
+  run.answers.push(r);
+  const step = run.gen.next(r);   // el plan anota la respuesta en run.games
+  if (step.done) testSettled(step.value); else { run.cur = step.value; testShow(); }
 }
-function testBackOne(){ if (testRun && testRun.answers.length){ testRun.answers.pop(); testReplay(); } }
+function testBackOne(){ if (testRun && !testRun.settled && testRun.answers.length){ testRun.answers.pop(); testReplay(); } }
 // sale del modo: vuelve la vista de antes, se olvida la numeración y se sueltan las imágenes sin nombre
 function testLeave(){
   const before = testRun.before;
@@ -2445,12 +2513,13 @@ function testLeave(){
 }
 function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
 function testFinish(rank){
-  const games = testRun.games, sid = testRun.sid, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+  const run = testRun, games = run.games, sid = run.sid, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+  run.settled = null;
   testLeave();
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
     const n = id => num.get(id);
-    testMine = {sid, count: !testVoted(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
+    testMine = {sid, run, count: !testVoted(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
   } else testMine = {rank, games, num, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
   testResult();
   if (testMine.state === 'sending') testSend();
@@ -2460,6 +2529,8 @@ async function testSend(){
   const mine = testMine;
   mine.state = 'sending'; if (testMine === mine && testBody.querySelector('#testNote')) testResult();
   try {
+    // si ya se mandó en espera (#220), este lo reemplaza: cuenta solo si aquel contó
+    if (mine.run && mine.run.holdP){ await mine.run.holdP; if (mine.run.held !== undefined) mine.count = mine.run.held; }
     const body = mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games};
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
     const j = await r.json().catch(() => ({}));
@@ -2470,7 +2541,8 @@ async function testSend(){
       mine.num = new Map(j.reveal.map((v, i) => [v, i + 1]));
       mine.sid = null;
     }
-    if (mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, '1'); } catch(e){}
+    if (j.epoch !== undefined) testEpoch = j.epoch;
+    if (mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
     mine.state = mine.count === false ? 'voted' : 'sent';
   } catch (e){ mine.state = 'failed'; mine.error = e.message; }
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
@@ -2522,6 +2594,7 @@ testBody.addEventListener('click', e => {
   const act = b.dataset.test;
   if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult();
   else if (act === 'send') testSend(); else if (act === 'all') testAll();
+  else if (act === 'done'){ if (testRun && testRun.settled) testFinish(testRun.settled); } else if (act === 'more') testMore();
 });
 $('testBtn').addEventListener('click', testIntro);
 $('testLeft').addEventListener('click', () => testPick('a'));

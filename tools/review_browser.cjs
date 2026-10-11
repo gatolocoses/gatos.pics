@@ -617,6 +617,8 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const run = async (pg, pickBest) => {   // gana siempre la «Variante» de número menor (o la que diga pickBest); devuelve cuántas comparaciones pidió
       let n = 0;
       for (; n < 40; n++){
+        // al quedar claro el orden se ofrece seguir (#220): aquí se pide ver el resultado, salvo que el caso diga otra cosa
+        if (await pg.evaluate(()=>!!(testRun && testRun.settled))){ await pg.click('[data-test="done"]'); break; }
         const key = await pg.evaluate((best)=>{ if (!testRun) return null; const g=testRun.cur, idx=id=>blindOrder.findIndex(v=>v.id===id); if (best==='tie') return 'ArrowUp'; return (idx(g.a)<idx(g.b))===(best!=='worst')?'ArrowLeft':'ArrowRight';}, pickBest);
         if (!key) break;
         await pg.keyboard.press(key);
@@ -705,6 +707,52 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await run(fpg); await fpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: without a server session it falls back to local numbering and blob pictures, and still counts', [fb0, (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [[null,true,vids.join()],3]);
     await fctx.close();
+    // seguir con lo que falta (gatos-ops#220): al quedar claro el orden se ofrece seguir; el resultado final reemplaza al primero
+    {
+      const kctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+      const kpg = await kctx.newPage(); kpg.on('pageerror',e=>errors.push(e.message)); kpg.on('dialog',d=>d.accept());
+      const votesNow = async () => (await (await fetch(BASE+'/api/vote/'+tp.token)).json());
+      const total = t => t.standings.reduce((n,x)=>n+x.w+x.t+x.l,0);
+      const b0 = await votesNow();
+      await kpg.goto(tp.url); await loaded(kpg); await kpg.evaluate(()=>testStart()); await kpg.waitForFunction(()=>!!testRun);
+      let quick = 0;
+      for (; quick < 40; quick++){
+        if (await kpg.evaluate(()=>!!testRun.settled)) break;
+        await kpg.keyboard.press(await kpg.evaluate(()=>{const g=testRun.cur, idx=id=>blindOrder.findIndex(v=>v.id===id); return idx(g.a)<idx(g.b)?'ArrowLeft':'ArrowRight';}));
+      }
+      await kpg.waitForFunction(()=>testRun.held!==undefined,null,{timeout:10000});
+      const b1 = await votesNow();
+      ok('keep going: when the order is settled the test says so, offers both choices, reveals nothing and the result already counts',
+        [await kpg.evaluate(()=>[/Ya hay suficientes respuestas/.test(testBody.textContent), testBody.querySelectorAll('[data-test="done"],[data-test="more"]').length, blindMode, VARIANTS.every(v=>/^n\d$/.test(v.id))]), b1.ballots-b0.ballots, total(b1)-total(b0)],
+        [[true,2,true,true], 1, 2*quick]);
+      await kpg.keyboard.press('Escape'); await kpg.keyboard.press('ArrowLeft');
+      ok('keep going: the choice cannot be skipped with Escape or an arrow', await kpg.evaluate(()=>[testPanel.style.display, !!testRun.settled]), ['flex', true]);
+      await kpg.click('[data-test="more"]');
+      const st = await kpg.evaluate(()=>[testPanel.style.display, testRun.full, testBack.disabled, testStep.textContent]);
+      ok('keep going: it continues on the same numbering with the next comparison number', [st[0], st[1], st[2], new RegExp('^Comparación '+(quick+1)+' ·').test(st[3])], ['none', true, true, true]);
+      let extra = 0;
+      for (; extra < 40; extra++){
+        if (!(await kpg.evaluate(()=>!!testRun))) break;
+        await kpg.keyboard.press(await kpg.evaluate(()=>{const g=testRun.cur, idx=id=>blindOrder.findIndex(v=>v.id===id); return idx(g.a)<idx(g.b)?'ArrowLeft':'ArrowRight';}));
+      }
+      await kpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      const b2 = await votesNow();
+      ok('keep going: the longer result replaces the first one (still one test, every comparison in it)', [extra>0, b2.ballots-b0.ballots, total(b2)-total(b0), new RegExp('Respondiste '+(quick+extra)+' comparaciones').test(await kpg.textContent('#testBody'))], [true, 1, 2*(quick+extra), true]);
+      await kctx.close();
+    }
+    // reinicio desde la administración (gatos-ops#218): la tabla abre otra época y el navegador que ya había sumado suma una vez más
+    const epoch = '2026-10-10T12:00:00.000Z';
+    fs.writeFileSync(path.join(DATA,'pages',tp.token+'.votes.json'), JSON.stringify({fmt:2, since:epoch, ballots:0, v:{}, h2h:{}, epoch}));
+    await tpg.goto(tp.url); await loaded(tpg);
+    const markBefore = await tpg.evaluate(()=>localStorage.getItem('gatosVoted:'+testToken));
+    await tpg.evaluate(()=>testIntro());
+    await tpg.waitForFunction(()=>/tu resultado se suma a la tabla de todos/.test((document.getElementById('testIntroNote')||{}).textContent||''),null,{timeout:10000});
+    await tpg.evaluate(()=>testStart()); await tpg.waitForFunction(()=>!!testRun);
+    await run(tpg); await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: after a reset the same browser counts once more, and its mark moves to the new epoch', [markBefore, await tpg.evaluate(()=>localStorage.getItem('gatosVoted:'+testToken)), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], ['1', epoch, 1]);
+    await tpg.evaluate(()=>testStart()); await tpg.waitForFunction(()=>!!testRun);
+    await run(tpg); await tpg.waitForFunction(()=>/no se sumó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: and only once in that epoch', (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots, 1);
     // más de 5 versiones: no se ofrece
     const six = await mk(['a','b','c','d','e','f']);
     await tpg.goto(six.url); await loaded(tpg);
