@@ -1740,9 +1740,12 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    del medio de las ya ordenadas, y según gane o pierda, contra la mitad que
    corresponde: con 4 versiones son 4 o 5 duelos, no 6; con 5, de 6 a 8, no 10.
    Lo que no se comparó se deduce: si A le gana a B y B a C, A va antes que C.
-   Un duelo se juega cuadro a cuadro (hasta TEST_FRAMES, los mismos para todos,
-   al azar) y se corta en cuanto está decidido: 2-0, o a puntos al tercero
-   (ganar 1, empate ½). Un duelo empatado deja a las dos en el mismo puesto.
+   Un duelo se juega cuadro a cuadro (los mismos para todos, al azar) y se
+   corta en cuanto los cuadros que quedan ya no lo cambian (ganar 1, empate ½).
+   Un duelo empatado deja a las dos en el mismo puesto. Con pocas versiones
+   cada duelo es más largo (gatos-ops#215): testFrames reparte unas
+   TEST_BUDGET comparaciones entre los duelos que la prueba puede pedir, así
+   que con 2 versiones son hasta 9 cuadros, con 3 hasta 5 y con 4 o 5, 3.
 
    Al final salen los puestos con los nombres revelados, y en una página
    publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
@@ -1757,17 +1760,19 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    el servidor contesta qué versión era cada uno. Sin sesión (copia sin
    publicar, o el servidor no responde) la numeración se sortea aquí y las
    imágenes van como blob. */
-const TEST_MAX = 5, TEST_FRAMES = 3;
+const TEST_MAX = 5, TEST_BUDGET = 15;
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
-const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, TEST_FRAMES);
+const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, testFrames(VARIANTS.length));
 // se ofrece con 2 a 5 versiones y solo si cada par comparte al menos un cuadro
 const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
 // duelos que, como mucho, pide la inserción binaria con n versiones: la suma de ceil(log2 k)
 const testDuels = n => { let max = 0; for (let k = 2; k <= n; k++) max += Math.ceil(Math.log2(k)); return max; };
+// cuadros por duelo: TEST_BUDGET entre esos duelos, impar, de 3 a 9 (la misma cuenta hace el servidor, lib/votes.mjs)
+const testFrames = n => { const f = Math.floor(TEST_BUDGET / Math.max(1, testDuels(n))); return Math.max(3, Math.min(9, f % 2 ? f : f - 1)); };
 
 /* El plan es un generador: entrega la comparación que toca ({a, b, f}: izquierda,
    derecha, cuadro) y recibe la respuesta ('a', 'b' o 't'). Es determinista dado
@@ -1807,7 +1812,7 @@ function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'f
 function testClose(){ if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
 function testIntro(){
-  const n = VARIANTS.length, hi = testDuels(n) * Math.min(TEST_FRAMES, FRAMES.length);
+  const n = VARIANTS.length, hi = testDuels(n) * Math.min(testFrames(n), FRAMES.length);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. Cada una recibe un número al azar y lo conserva toda la prueba.`}</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
@@ -1836,7 +1841,7 @@ async function testStart(){
   // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, real, order: shuffled(VARIANTS.map(v => v.id)), frames, flips: new Map(), answers: [], games: [], before};
-  testRun.max = testDuels(VARIANTS.length) * Math.min(TEST_FRAMES, FRAMES.length);
+  testRun.max = testDuels(VARIANTS.length) * Math.min(testFrames(VARIANTS.length), FRAMES.length);
   blindMode = true;
   document.body.classList.add('testing');
   $('testBar').hidden = false;
