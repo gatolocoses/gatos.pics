@@ -639,7 +639,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       nums:blindOrder.map(v=>v.id).sort().join(), labels:[labelAName.textContent,labelBName.textContent], btns:[testLeft.textContent,testRight.textContent], title:document.title, step:testStep.textContent,
       hidden:['.hrow-panes','#shareBtn','#testBtn','#cropBtn'].map(q=>getComputedStyle(document.querySelector(q)).display), names:['WEB-DL','AV1','H.264'].some(n=>document.querySelector('header').innerText.includes(n)||comp.innerText.includes(n)||metaLine.textContent.includes(n))}));
     ok('blind test: all 4 versions enter the sort, only Left and Right on screen (no number, no real name)', [st0.max,st0.enter,st0.frames,st0.nums,st0.title,st0.hidden.every(d=>d==='none'),st0.names,st0.labels.join()==='Izquierda,Derecha'&&st0.btns.join()==='← Izquierda,Derecha →'&&!/Variante|\d/.test(st0.labels.join()+st0.btns.join()),/^Comparación 1 · como mucho 15 ·/.test(st0.step)],
-      [15,'n1,n2,n3,n4',3,'n1,n2,n3,n4','Prueba ciega',true,false,true,true]);
+      [15,'n1,n2,n3,n4',4,'n1,n2,n3,n4','Prueba ciega',true,false,true,true]);
     ok('blind test: during the test the page itself only knows numbers (no real id or name in its variants)', vids.concat(names).some(x=>st0.known.includes(x)), false);
     await tpg.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&loadedUrlPaneB===imgB.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
     ok('blind test: pictures come from random addresses that say nothing about the version', await tpg.evaluate(()=>[imgA.src,imgB.src].map(u=>new URL(u).pathname.replace(/^\/p\/[^/]+\//,''))).then(a=>a.map(u=>/^b\/[A-Za-z0-9_-]{16}$/.test(u)&&!vids.some(v=>u.includes(v)))), [true,true]);
@@ -652,6 +652,9 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('blind test: Backspace returns to the previous comparison', await tpg.evaluate(()=>[varA,varB,String(frame),testRun.answers.length,testBack.disabled]), [...g0,0,true]);
     const asked = await run(tpg);
     ok('blind test: a clear order needs far fewer comparisons than all pairs on 3 frames (18)', asked >= 8 && asked <= 10);
+    // variedad (gatos-ops#232): cada duelo toma los cuadros menos vistos; con 4 cuadros y duelos a 3, el uso queda parejo
+    ok('blind test: duels rotate through the frames (all 4 used, evenly), 3 distinct frames per duel', await tpg.evaluate(()=>{const p=[...testMine.run.picks.values()], use={}; p.flat().forEach(f=>use[f]=(use[f]||0)+1); const c=Object.values(use);
+      return [c.length, Math.max(...c)-Math.min(...c)<=1, p.every(d=>new Set(d).size===3), new Set(p.map(d=>[...d].map(String).sort().join())).size>1];}), [4,true,true,true]);
     await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     const mine = await rows(tpg), P = mine.map(r=>r[1]);   // P: el orden real que salió (lo sorteó el servidor)
     ok('blind test: nothing requested during the test names a version (network tab)', [seen.some(u=>/\/img\//.test(u)||vids.some(v=>u.includes(v+'_'))), seen.filter(u=>/\/b\/[A-Za-z0-9_-]+$/.test(u)).length>=2, seen.includes('/api/blind/'+tp.token)], [false,true,true]);

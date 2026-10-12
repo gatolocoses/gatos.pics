@@ -2322,7 +2322,8 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    del medio de las ya ordenadas, y según gane o pierda, contra la mitad que
    corresponde: con 4 versiones son 4 o 5 duelos, no 6; con 5, de 6 a 8, no 10.
    Lo que no se comparó se deduce: si A le gana a B y B a C, A va antes que C.
-   Un duelo se juega cuadro a cuadro (los mismos para todos, al azar) y se
+   Un duelo se juega cuadro a cuadro, en los cuadros que menos se han visto
+   en esa prueba (testPicks, gatos-ops#232), y se
    corta en cuanto los cuadros que quedan ya no lo cambian (ganar 1, empate ½).
    Un duelo empatado deja a las dos en el mismo puesto. Con pocas versiones
    cada duelo es más largo (gatos-ops#215): testFrames reparte unas
@@ -2372,8 +2373,23 @@ const testFrames = n => { const f = Math.floor(TEST_BUDGET / Math.max(1, testDue
    `run` (orden de entrada, cuadros y lados ya sorteados), así «Atrás» lo rehace
    desde el principio con las respuestas anteriores. Devuelve los grupos, de
    mejor a peor; un grupo de varias = empatadas. */
+// Los cuadros de un duelo (gatos-ops#232): de los que comparten las dos, los que
+// menos se han usado en los duelos anteriores de esta prueba, para no ver
+// siempre las mismas imágenes. Se eligen una vez por par y se guardan
+// (run.picks): «Atrás», retomar y «seguir con las que faltan» los conservan.
+function testPicks(run, x, y){
+  const key = [x, y].sort().join('|');
+  if (!run.picks.has(key)){
+    const use = new Map();
+    for (const fs of run.picks.values()) for (const f of fs) use.set(f, (use.get(f) || 0) + 1);
+    const n = testShared(x, y, run.frames).length;
+    run.picks.set(key, run.frames.filter(f => hasFrame(x, f) && hasFrame(y, f)).map((f, i) => [use.get(f) || 0, i, f])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1]).slice(0, n).map(t => t[2]));
+  }
+  return run.picks.get(key);
+}
 function* testDuel(run, x, y){
-  const frames = testShared(x, y, run.frames);
+  const frames = testPicks(run, x, y);
   let d = 0;   // puntos de x menos puntos de y
   for (let i = 0; i < frames.length; i++){
     const key = [x, y].sort().join('|') + '|' + frames[i], had = run.known && run.known.get(key);
@@ -2415,7 +2431,7 @@ const testVoted = () => { const m = testMark(); return !!m && (testEpoch === und
 const testKey = 'gatosTest:' + testToken;
 function testSave(){
   const run = testRun; if (!run || !run.session) return;
-  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, order: run.order, flips: [...run.flips], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, order: run.order, flips: [...run.flips], picks: [...run.picks], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
@@ -2505,7 +2521,7 @@ async function testStart(saved){
   // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
-    flips: new Map(saved ? saved.flips : []), answers: saved ? saved.answers : [], games: [], before};
+    flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), answers: saved ? saved.answers : [], games: [], before};
   if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
   // lo que quedó en espera ya está sumado en el servidor: no se manda otra vez
   if (saved && saved.held !== undefined){ testRun.held = saved.held; testRun.holdP = Promise.resolve(); }

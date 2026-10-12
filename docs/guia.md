@@ -186,6 +186,11 @@ cuanto está decidido: dos seguidas para la misma, o a puntos al tercer cuadro
 (ganar 1, empate ½). Con respuestas claras, 4 versiones piden unas 9
 comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24).
 
+Para que no veas siempre las mismas imágenes, cada duelo usa los cuadros que
+menos han salido en tu prueba: en una página con cuadros suficientes no se
+repite ninguno. Dentro de un duelo las dos versiones se comparan siempre en el
+mismo cuadro.
+
 Al terminar ves los puestos, del 1º al último, con los nombres revelados; un
 duelo empatado deja a las dos en el mismo puesto. En una página publicada el
 resultado se suma solo a la **tabla de todos**, ordenada por el puesto medio
