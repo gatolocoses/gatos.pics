@@ -638,7 +638,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const st0 = await tpg.evaluate(()=>({max:testRun.max, enter:[...testRun.order].sort().join(), frames:testRun.frames.length, known:JSON.stringify([VARIANTS,blindPics,testRun.order]),
       nums:blindOrder.map(v=>v.id).sort().join(), labels:[labelAName.textContent,labelBName.textContent], btns:[testLeft.textContent,testRight.textContent], title:document.title, step:testStep.textContent,
       hidden:['.hrow-panes','#shareBtn','#testBtn','#cropBtn'].map(q=>getComputedStyle(document.querySelector(q)).display), names:['WEB-DL','AV1','H.264'].some(n=>document.querySelector('header').innerText.includes(n)||comp.innerText.includes(n)||metaLine.textContent.includes(n))}));
-    ok('blind test: all 4 versions enter the sort, numbers 1 to 4, no real name on screen', [st0.max,st0.enter,st0.frames,st0.nums,st0.title,st0.hidden.every(d=>d==='none'),st0.names,/^Variante [1-4]$/.test(st0.labels[0])&&st0.btns[0]==='← '+st0.labels[0]&&st0.btns[1]===st0.labels[1]+' →',/^Comparación 1 · como mucho 15 ·/.test(st0.step)],
+    ok('blind test: all 4 versions enter the sort, only Left and Right on screen (no number, no real name)', [st0.max,st0.enter,st0.frames,st0.nums,st0.title,st0.hidden.every(d=>d==='none'),st0.names,st0.labels.join()==='Izquierda,Derecha'&&st0.btns.join()==='← Izquierda,Derecha →'&&!/Variante|\d/.test(st0.labels.join()+st0.btns.join()),/^Comparación 1 · como mucho 15 ·/.test(st0.step)],
       [15,'n1,n2,n3,n4',3,'n1,n2,n3,n4','Prueba ciega',true,false,true,true]);
     ok('blind test: during the test the page itself only knows numbers (no real id or name in its variants)', vids.concat(names).some(x=>st0.known.includes(x)), false);
     await tpg.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&loadedUrlPaneB===imgB.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
@@ -653,10 +653,10 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const asked = await run(tpg);
     ok('blind test: a clear order needs far fewer comparisons than all pairs on 3 frames (18)', asked >= 8 && asked <= 10);
     await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    const mine = await rows(tpg), P = mine.map(r=>r[2]);   // P: el orden real que salió (lo sorteó el servidor)
+    const mine = await rows(tpg), P = mine.map(r=>r[1]);   // P: el orden real que salió (lo sorteó el servidor)
     ok('blind test: nothing requested during the test names a version (network tab)', [seen.some(u=>/\/img\//.test(u)||vids.some(v=>u.includes(v+'_'))), seen.filter(u=>/\/b\/[A-Za-z0-9_-]+$/.test(u)).length>=2, seen.includes('/api/blind/'+tp.token)], [false,true,true]);
-    ok('blind test: the result ranks 1st to 4th with the real names revealed by the server, and is sent by itself', [mine.map(r=>r[0]+' '+r[1]), [...P].sort(), await tpg.locator('[data-test="send"]').count(), await tpg.evaluate(()=>[blindMode,document.body.classList.contains('testing'),testBar.hidden,document.title,localStorage.getItem('gatosVoted:'+testToken),VARIANTS.map(v=>v.id).join(),blindPics])],
-      [['1º Variante 1','2º Variante 2','3º Variante 3','4º Variante 4'], [...names].sort(), 0, [false,false,true,'Prueba ciega','1',vids.join(),null]]);
+    ok('blind test: the result ranks 1st to 4th with the real names revealed by the server, and is sent by itself', [mine.map(r=>r[0]), mine[0].length, [...P].sort(), await tpg.locator('[data-test="send"]').count(), await tpg.evaluate(()=>[blindMode,document.body.classList.contains('testing'),testBar.hidden,document.title,localStorage.getItem('gatosVoted:'+testToken),VARIANTS.map(v=>v.id).join(),blindPics])],
+      [['1º','2º','3º','4º'], 3, [...names].sort(), 0, [false,false,true,'Prueba ciega','1',vids.join(),null]]);
     ok('blind test: the result says how many comparisons were answered', new RegExp('Respondiste '+asked+' comparaciones').test(await tpg.textContent('#testBody')));
     await tpg.locator('[data-test="all"]').click(); await tpg.waitForSelector('#testBody h2:has-text("Tabla de todos")');
     ok('blind test: everyone\'s standings after one test', [(await rows(tpg)).map(r=>r.slice(0,4)), /1 prueba enviada/.test(await tpg.textContent('#testBody'))], [[['1º',P[0],'1.00','1º ×1'],['2º',P[1],'2.00','2º ×1'],['3º',P[2],'3.00','3º ×1'],['4º',P[3],'4.00','4º ×1']], true]);
@@ -675,12 +675,12 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.evaluate(()=>testStart());
     await run(tpg,'worst'); await tpg.waitForSelector('#testNote');
     await tpg.waitForFunction(()=>/no se sumó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    ok('blind test: a second test from the same browser is revealed but not added', [(await rows(tpg)).map(r=>r[0]+' '+r[1]), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [['1º Variante 4','2º Variante 3','3º Variante 2','4º Variante 1'],1]);
+    ok('blind test: a second test from the same browser is revealed but not added', [(await rows(tpg)).map(r=>r[0]), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [['1º','2º','3º','4º'],1]);
     // otra persona, en inglés, todo empates
     const ectx2 = await browser.newContext({locale:'en-US',viewport:{width:1280,height:800}});
     const epg = await ectx2.newPage(); epg.on('pageerror',e=>errors.push(e.message)); epg.on('dialog',d=>d.accept());
     await epg.goto(tp.url); await loaded(epg); await epg.locator('#testBtn').click(); await epg.locator('[data-test="start"]').click(); await started(epg);
-    ok('blind test: in English', await epg.evaluate(()=>[document.title, /^Variant [1-4]$/.test(labelAName.textContent), /^Comparison 1 · 15 at most · which looks better\?$/.test(testStep.textContent), testTie.textContent]), ['Blind test',true,true,'Tie']);
+    ok('blind test: in English', await epg.evaluate(()=>[document.title, [labelAName.textContent,labelBName.textContent,testLeft.textContent,testRight.textContent,metaLine.textContent.replace(/\d+/,'N')].join('|'), /^Comparison 1 · 15 at most · which looks better\?$/.test(testStep.textContent), testTie.textContent]), ['Blind test','Left|Right|← Left|Right →|Frame N · BLIND',true,'Tie']);
     const askedTie = await run(epg,'tie'); await epg.waitForFunction(()=>/was added to everyone/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: all ties share first place (3 duels of 3 frames each)', [(await rows(epg)).map(r=>r[0]), askedTie], [['1º','1º','1º','1º'], 9]);
     await epg.locator('[data-test="all"]').click(); await epg.waitForSelector('#testBody h2:has-text("standings")');
@@ -738,6 +738,20 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       await rpg.reload(); await loaded(rpg);
       ok('blind test resume: quitting on purpose forgets it', [mid, await kept(), await rpg.evaluate(()=>testPanel.style.display)], [true,false,'none']);
       await rctx.close();
+    }
+    // la página cambia de versiones a media prueba (gatos-ops#228): se dice claro, se muestra lo juzgado, no se suma
+    {
+      const tc = await mk(vids), mf = path.join(DATA,'pages',tc.token,'manifest.json');
+      const swap = () => { const m = JSON.parse(fs.readFileSync(mf,'utf8')); m.variants[3].id = 'otra'; m.variants[3].name = 'Otra'; fs.writeFileSync(mf, JSON.stringify(m)); };
+      const cctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+      const cpg = await cctx.newPage(); cpg.on('pageerror',e=>errors.push(e.message)); cpg.on('dialog',d=>d.accept());
+      await cpg.goto(tc.url); await loaded(cpg); await cpg.evaluate(()=>testStart()); await started(cpg);
+      await cpg.keyboard.press('ArrowLeft');
+      swap();
+      await run(cpg); await cpg.waitForFunction(()=>/no se sumó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      ok('blind test, page changed midway: own result shown, says it was not added, offers reload instead of retry', [await cpg.evaluate(()=>[testBody.querySelectorAll('.ttable tr').length, !!testBody.querySelector('[data-test="reload"]'), !!testBody.querySelector('[data-test="send"]'), !!testBody.querySelector('[data-test="start"]'), /cambió de versiones/.test(testNote.textContent)]),
+        (await (await fetch(BASE+'/api/vote/'+tc.token)).json()).ballots], [[5,true,false,false,true],0]);
+      await cctx.close();
     }
     // enlace directo (gatos-ops#223): abre en la introducción, sobre fondo opaco, y dice qué versiones se comparan
     {

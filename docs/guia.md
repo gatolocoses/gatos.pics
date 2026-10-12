@@ -171,8 +171,9 @@ La página que se lleva quien abre tu export.
 ### Prueba ciega: ordenar sin saber cuál es cuál
 
 En una página con 2 a 5 versiones, el botón **Prueba ciega** arma una prueba
-completa. Cada versión recibe un número al azar («Variante 3») y lo conserva
-toda la prueba: sabes qué número estás juzgando, nunca qué es. En cada
+completa. Durante la prueba ninguna versión tiene nombre ni número: solo ves
+**Izquierda** y **Derecha**, y el lado de cada una se sortea en cada
+comparación, así que no sabes si la de ahora es la que elegiste antes. En cada
 comparación eliges la que se ve mejor (`←` o `→`) o empate (`↑`); `Retroceso`
 vuelve una. Sirven el zoom, el diff y el parpadeo.
 
@@ -192,14 +193,17 @@ de cada versión entre quienes hicieron la prueba. Un navegador suma una vez
 por página.
 
 Si sales de la página a media prueba (un toque de más en el teléfono), no se
-pierde: al volver, la página ofrece **seguir la prueba** donde ibas, con los
-mismos números. Lo que llevas queda guardado en tu propio navegador, no en el
+pierde: al volver, la página ofrece **seguir la prueba** donde ibas. Lo que llevas queda guardado en tu propio navegador, no en el
 servidor, y dura unas dos horas. Salir con el botón **Salir** sí la descarta.
+
+Si quien publicó la página le cambia las versiones mientras haces la prueba,
+al terminar ves tu resultado pero no se suma a la tabla (esas versiones ya no
+son las de la página): recarga y haz la prueba con las de ahora.
 
 Para invitar a alguien a la prueba sin que vea antes la comparación, usa el
 **enlace directo a la prueba ciega** del panel **Compartir**, o el botón
 **Copiar enlace a la prueba** de la introducción (termina en `#test=1`): abre la página ya en la introducción, que dice qué versiones se
-comparan pero no qué número le toca a cada una.
+comparan.
 
 Durante la prueba nada dice de qué versión es cada imagen. En una página
 publicada el servidor sortea la numeración y sirve las imágenes bajo

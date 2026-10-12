@@ -173,6 +173,8 @@ blinkBtn.addEventListener('click', () => setBlink(!blinkMode));
 /* ---------- modo ciego: oculta qué variante es cuál (anti-sesgo) ----------
    Ya no tiene botón propio: lo usa la prueba ciega (45-test.js, gatos-ops#198). */
 let blindMode = false;
+let blindSides = false;   // en la prueba ciega no hay números: solo «Izquierda» y «Derecha» (gatos-ops#230)
+const sideName = (side, id) => blindSides ? T(side === 'A' ? 'Izquierda' : 'Derecha') : variantName(id);
 let blindOrder = null;
 function sessionBlindOrder(){
   if (blindOrder) return blindOrder;

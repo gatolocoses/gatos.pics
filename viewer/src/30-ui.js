@@ -90,6 +90,7 @@ function updateMeta(){
   // variante parcial: qué lado no tiene el cuadro (vacío en las páginas completas)
   const gaps = [missA ? T('izq.') : '', missB ? T('der.') : ''].filter(Boolean);
   const noFrame = gaps.length ? T` · sin este cuadro: ${gaps.join(T(' y '))}` : '';
+  if (blindSides){ metaLine.textContent = T`Frame ${FRAMES.indexOf(frame)+1} · CIEGO${noFrame}`; return; }
   if (blindMode){
     metaLine.textContent = T`Frame ${FRAMES.indexOf(frame)+1} · izquierda: ${variantName(varA)} · derecha: ${variantName(varB)} · CIEGO${noFrame}`;
     return;
@@ -115,7 +116,7 @@ function preload(){
 function paintSide(side){
   const id = side === 'A' ? shownA : shownB;
   if (id == null) return;   // primer par sin carga exitosa: etiqueta inicial
-  $('label'+side+'Name').textContent = variantName(id);
+  $('label'+side+'Name').textContent = sideName(side, id);
   $('stats'+side).textContent = variantStats(id);
   $('label'+side).style.color = blindMode ? '#e8e8f0' : variant(id).color;
 }
@@ -123,8 +124,8 @@ function loadImg(){
   loadFailA = loadFailB = false;   // arranca un intento nuevo del par actual
   setSideSrc('A', varA);
   setSideSrc('B', varB);
-  labelAName.textContent = variantName(varA);
-  labelBName.textContent = variantName(varB);
+  labelAName.textContent = sideName('A', varA);
+  labelBName.textContent = sideName('B', varB);
   statsA.textContent = variantStats(varA);
   statsB.textContent = variantStats(varB);
   labelA.style.color = blindMode ? '#e8e8f0' : variant(varA).color;
