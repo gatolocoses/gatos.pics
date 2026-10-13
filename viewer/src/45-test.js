@@ -186,6 +186,7 @@ function testIntro(note){
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. En cada comparación solo ves «izquierda» y «derecha»: nada dice qué versión es ni si ya la viste antes.`}</p>
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
+    ${testAreas() ? `<p id="testAreaNote">${T('En esta página las versiones no tienen la misma área de imagen: durante la prueba solo se ve la parte que todas comparten.')}</p>` : ''}
     ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
@@ -311,6 +312,19 @@ function testMore(){
   testPanel.style.display = 'none';
   testReplay();
 }
+/* Área común (gatos-ops#305): si las versiones no tienen la misma área de imagen (una con el
+   cuadro más alto, otra recortada y puesta sobre negro), las bandas dirían cuál es cuál. Con
+   `frame_areas` en el manifiesto, durante la prueba cada imagen se recorta al área que todas
+   comparten en ese cuadro. Se aplica al cargar cada imagen: la anterior conserva su recorte. */
+const testArea = () => { const a = blindSides ? FRAME_AREAS[String(frame)] : null; return Array.isArray(a) && a.length === 4 ? a : null; };
+function testClipOne(el){
+  const a = testArea(), w = el.naturalWidth || el.width, h = el.naturalHeight || el.height;
+  const pct = n => Math.max(0, Math.min(100, n)).toFixed(4) + '%';
+  el.style.clipPath = a && w && h ? `inset(${pct(a[1] / h * 100)} ${pct((w - a[0] - a[2]) / w * 100)} ${pct((h - a[1] - a[3]) / h * 100)} ${pct(a[0] / w * 100)})` : '';
+}
+imgA.addEventListener('load', () => { testClipOne(imgA); testClipOne(diffCanvas); });
+imgB.addEventListener('load', () => { testClipOne(imgB); testClipOne(diffCanvas); });
+const testAreas = () => VARIANTS.length && FRAMES.some(f => FRAME_AREAS[String(f)]);
 function testShow(){
   const g = testRun.cur;
   varA = g.a; varB = g.b; frame = g.f;
@@ -353,6 +367,7 @@ function testLeave(){
   const before = testRun.before;
   if (testRun.sid){ VARIANTS = testRun.real; blindPics = null; }   // vuelven las versiones de verdad
   testRun = null; blindOrder = null; blindSides = false;
+  for (const el of [imgA, imgB, diffCanvas]) el.style.clipPath = '';   // fuera de la prueba la página se ve entera
   testForget();   // terminada o abandonada a propósito: ya no hay nada que seguir
   document.body.classList.remove('testing');
   $('testBar').hidden = true;

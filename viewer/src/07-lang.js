@@ -140,6 +140,7 @@ I18N.add({
   'Salir de la prueba': 'Leave the test',
   'Variante {}': 'Variant {}',
   'Recargar la página': 'Reload the page',
+  'En esta página las versiones no tienen la misma área de imagen: durante la prueba solo se ve la parte que todas comparten.': 'On this page the versions do not have the same picture area: during the test you only see the part they all share.',
   'Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.': 'You already sent a result for this page from this browser: if you finish this test, the new one replaces the earlier one.',
   'Tu resultado reemplazó en la tabla de todos al que habías enviado antes desde este navegador.': 'Your result replaced, in everyone\'s standings, the one you had sent before from this browser.',
   'Preparando la prueba…': 'Preparing the test…',

@@ -927,6 +927,21 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const six = await mk(['a','b','c','d','e','f','g','h','i']);
     await tpg.goto(six.url); await loaded(tpg);
     ok('blind test: not offered with more than 8 versions', await tpg.locator('#testBtn').isVisible(), false);
+    // área común (gatos-ops#305): con frame_areas, durante la prueba cada imagen se recorta a lo que todas comparten
+    {
+      const ar = await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',
+        manifest:{title:'Áreas',version:1,frames:frs,frame_areas:Object.fromEntries(frs.map(f=>[f,[0,40,640,300]])),variants:vids.slice(0,2).map((id,i)=>({id,name:names[i]}))},images:Object.fromEntries(vids.slice(0,2).flatMap(v=>frs.map(f=>[v+'_'+f,img])))})})).json();
+      await tpg.goto(ar.url); await loaded(tpg);
+      const before = await tpg.evaluate(()=>[imgA.style.clipPath, imgB.style.clipPath]);
+      await tpg.evaluate(()=>testIntro()); const noted = await tpg.evaluate(()=>!!document.getElementById('testAreaNote'));
+      await tpg.evaluate(()=>testStart()); await started(tpg);
+      await tpg.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&loadedUrlPaneB===imgB.src&&imgA.naturalWidth>0&&!!imgA.style.clipPath&&!!imgB.style.clipPath,null,{timeout:10000}).catch(()=>{});
+      const during = await tpg.evaluate(()=>{// el navegador abrevia inset(a b c d) cuando hay valores iguales: se expande antes de comparar
+        const p=s=>{const v=(s.match(/[\d.]+(?=%)/g)||[]).map(Number); const r=v[1]??v[0]; return v.length?[v[0],r,v[2]??v[0],v[3]??r]:[];}, h=imgA.naturalHeight; const a=p(imgA.style.clipPath), b=p(imgB.style.clipPath);
+        return {same:a.join()===b.join(), top:Math.abs(a[0]-40/h*100)<0.01, bottom:Math.abs(a[2]-(h-340)/h*100)<0.01, sides:a[1]===0&&a[3]===0, n:a.length};});
+      await tpg.keyboard.press('Escape'); await tpg.waitForFunction(()=>!testRun);
+      ok('blind test: with a declared shared area both pictures are clipped to it during the test, and the page is whole before and after', [before, noted, during, await tpg.evaluate(()=>[imgA.style.clipPath, imgB.style.clipPath, diffCanvas.style.clipPath])], [['',''], true, {same:true,top:true,bottom:true,sides:true,n:4}, ['','','']]);
+    }
     // de 6 a 8 versiones (gatos-ops#279): se ofrece, con un cuadro por duelo
     const eight = await mk(['a','b','c','d','e','f','g','h']);
     await tpg.goto(eight.url); await loaded(tpg);

@@ -24,6 +24,7 @@ const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
 let FRAMES = [], VARIANTS = [];
 let FRAME_LABELS = {}, FRAME_META = {};
+let FRAME_AREAS = {};   // por cuadro, el área [x, y, ancho, alto] que todas las versiones tienen con imagen (gatos-ops#305)
 let VERSION = '', CLIP = {};
 const AMPLIFY_DEFAULT_IDX = 1;
 const GAINS = [5, 10, 20, 40];

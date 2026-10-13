@@ -196,6 +196,11 @@ comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24). Con 6,
 7 u 8 versiones cada duelo es de un solo cuadro: 11, 14 y 17 comparaciones
 como mucho.
 
+Si las versiones de la página no tienen la misma área de imagen (por ejemplo una
+edición con el cuadro más alto contra otra recortada a formato ancho), durante la
+prueba solo se ve la parte que todas comparten: así unas bandas negras no dicen
+cuál es cuál. Hace falta que la página lo declare (`frame_areas` en el manifiesto).
+
 Para que no veas siempre las mismas imágenes, cada duelo usa los cuadros que
 menos han salido en tu prueba: en una página con cuadros suficientes no se
 repite ninguno. Dentro de un duelo las dos versiones se comparan siempre en el
