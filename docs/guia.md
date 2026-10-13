@@ -63,7 +63,9 @@ Para cuando solo quieres comparar imágenes y nada más.
 5. Reordena con ↑↓, borra con ×, y si te sobra una imagen suéltala: completa
    el hueco de la última fila automáticamente.
 6. **Vista previa** arriba a la derecha, y exporta con los botones que aparecen
-   cuando los pares están completos.
+   cuando los pares están completos. La vista previa siempre abre en el primer
+   cuadro con las dos primeras versiones: lo que muevas ahí no se guarda ni
+   cambia la imagen para compartir.
 
 Si dejas un par a medias, la página te avisa antes de exportar. Si mezclas
 tamaños de imagen, también: el diff y los recortes 1:1 necesitan dimensiones
@@ -83,6 +85,11 @@ De los archivos de video a la comparación, sin capturar nada a mano.
    Cada marca muestra la variante y su resultado; las fallas incluyen el motivo.
    Al terminar, "Seguir en Avanzado" te deja revisar las
    capturas en la tabla.
+
+Cada video es una versión del proyecto, y su nombre lo sigue si lo mueves o
+quitas otro (quitar un video se lleva sus capturas). Si ya tienes un proyecto
+con imágenes en Avanzado, el primer video pregunta antes de sumarse: los videos
+entran como versiones nuevas junto a las que hay, sin borrar nada.
 
 Consejos:
 
@@ -150,7 +157,7 @@ La página que se lleva quien abre tu export.
 | `L` | **curva solar**: revela banding |
 | `C` | **recortes 1:1**: clic en un punto, todas las variantes píxel a píxel |
 | `O` / `F` | 1:1 real / ajustar a la ventana |
-| `N` | escala en píxeles nítidos (sin suavizado) |
+| `N` | escala en píxeles nítidos (sin suavizado); se recuerda en tu navegador, y un enlace ajeno abre con el ajuste de quien lo compartió sin cambiar el tuyo |
 | `+` / `−` | ganancia del diff |
 | `H` | modo calor del diff |
 | `?` / `Esc` | abrir ayuda / cerrar el panel abierto |
@@ -165,12 +172,13 @@ La página que se lleva quien abre tu export.
   cuál es cuál; ver la sección de abajo. Reemplazó al botón «Ciego».
 - **Solar**: curva no lineal que convierte degradados suaves en escalones
   gigantes: el banding salta a la vista.
-- El estado (frame, variantes, zoom, divisor, modo) vive en la URL: cópiala
+- El estado (frame, variantes, zoom, divisor, modo) vive en la URL (con zoom, el
+  enlace abre la misma zona de la imagen a la misma escala en cualquier pantalla): cópiala
   para compartir la vista.
 
 ### Prueba ciega: ordenar sin saber cuál es cuál
 
-En una página con 2 a 5 versiones, el botón **Prueba ciega** arma una prueba
+En una página con 2 a 8 versiones, el botón **Prueba ciega** arma una prueba
 completa. Durante la prueba ninguna versión tiene nombre ni número: solo ves
 **Izquierda** y **Derecha**, y el lado de cada una se sortea en cada
 comparación, así que no sabes si la de ahora es la que elegiste antes. En cada
@@ -184,7 +192,9 @@ se deduce: si una le gana a otra y esa a una tercera, la primera va antes.
 Cada duelo se juega cuadro a cuadro, con los lados sorteados, y se corta en
 cuanto está decidido: dos seguidas para la misma, o a puntos al tercer cuadro
 (ganar 1, empate ½). Con respuestas claras, 4 versiones piden unas 9
-comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24).
+comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24). Con 6,
+7 u 8 versiones cada duelo es de un solo cuadro: 11, 14 y 17 comparaciones
+como mucho.
 
 Para que no veas siempre las mismas imágenes, cada duelo usa los cuadros que
 menos han salido en tu prueba: en una página con cuadros suficientes no se
@@ -195,11 +205,12 @@ Al terminar ves los puestos, del 1º al último, con los nombres revelados; un
 duelo empatado deja a las dos en el mismo puesto. En una página publicada el
 resultado se suma solo a la **tabla de todos**, ordenada por el puesto medio
 de cada versión entre quienes hicieron la prueba. Un navegador suma una vez
-por página.
+por página: si repites la prueba, tu resultado nuevo **reemplaza** al anterior.
 
 Si sales de la página a media prueba (un toque de más en el teléfono), no se
 pierde: al volver, la página ofrece **seguir la prueba** donde ibas. Lo que llevas queda guardado en tu propio navegador, no en el
 servidor, y dura unas dos horas. Salir con el botón **Salir** sí la descarta.
+Funciona también en una copia sin publicar (el HTML exportado).
 
 Si quien publicó la página le cambia las versiones mientras haces la prueba,
 al terminar ves tu resultado pero no se suma a la tabla (esas versiones ya no
@@ -237,6 +248,12 @@ Los errores temporales permiten reintentar manualmente el mismo paquete o PNG.
 Reintentar una publicación puede crear otra página; una imagen compartida
 reemplaza la misma URL. Si la llave es incorrecta, corrígela antes de volver a subir.
 
+Una página muy pesada se envía por partes. En cuanto la primera parte llega,
+la página ya existe y el creador muestra su enlace y su llave de borrado, con
+el aviso de que está incompleta: guárdalos. Si una parte posterior falla,
+siguen a la vista: con ellos puedes completarla con **Actualizar página** o
+borrarla.
+
 ### Actualizar una página ya publicada
 
 Si publicaste una comparación y después cambia algo (terminó otra variante,
@@ -244,7 +261,16 @@ corregiste un frame, calculaste S2), no hace falta un enlace nuevo: abre tu
 proyecto, pulsa **Actualizar página** (arriba, junto a Publicar; también en el
 último paso del asistente), pega el enlace de la página y confirma. El
 contenido se reemplaza entero, el enlace y la llave de borrado siguen siendo
-los mismos, y los foros que ya lo enlazaban muestran la versión nueva.
+los mismos, y los foros que ya lo enlazaban muestran la versión nueva. La
+imagen para compartir también se rehace sola (hace falta la llave de borrado
+de la página; con solo la llave API, rehazla desde la página con «Compartir»).
+
+Con un proyecto muy pesado la actualización también va por partes, pero la
+página publicada no cambia mientras llegan: gatos.pics las junta aparte y la
+reemplaza de una vez cuando llega la última. Si una parte falla o cierras la
+pestaña, el enlace sigue mostrando la versión anterior, completa; lo que
+alcanzó a subir se descarta solo a las dos horas. Para intentarlo otra vez,
+repite **Actualizar página**.
 
 - Se usa la llave de borrado que este navegador guardó al publicar esa página
   (dura mientras la pestaña siga abierta) o tu llave API; si no hay ninguna, el

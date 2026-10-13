@@ -14,7 +14,12 @@ let publicationReceipt = null;
    crea (o reemplaza) la página con sus primeros frames y cada parte siguiente
    suma frames con PATCH. Cada parte lleva el manifiesto recortado a los
    frames ya enviados, así la página es válida en todo momento y al final
-   queda idéntica a la de un solo envío. */
+   queda idéntica a la de un solo envío.
+   Al ACTUALIZAR una página por partes (gatos-ops#289) las partes no tocan lo
+   publicado: la primera va con ?pending=start y el servicio arma una copia
+   pendiente; las siguientes llevan ?pending=<id> y la última &commit=1, que
+   es la que cambia la página, de una vez. Un servicio que no conozca esto
+   contesta sin `pending` y todo sigue como antes (PATCH sobre la página). */
 const PART_BYTES = (window.GATOS_PART_MB || 200) * 1048576, PART_MAX = 280 * 1048576;
 function splitParts(core){
   const m = core.manifest, size = new Map(core.entries.map(([k, f]) => [k, f.size]));
@@ -44,10 +49,12 @@ function partCore(core, parts, i){
 }
 async function partRequest(core, parts, i, first, meta, cancelled){
   const many = parts.length > 1;
-  const req = i === 0 ? first : {method:'PATCH', url:UPDATE_URL(meta.page.token), headers:{'content-type':'application/json', ...meta.keys},
+  const staged = meta.pending ? '?pending=' + encodeURIComponent(meta.pending) + (i === parts.length - 1 ? '&commit=1' : '') : '';
+  const req = i === 0 ? first : {method:'PATCH', url:UPDATE_URL(meta.page.token) + staged, headers:{'content-type':'application/json', ...meta.keys},
     retryCaution:T('El servidor pudo recibir esta parte. Reintentar la vuelve a mandar; no crea otra página.')};
+  const where = !i ? '' : meta.pending ? T` (la página publicada no cambia hasta la última parte)` : T` (la página ya existe, incompleta: ${meta.page.url})`;
   return {...req, body: await packageJSONBlob(many ? partCore(core, parts, i) : core, {cancelled}),
-    label: many ? T`Parte ${i+1} de ${parts.length}` + (i ? T` (la página ya existe, incompleta: ${meta.page.url})` : '') : '',
+    label: many ? T`Parte ${i+1} de ${parts.length}` + where : '',
     meta:{...meta, core, parts, i}};
 }
 /* Imagen compartida al publicar (ops#162). La página nace sin /s/<token>.png y
@@ -93,6 +100,7 @@ async function renderShareImage(core){
   } finally { box.remove(); for (const u of urls) URL.revokeObjectURL(u); }
 }
 async function shareAfterPublish(core, j){
+  if (!j.delete_key) throw new Error(T('hace falta la llave de borrado de la página'));
   const blob = await renderShareImage(core);
   const r = await fetch(SHOT_URL(j.token), {method:'POST', headers:{'content-type':'image/png', 'x-delete-key':j.delete_key, 'accept-language':I18N.lang}, body:blob});
   if (r.status !== 201) throw new Error('HTTP ' + r.status);
@@ -102,19 +110,42 @@ const publisher = new GatosUpload({
   panel:$('publishUpload'), progress:$('publishProgress'), status:$('publishStatus'),
   cancel:$('publishCancel'), retry:$('publishRetry'),
   retryCaution:T('El servidor pudo recibir el paquete. Reintentar puede crear otra página.'),
-  onApiKeyRequired: () => { setTimeout(publisher.request?.meta?.update ? askUpdateKeyAndRetry : askApiKeyAndRetry, 400); },
+  onApiKeyRequired: status => { setTimeout(() => (publisher.request?.meta?.update ? askUpdateKeyAndRetry : askApiKeyAndRetry)(status === 401), 400); },
   onBusy:busy => { for (const id of ['btnPublish','btnPublish2','btnUpdate','btnUpdate2']) $(id).disabled = busy; },
   onSuccess:(j, meta) => {
     if (meta.parts && meta.i + 1 < meta.parts.length){   // faltan partes: la siguiente suma sus frames
       const page = meta.page || j;
       const keys = meta.keys || {'x-delete-key': j.delete_key};
       if (j.delete_key) try { sessionStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
-      publisher.start(cancelled => partRequest(meta.core, meta.parts, meta.i + 1, null, {...meta, page, keys}, cancelled));
+      // La página ya existe desde la primera parte: su enlace y su llave se
+      // muestran YA y se quedan a la vista si una parte posterior falla. Antes
+      // solo aparecían en el recibo final y una página a medias quedaba
+      // publicada sin que nadie tuviera su llave (ops#255).
+      if (!meta.update && j.delete_key){
+        publicationReceipt = {url:j.url, delete_url:j.delete_url, delete_key:j.delete_key};
+        const note = $('publishPartial');
+        note.dataset.token = j.token;
+        note.textContent = T`La página ya existe, todavía incompleta: ${j.url} · llave de borrado: ${j.delete_key} · Guarda las dos. Si el envío no termina, con ellas puedes completarla con «Actualizar página» o borrarla.`;
+        note.hidden = false;
+      }
+      // actualización por partes: el servicio devuelve el id de su copia pendiente y las partes que siguen lo llevan
+      const pending = meta.update ? (j.pending || meta.pending) : undefined;
+      publisher.start(cancelled => partRequest(meta.core, meta.parts, meta.i + 1, null, {...meta, page, keys, pending}, cancelled));
       return;
     }
     if (meta.page) j = {...meta.page, ...j, delete_key: meta.page.delete_key, delete_url: meta.page.delete_url};
+    if ($('publishPartial').dataset.token === j.token) $('publishPartial').hidden = true;   // completa: el recibo ya trae enlace y llave
     if (meta.update){   // actualización: mismo enlace y misma llave, no hay recibo nuevo
-      $('publishStatus').textContent = T`Página actualizada. El enlace sigue siendo el mismo: ${j.url} (si no ves el cambio, recarga la página).`;
+      const done = T`Página actualizada. El enlace sigue siendo el mismo: ${j.url} (si no ves el cambio, recarga la página).`;
+      const status = $('publishStatus');
+      status.textContent = done;
+      // la imagen para compartir también se rehace: si no, los foros seguían
+      // mostrando la comparación anterior (ops#255). Necesita la llave de borrado.
+      const say = text => { if (status.textContent.startsWith(done)) status.textContent = done + ' ' + text; };
+      say(T('Actualizando la imagen para compartir…'));
+      shareAfterPublish(meta.core, {token: j.token, delete_key: (meta.keys || {})['x-delete-key']}).then(
+        () => say(T('La imagen para compartir también se actualizó.')),
+        () => say(T('No se pudo actualizar la imagen para compartir: puedes rehacerla desde la página, con «Compartir».')));
       return;
     }
     $('pubUrl').value = j.url;
@@ -143,13 +174,24 @@ const publisher = new GatosUpload({
     });
   }
 });
-function askApiKeyAndRetry(){
+function askApiKeyAndRetry(wrong){
   // camino 403 (tier sin llave cerrado o agotado): pedir la llave una vez,
   // recordarla y reintentar el MISMO envio con el header puesto
-  const k = (prompt(T('Publicar sin límite necesita tu llave API. Pégala aquí (el creador la recuerda para la próxima):')) || '').trim();
-  if (!k) return;
-  try { localStorage.setItem('gatosApiKey', k); } catch(e){}
+  // camino 401 (gatos-ops#281): la llave recordada no es correcta. Se pide de
+  // nuevo; dejar el campo vacío la olvida y reintenta sin llave (antes una
+  // llave mal escrita publicaba sin llave en silencio)
+  const typed = prompt(wrong === true
+    ? T('La llave API que recuerda el creador no es correcta. Pega la correcta, o deja el campo vacío para publicar sin llave:')
+    : T('Publicar sin límite necesita tu llave API. Pégala aquí (el creador la recuerda para la próxima):'));
+  const k = (typed || '').trim();
   const req = publisher.request;
+  if (!k){
+    if (wrong !== true || typed === null) return;
+    try { localStorage.removeItem('gatosApiKey'); } catch(e){}
+    if (req){ delete req.headers['x-api-key']; publisher.send(); }
+    return;
+  }
+  try { localStorage.setItem('gatosApiKey', k); } catch(e){}
   if (req){
     req.headers['x-api-key'] = k;
     publisher.send();
@@ -162,6 +204,7 @@ function askUpdateKeyAndRetry(){
   if (!k || !req) return;
   req.headers['x-delete-key'] = k;
   req.headers['x-api-key'] = k;
+  if (req.meta) req.meta.keys = {'x-delete-key': k, 'x-api-key': k};   // las partes siguientes y la imagen para compartir usan la llave que sí sirvió
   publisher.send();
 }
 // Actualizar una página ya publicada sin cambiar su enlace (PUT /api/page/<token>,
@@ -187,7 +230,9 @@ function updatePage(){
     const core = await packageCore({complete:true, cancelled});
     if (cancelled()) return;
     const keys = {...(ownerKey ? {'x-delete-key':ownerKey} : {}), ...(apiKey ? {'x-api-key':apiKey} : {})};
-    return partRequest(core, splitParts(core), 0, {method:'PUT', url:UPDATE_URL(token), headers:{'content-type':'application/json', ...keys},
+    const parts = splitParts(core);
+    // por partes, el servicio las junta aparte y cambia la página con la última (gatos-ops#289): lo publicado nunca queda incompleto
+    return partRequest(core, parts, 0, {method:'PUT', url:UPDATE_URL(token) + (parts.length > 1 ? '?pending=start' : ''), headers:{'content-type':'application/json', ...keys},
       retryCaution:T('El servidor pudo recibir el paquete. Reintentar vuelve a reemplazar la misma página, sin cambiar su enlace.')},
       {update:true, keys, page:{token, url:link}}, cancelled);
   });

@@ -304,6 +304,36 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('multi-part publish ends with every frame, variant and image', {frames:pm.frames.length, variants:pm.variants.length,
       imgs:(await Promise.all(pm.variants.flatMap(v => pm.frames.map(f => parts.request.get(`${partsUrl}img/${v.id}_${f}.${(v.image_exts&&v.image_exts[f])||v.ext}`))))).every(r => r.status()===200),
       key:(await parts.locator('#pubKey').inputValue()).length >= 20}, {frames:3, variants:2, imgs:true, key:true});
+    // gatos-ops#289: actualizar por partes NO toca la página publicada hasta la última parte. Las partes van a
+    // una copia pendiente del servicio (?pending=start, ?pending=<id>, &commit=1) y ya no hay aviso de «incompleta».
+    const said=[]; parts.on('dialog',d=>{ said.push(d.message()); if (d.type()==='prompt') d.accept(d.defaultValue()); else d.accept(); });
+    const liveNow = async () => { const m = await (await fetch(partsUrl+'manifest.json')).json(); return m.frames.length+' frames v'+m.version; };
+    const v0 = pm.version, during = [], urls = [];
+    let failLast = false;
+    // justo antes de que salga cada parte se mira lo publicado: debe seguir siendo la página completa de antes
+    await parts.route(/\/api\/page\//, async route => {
+      const rq = route.request();
+      if (rq.method()==='OPTIONS') return route.continue();
+      urls.push(rq.method()+' '+new URL(rq.url()).search.replace(/pending=(?!start)[^&]+/,'pending=ID'));
+      during.push(await liveNow());
+      if (failLast && /commit=1/.test(rq.url())) return route.abort('connectionreset');
+      return route.continue();
+    });
+    const before=sentReqs.length;
+    await parts.evaluate(()=>{updatePage();});
+    await parts.waitForFunction(()=>/Página actualizada/.test(document.getElementById('publishStatus').textContent),null,{timeout:40000});
+    const pm2 = await (await parts.request.get(partsUrl+'manifest.json')).json();
+    ok('multi-part update sends its parts to a pending copy (PUT start, PATCH id, PATCH id + commit)', urls, ['PUT ?pending=start','PATCH ?pending=ID','PATCH ?pending=ID&commit=1']);
+    ok('multi-part update: the published page is unchanged before every part, then complete with a higher version', [during, pm2.frames.length, pm2.version>v0,
+      (await Promise.all(pm2.variants.flatMap(v => pm2.frames.map(f => parts.request.get(`${partsUrl}img/${v.id}_${f}.${(v.image_exts&&v.image_exts[f])||v.ext}`))))).every(r => r.status()===200)],
+      [Array(3).fill('3 frames v'+v0), 3, true, true]);
+    ok('multi-part update no longer warns about an incomplete page, and still goes PUT then one PATCH per extra frame', [said.some(m=>/solo los primeros frames/.test(m)), sentReqs.slice(before)], [false,['PUT','PATCH','PATCH']]);
+    // si la última parte no llega, el enlace sigue mostrando la página completa de antes
+    failLast = true; during.length = 0;
+    await parts.evaluate(()=>{updatePage();});
+    await parts.waitForFunction(()=>!document.getElementById('publishRetry').hidden,null,{timeout:40000});
+    ok('multi-part update that loses its last part leaves the published page complete and untouched', [during, await liveNow()], [Array(3).fill('3 frames v'+pm2.version), '3 frames v'+pm2.version]);
+    await parts.unroute(/\/api\/page\//);
     await parts.close();
   }
   await page.waitForFunction(()=>document.getElementById('diffCanvas').width===640);
@@ -323,6 +353,17 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
   await page.goto(publication.url+'#f=intro&a=source&b=encode&crops=1&crop=0.5,0.5');
   await loaded(page);await page.locator('#cropPanel').waitFor({state:'visible'});
   ok('crop URL uses actual image dimensions',await page.evaluate(()=>cropUV),{u:320,v:180});
+  {
+    // ops#250: lo que nace dentro del panel de recortes es del panel
+    const pb=await page.locator('#cropPanel').boundingBox();
+    const z0=await page.evaluate(()=>zoom);
+    await page.mouse.move(pb.x+pb.width*.25,pb.y+pb.height*.6);await page.mouse.wheel(0,300);await page.waitForTimeout(150);
+    await page.mouse.click(pb.x+pb.width*.25,pb.y+pb.height*.6);
+    await page.mouse.dblclick(pb.x+pb.width*.25,pb.y+pb.height*.6);
+    ok('wheel and clicks inside the crop panel leave the zoom and the crop point alone',await page.evaluate(()=>({zoom,cropUV})),{zoom:z0,cropUV:{u:320,v:180}});
+    await page.locator('#cropClose').click();
+    ok('the crop panel close button closes it with a click',await page.evaluate(()=>({shown:cropPanel.style.display,cropMode,cropUV})),{shown:'none',cropMode:false,cropUV:null});
+  }
   await page.evaluate(()=>{setCropMode(false);fitView();});
 
   for(const width of [320,390,820,1024,1440,1920]){
@@ -456,10 +497,18 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('crops panel lists the three variants without throwing',await pp.locator('#cropRows .cropRow').count(),3);
     await pp.keyboard.press('Escape');
     // el lado A tambien puede ser la parcial (p a la izquierda): ancho y medidas salen del otro lado
-    await pp.goto(upP.url+'#f=f1&a=p&b=a');   // el cambio de hash recarga la página sola
+    await pp.goto(upP.url+'#f=f1&a=p&b=a&crops=1&crop=0.5,0.5');   // el cambio de hash recarga la página sola
     await pp.waitForFunction(()=>varA==='p'&&frame==='f1'&&loadedUrlPaneB===imgB.src&&imgB.naturalWidth>0);
+    // ops#251: en parpadeo el aviso de la izquierda no tapa la imagen de la derecha
+    ok('blink with the left variant missing the frame: its notice alternates with the right image',await pp.evaluate(()=>{
+      const o=()=>[imgB.style.opacity,getComputedStyle(document.getElementById('missA')).opacity];
+      setBlink(true);clearInterval(blinkTimer);setBOpacity('1');const on=o();setBOpacity('0');const off=o();setBlink(false);
+      return {on,off,after:document.getElementById('missA').style.opacity};}),{on:['1','0'],off:['0','1'],after:''});
     ok('partial variant on the left at a missing frame: placeholder on the left, geometry from the right image',await pp.evaluate(()=>({
       a:!document.getElementById('missA').hidden,b:document.getElementById('missB').hidden,nat:naturalDims().nw,fits:rw>0&&rw<=document.getElementById('comp').clientWidth})),{a:true,b:true,nat:320,fits:true});
+    await pp.waitForTimeout(300);
+    ok('a crop link opens its panel when the left variant lacks the frame, and the link keeps the point',await pp.evaluate(()=>({shown:cropPanel.style.display,cropUV,hash:/crop=0\.5000%2C0\.5000/.test(location.hash)})),{shown:'block',cropUV:{u:160,v:90},hash:true});
+    await pp.keyboard.press('Escape');await pp.evaluate(()=>document.activeElement.blur());   // Esc devuelve el foco al botón Recortes: Espacio lo pulsaría
     await pp.keyboard.press('Space');await waitB();   // B pasa a la siguiente variante
     ok('space cycles the right variant while the left shows a placeholder',await pp.evaluate(()=>varB!=='a'&&!document.getElementById('missA').hidden));
     // URL: el estado se escribe y se restaura, con el aviso incluido
@@ -644,6 +693,10 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&loadedUrlPaneB===imgB.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
     ok('blind test: pictures come from random addresses that say nothing about the version', await tpg.evaluate(()=>[imgA.src,imgB.src].map(u=>new URL(u).pathname.replace(/^\/p\/[^/]+\//,''))).then(a=>a.map(u=>/^b\/[A-Za-z0-9_-]{16}$/.test(u)&&!vids.some(v=>u.includes(v)))), [true,true]);
     ok('blind test: the three choices sit at the exact middle of the page, Tie over the divider', await tpg.evaluate(()=>{const r=testTie.getBoundingClientRect(); return [Math.abs((r.left+r.right)/2-innerWidth/2)<=1, testLeft.getBoundingClientRect().right<r.left, testRight.getBoundingClientRect().left>r.right];}), [true,true,true]);
+    // precarga (gatos-ops#234): las imágenes de la comparación que sigue ya se pidieron antes de responder
+    await tpg.waitForFunction(()=>testRun.warm&&testRun.warm.length>=2&&testRun.warm.every(i=>i.complete),null,{timeout:10000}).catch(()=>{});
+    ok('blind test: the next comparison is preloaded from random addresses, without touching the test', await tpg.evaluate(()=>{const now=[imgA.src,imgB.src], w=testRun.warm.map(i=>i.src);
+      return [w.length>=2, w.every(u=>/\/b\/[A-Za-z0-9_-]+$/.test(new URL(u).pathname)), w.some(u=>!now.includes(u)), testRun.answers.length, testRun.games.length];}), [true,true,true,0,0]);
     // teclas que revelarían o cambiarían el par no hacen nada; Retroceso vuelve una
     const g0 = await tpg.evaluate(()=>[varA,varB,String(frame)]);
     for (const k of ['g','r','s','2','Space','c']) await tpg.keyboard.press(k);
@@ -677,8 +730,11 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     // el mismo navegador repite: se ve su resultado pero no se suma otra vez
     await tpg.evaluate(()=>testStart());
     await run(tpg,'worst'); await tpg.waitForSelector('#testNote');
-    await tpg.waitForFunction(()=>/no se sumó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    ok('blind test: a second test from the same browser is revealed but not added', [(await rows(tpg)).map(r=>r[0]), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], [['1º','2º','3º','4º'],1]);
+    await tpg.waitForFunction(()=>/reemplazó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    // repetir reemplaza (gatos-ops#252): sigue habiendo un resultado, y ahora el orden es el contrario
+    const tb2 = await (await fetch(BASE+'/api/vote/'+tp.token)).json();
+    const P2 = (await rows(tpg)).map(r=>r[1]);   // el orden de la repetición (otra numeración: no es el de antes al revés)
+    ok('blind test: a second test from the same browser replaces its earlier result', [(await rows(tpg)).map(r=>r[0]), tb2.ballots, tb2.standings.map(x=>x.places.reduce((a,b)=>a+b,0)), await tpg.evaluate(()=>!!localStorage.getItem('gatosSeal:'+testToken))], [['1º','2º','3º','4º'],1,[1,1,1,1],true]);
     // otra persona, en inglés, todo empates
     const ectx2 = await browser.newContext({locale:'en-US',viewport:{width:1280,height:800}});
     const epg = await ectx2.newPage(); epg.on('pageerror',e=>errors.push(e.message)); epg.on('dialog',d=>d.accept());
@@ -688,7 +744,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('blind test: all ties share first place (3 duels of 3 frames each)', [(await rows(epg)).map(r=>r[0]), askedTie], [['1º','1º','1º','1º'], 9]);
     await epg.locator('[data-test="all"]').click(); await epg.waitForSelector('#testBody h2:has-text("standings")');
     ok('blind test: two people add up, nothing untranslated', [(await rows(epg)).map(r=>r.slice(1,4).join(' | ')), await epg.evaluate(()=>[...I18N.miss])],
-      [[P[0]+' | 1.00 | 1º ×2',P[1]+' | 1.50 | 1º ×1 · 2º ×1',P[2]+' | 2.00 | 1º ×1 · 3º ×1',P[3]+' | 2.50 | 1º ×1 · 4º ×1'], []]);
+      [[P2[0]+' | 1.00 | 1º ×2',P2[1]+' | 1.50 | 1º ×1 · 2º ×1',P2[2]+' | 2.00 | 1º ×1 · 3º ×1',P2[3]+' | 2.50 | 1º ×1 · 4º ×1'], []]);   // cuenta la repetición de la primera persona, que reemplazó su resultado (#252)
     // salir a medias restaura la vista y no manda nada; «Ciego» después sortea su propio orden
     await epg.locator('[data-test="close"]').click();
     const before = await epg.evaluate(()=>[varA,varB,String(frame)]);
@@ -742,6 +798,24 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       ok('blind test resume: quitting on purpose forgets it', [mid, await kept(), await rpg.evaluate(()=>testPanel.style.display)], [true,false,'none']);
       await rctx.close();
     }
+    // retomar en una copia sin publicar (gatos-ops#264): el HTML exportado, abierto desde el disco
+    {
+      const lctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+      const lpg = await lctx.newPage(); lpg.on('pageerror',e=>errors.push(e.message)); lpg.on('dialog',d=>d.accept());
+      await lpg.goto('file://'+path.join(OUT,'comparison.html')); await loaded(lpg);
+      if (await lpg.evaluate(()=>!testBtn.hidden)){
+        await lpg.evaluate(()=>testStart()); await started(lpg); await lpg.keyboard.press('ArrowLeft');
+        const snapL = () => lpg.evaluate(()=>({cur:[testRun.cur.a,testRun.cur.b,String(testRun.cur.f)].join(), ans:testRun.answers.join(''), num:blindOrder.map(v=>v.id).join(), sid:testRun.sid||null}));
+        const l0 = await snapL();
+        await lpg.reload(); await loaded(lpg);
+        const offered = await lpg.evaluate(()=>[testPanel.style.display, /con 1 respuesta/.test(testBody.textContent)]);
+        await lpg.click('[data-test="resume"]'); await started(lpg);
+        ok('blind test resume, unpublished copy: offered after a reload, same numbering, answers and comparison', [offered, await snapL()], [['flex',true], l0]);
+        await lpg.keyboard.press('Escape');
+        ok('blind test resume, unpublished copy: quitting forgets it', await lpg.evaluate(()=>localStorage.getItem(testKey)), null);
+      } else ok('blind test resume, unpublished copy: fixture offers the test', false, true);
+      await lctx.close();
+    }
     // la página cambia de versiones a media prueba (gatos-ops#228): se dice claro, se muestra lo juzgado, no se suma
     {
       const tc = await mk(vids), mf = path.join(DATA,'pages',tc.token,'manifest.json');
@@ -755,6 +829,26 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       ok('blind test, page changed midway: own result shown, says it was not added, offers reload instead of retry', [await cpg.evaluate(()=>[testBody.querySelectorAll('.ttable tr').length, !!testBody.querySelector('[data-test="reload"]'), !!testBody.querySelector('[data-test="send"]'), !!testBody.querySelector('[data-test="start"]'), /cambió de versiones/.test(testNote.textContent)]),
         (await (await fetch(BASE+'/api/vote/'+tc.token)).json()).ballots], [[5,true,false,false,true],0]);
       await cctx.close();
+    }
+    // revisión (gatos-ops#239): el enlace directo no deja ver la comparación mientras se abre la sesión; una pestaña vieja no empieza
+    {
+      const tv = await mk(vids), mf = path.join(DATA,'pages',tv.token,'manifest.json');
+      const vctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+      const vpg = await vctx.newPage(); vpg.on('pageerror',e=>errors.push(e.message)); vpg.on('dialog',d=>d.accept());
+      await vpg.goto(tv.url+'#test=1&crop=0.5,0.5'); await loaded(vpg);
+      let letGo; const gate = new Promise(r=>letGo=r);
+      await vpg.route('**/api/blind/**', async r => { await gate; r.continue(); });
+      await vpg.click('[data-test="start"]');
+      ok('blind test: while the session opens the opaque panel stays up (direct link)', await vpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), /Preparando/.test(testBody.textContent), !!testRun]), ['flex',true,true,false]);
+      letGo(); await started(vpg);
+      ok('blind test: the crop panel is not open during the test', await vpg.evaluate(()=>[getComputedStyle(cropPanel).display, testPanel.style.display]), ['none','none']);
+      await vpg.keyboard.press('Escape'); await vpg.unroute('**/api/blind/**');
+      // la página pierde una versión; esta pestaña (cargada antes) no puede hacer la prueba nueva
+      const m = JSON.parse(fs.readFileSync(mf,'utf8')); m.variants.pop(); fs.writeFileSync(mf, JSON.stringify(m));
+      await vpg.waitForFunction(()=>!testRun);
+      await vpg.evaluate(()=>testStart()); await vpg.waitForSelector('#testBody [data-test="reload"]');
+      ok('blind test: a tab loaded before the page changed is told to reload instead of starting', await vpg.evaluate(()=>[!!testRun, /cambió desde que la abriste/.test(testBody.textContent), blindMode]), [false,true,false]);
+      await vctx.close();
     }
     // enlace directo (gatos-ops#223): abre en la introducción, sobre fondo opaco, y dice qué versiones se comparan
     {
@@ -818,6 +912,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     // reinicio desde la administración (gatos-ops#218): la tabla abre otra época y el navegador que ya había sumado suma una vez más
     const epoch = '2026-10-10T12:00:00.000Z';
     fs.writeFileSync(path.join(DATA,'pages',tp.token+'.votes.json'), JSON.stringify({fmt:2, since:epoch, ballots:0, v:{}, h2h:{}, epoch}));
+    await tctx.setExtraHTTPHeaders({'x-forwarded-for':'203.0.113.9'});   // repetir ahora cuenta (reemplaza) y gasta del tope por hora: otra dirección para esta parte
     await tpg.goto(tp.url); await loaded(tpg);
     const markBefore = await tpg.evaluate(()=>localStorage.getItem('gatosVoted:'+testToken));
     await tpg.evaluate(()=>testIntro());
@@ -826,13 +921,160 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await run(tpg); await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: after a reset the same browser counts once more, and its mark moves to the new epoch', [markBefore, await tpg.evaluate(()=>localStorage.getItem('gatosVoted:'+testToken)), (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots], ['1', epoch, 1]);
     await tpg.evaluate(()=>testStart()); await tpg.waitForFunction(()=>!!testRun);
-    await run(tpg); await tpg.waitForFunction(()=>/no se sumó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    ok('blind test: and only once in that epoch', (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots, 1);
-    // más de 5 versiones: no se ofrece
-    const six = await mk(['a','b','c','d','e','f']);
+    await run(tpg); await tpg.waitForFunction(()=>/reemplazó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: and only once in that epoch (a repeat replaces)', (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots, 1);
+    // más de 8 versiones: no se ofrece
+    const six = await mk(['a','b','c','d','e','f','g','h','i']);
     await tpg.goto(six.url); await loaded(tpg);
-    ok('blind test: not offered with more than 5 versions', await tpg.locator('#testBtn').isVisible(), false);
+    ok('blind test: not offered with more than 8 versions', await tpg.locator('#testBtn').isVisible(), false);
+    // de 6 a 8 versiones (gatos-ops#279): se ofrece, con un cuadro por duelo
+    const eight = await mk(['a','b','c','d','e','f','g','h']);
+    await tpg.goto(eight.url); await loaded(tpg);
+    const off8 = await tpg.locator('#testBtn').isVisible();
+    await tpg.evaluate(()=>testStart()); await started(tpg);
+    const max8 = await tpg.evaluate(()=>[testRun.max, testFrames(8), testFrames(6), testFrames(5)]);
+    const asked8 = await run(tpg); await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: offered with 8 versions, one frame per duel, at most 17 comparisons, all 8 ranked and counted', [off8, max8, asked8<=17&&asked8>=7, (await rows(tpg)).length, (await (await fetch(BASE+'/api/vote/'+eight.token)).json()).ballots], [true,[17,1,1,3],true,8,1]);
     await tctx.close(); await ectx2.close(); await mctx.close();
+  }
+  {
+    // ops#251: estados del visor
+    const sctx=await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+    const sp=await sctx.newPage();const serrs=[];sp.on('pageerror',e=>serrs.push(e.message));
+    await sp.goto(publication.url);await loaded(sp);
+    const odd=await sp.evaluate(async base=>{
+      const frames=['constructor','__proto__','toString','f1'],images={};
+      for(const id of ['a','b']) for(const f of frames){const c=document.createElement('canvas');c.width=64;c.height=36;const x=c.getContext('2d');x.fillStyle=id==='a'?'#246':'#642';x.fillRect(0,0,64,36);images[id+'_'+f]=c.toDataURL('image/png');}
+      const r=await fetch(base+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},
+        body:JSON.stringify({format:'gatos.pics/cmp@1',manifest:{title:'ids raros',version:1,frames,frame_labels:{f1:'Uno'},variants:[{id:'a',name:'A',color:'#7bd389'},{id:'b',name:'B',color:'#ffb454',metrics:{ssimulacra2:80,per_frame:{f1:{ssimulacra2:81}}}}]},images})});
+      return r.json();},BASE);
+    await sp.goto(odd.url);await loaded(sp);
+    ok('frame ids like constructor and __proto__ show their own id, not an inherited value',await sp.locator('#frames button').allTextContents(),['constructor','__proto__','toString','Uno']);
+    await sp.keyboard.press('ArrowRight');await sp.waitForFunction(()=>frame==='__proto__'&&loadedUrlA===imgA.src);
+    ok('the footer and the stats stay clean on a frame called __proto__',await sp.evaluate(()=>({meta:metaLine.textContent.startsWith('Frame __proto__ (#__proto__)'),stats:statsB.textContent,w:imgA.naturalWidth})),{meta:true,stats:'S2 media 80.0',w:64});
+    await sp.keyboard.press('b');
+    ok('the Spanish footer names blink mode in Spanish',await sp.locator('#metaLine').textContent().then(t=>[t.includes('PARPADEO'),t.includes('BLINK')]),[true,false]);
+    await sp.keyboard.press('b');
+    // un enlace con smooth=0 vale para esa visita y no cambia la preferencia guardada
+    const before=await sp.evaluate(()=>localStorage.getItem('gatosSmooth'));
+    const lp=await sctx.newPage();await lp.goto(odd.url+'#f=f1&a=a&b=b&smooth=0');await loaded(lp);await lp.waitForTimeout(300);
+    ok('a link with smooth=0 applies to that visit without overwriting the saved preference',[before,await lp.evaluate(()=>[smoothScale,localStorage.getItem('gatosSmooth'),location.hash.includes('smooth=0')])],['1',[false,'1',true]]);
+    await lp.keyboard.press('n');
+    ok('toggling Nítido by hand is still remembered',await lp.evaluate(()=>[smoothScale,localStorage.getItem('gatosSmooth')]),[true,'1']);
+    await lp.keyboard.press('n');
+    ok('and so is turning it on',await lp.evaluate(()=>localStorage.getItem('gatosSmooth')),'0');
+    await lp.keyboard.press('n');await lp.close();
+    // la imagen derecha falla: la insignia no se queda en «cargando…»
+    await sp.route('**/img/b_toString*',r=>r.abort());
+    await sp.keyboard.press('ArrowRight');await sp.waitForFunction(()=>frame==='toString'&&loadFailB);
+    ok('zoom badge reports a failed right image instead of loading forever',await sp.locator('#zoomBadge').textContent(),'la imagen no cargó');
+    await sp.keyboard.press('ArrowRight');await sp.waitForFunction(()=>frame==='f1'&&loadedUrlPaneB===imgB.src&&!loadFailB);
+    ok('and recovers on the next frame',await sp.locator('#zoomBadge').textContent(),'ajustar');
+    ok('viewer states: no uncaught browser errors',serrs,[]);
+    await sctx.close();
+    // ops#253: el enlace con zoom muestra la misma zona en otra pantalla
+    const view=()=>({s:fitScale*zoom*devicePixelRatio,u:(comp.clientWidth/2-ox-pan.x)/zoom/fitScale,v:(comp.clientHeight/2-oy-pan.y)/zoom/fitScale,zoom,px:pan.x,py:pan.y,hash:location.hash,allX:rw*zoom<=comp.clientWidth,allY:rh*zoom<=comp.clientHeight});
+    const settle=p=>p.waitForFunction(()=>!pendingView&&loadedUrlA===imgA.src&&imgA.naturalWidth>0).then(()=>p.waitForTimeout(300));
+    const zctx=await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800}});
+    const zp=await zctx.newPage();const zerrs=[];zp.on('pageerror',e=>zerrs.push(e.message));
+    await zp.goto(publication.url+'#f=intro&a=source&b=encode');await loaded(zp);
+    const zb=await zp.locator('#comp').boundingBox();
+    await zp.mouse.move(zb.x+zb.width*.55,zb.y+zb.height*.5);
+    for(let i=0;i<5;i++) await zp.mouse.wheel(0,-100);
+    await zp.waitForTimeout(300);
+    const v0=await zp.evaluate(view);
+    ok('a zoomed link carries scale and centre, not window pixels',[/[#&]s=/.test(v0.hash)&&/&cx=/.test(v0.hash)&&/&cy=/.test(v0.hash),/[#&](z|x|y)=/.test(v0.hash)],[true,false]);
+    await zp.reload();await settle(zp);
+    const v1=await zp.evaluate(view);
+    ok('the zoomed link restores the same view on the same screen',[Math.abs(v1.zoom-v0.zoom)<1e-3,Math.abs(v1.px-v0.px)<1,Math.abs(v1.py-v0.py)<1],[true,true,true]);
+    for(const [name,opts] of [['phone 390x780 @3x',{viewport:{width:390,height:780},deviceScaleFactor:3,isMobile:true,hasTouch:true}],['desktop 1920x1080',{viewport:{width:1920,height:1080}}]]){
+      const octx=await browser.newContext({locale:'es-MX',...opts});const op=await octx.newPage();op.on('pageerror',e=>zerrs.push(e.message));
+      await op.goto(publication.url+v0.hash);await settle(op);
+      const v=await op.evaluate(view);
+      // mismo centro en cada eje, salvo que en esa pantalla el eje entre entero (ahí se ve todo)
+      ok('the zoomed link shows the same region at the same scale on a '+name,[v.allX||Math.abs(v.u-v0.u)<1.5,v.allY||Math.abs(v.v-v0.v)<1.5,Math.abs(v.s/v0.s-1)<0.005,v.allX&&v.allY],[true,true,true,false]);
+      await octx.close();
+    }
+    // los enlaces anteriores (z, x, y) se siguen leyendo igual, y al reescribirse pasan al formato nuevo
+    const old=await zctx.newPage();old.on('pageerror',e=>zerrs.push(e.message));
+    await old.goto(publication.url+'#f=intro&a=source&b=encode&z=2.000&x=-300&y=-150');await loaded(old);await old.waitForTimeout(400);
+    ok('links written before (z, x, y) still open as before',await old.evaluate(()=>({zoom,pan,rewritten:/[#&]s=/.test(location.hash)&&!/[#&]z=/.test(location.hash)})),{zoom:2,pan:{x:-300,y:-150},rewritten:true});
+    // 1:1 viaja como 100 % y la vista ajustada no lleva zoom
+    await old.keyboard.press('o');await old.waitForTimeout(300);
+    const one=await old.evaluate(()=>location.hash);
+    await old.keyboard.press('f');await old.waitForTimeout(300);
+    ok('1:1 travels as scale 1, and the fitted view carries no zoom',[/[#&]s=1\.00000/.test(one),await old.evaluate(()=>/[#&](s|cx|cy|z)=/.test(location.hash))],[true,false]);
+    ok('zoom links: no uncaught browser errors',zerrs,[]);
+    await zctx.close();
+    // ops#255: publicar
+    const bctx=await browser.newContext({locale:'es-MX',viewport:{width:1280,height:900}});
+    const bp=await bctx.newPage();const berrs=[];bp.on('pageerror',e=>berrs.push(e.message));
+    const said=[];bp.on('dialog',d=>{ if(d.type()==='beforeunload'){d.accept();return;} said.push(d.type()); d.accept(d.type()==='prompt'?d.defaultValue():undefined); });
+    await bp.goto(BASE+'/crear/');await bp.locator('#obStart').click();
+    await bp.evaluate(()=>localStorage.setItem('gatosApiKey','test-key-123'));   // sin el tope del tier sin llave
+    const pics=await bp.evaluate(()=>{const mk=(hue,type)=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,640,360);g.addColorStop(0,`hsl(${hue} 60% 30%)`);g.addColorStop(1,`hsl(${hue+60} 60% 60%)`);x.fillStyle=g;x.fillRect(0,0,640,360);return c.toDataURL(type,.9).split(',')[1];};
+      return {jpg:[mk(10,'image/jpeg'),mk(200,'image/jpeg')],v1:[0,40,80].map(h=>mk(h,'image/png')),v2:[180,220,260].map(h=>mk(h,'image/png'))};});
+    const buf=s=>Buffer.from(s,'base64');
+    // el aviso de imágenes con pérdida se queda mientras esas imágenes sigan en el proyecto
+    await bp.locator('#basicFile').setInputFiles([{name:'fuente_1.jpg',mimeType:'image/jpeg',buffer:buf(pics.jpg[0])},{name:'enc_1.jpg',mimeType:'image/jpeg',buffer:buf(pics.jpg[1])}]);
+    await bp.waitForTimeout(900);
+    const lossy=()=>bp.locator('#basicFoot .warn').allTextContents().then(w=>w.filter(t=>t.includes('con pérdida')).map(t=>t.trim().slice(0,24)));
+    const l1=await lossy();
+    await bp.locator('.vname input').first().fill('Ref');await bp.locator('.vname input').first().blur();await bp.waitForTimeout(200);
+    const l2=await lossy();
+    await bp.locator('#pairList .pair:not(.pairhead) .tools button[title="quitar par"]').click();await bp.waitForTimeout(200);
+    ok('the lossy-image warning stays through repaints and leaves with its images',[l1,l2,await lossy()],[['⚠ 2 imágenes con pérdida'],['⚠ 2 imágenes con pérdida'],[]]);
+    // la vista previa no guarda ni lee el estado de la vista
+    const three=(set)=>['fuente','enc','web'].flatMap((n,vi)=>[1,2].map(f=>({name:`${n}_${f}.png`,mimeType:'image/png',buffer:buf(set[vi])})));
+    await bp.locator('#basicFile').setInputFiles(three(pics.v1));await bp.waitForTimeout(400);
+    await bp.evaluate(()=>localStorage.setItem('gatosState:srcdoc',JSON.stringify({f:2,a:'c',b:'a',d:0.85,g:1,h:false})));   // lo que dejaba una vista previa anterior
+    const inner=()=>bp.frames().find(f=>f!==bp.mainFrame()&&f.url()==='about:srcdoc');
+    const openPreview=async()=>{await bp.locator('#btnPreviewTop').click();await bp.waitForFunction(()=>{const d=document.getElementById('pvBox').contentDocument;const i=d&&d.getElementById('imgA');return i&&i.complete&&i.naturalWidth>0;});};
+    await openPreview();
+    const st=()=>inner().evaluate(()=>({f:String(frame),a:varA,b:varB,d:dividerPos}));
+    const first=await st();
+    await inner().evaluate(()=>{dividerPos=0.2;frame=FRAMES[1];varA='b';varB='c';loadImg();applyTransform();});
+    await bp.waitForTimeout(400);
+    const stored=await bp.evaluate(()=>localStorage.getItem('gatosState:srcdoc'));
+    await bp.locator('#pvClose').click();await openPreview();
+    ok('the preview neither reads nor saves the view state',[first,JSON.parse(stored).d,await st()],[{f:'1',a:'a',b:'b',d:0.5},0.85,{f:'1',a:'a',b:'b',d:0.5}]);
+    await bp.locator('#pvClose').click();
+    // actualizar rehace también la imagen para compartir
+    await bp.locator('#btnPublish').click();
+    await bp.waitForFunction(()=>/lista|No se pudo/.test(document.getElementById('pubShare').textContent),null,{timeout:60000});
+    const purl=await bp.locator('#pubUrl').inputValue(), ptok=purl.match(/\/p\/([^/]+)/)[1];
+    const shotOf=()=>bp.evaluate(async t=>{const r=await fetch('/s/'+t+'.png?'+Date.now(),{cache:'no-store'});const b=new Uint8Array(await r.arrayBuffer());let h=0;for(const x of b)h=(h*31+x)>>>0;return r.status+':'+b.length+':'+h;},ptok);
+    const shot1=await shotOf();
+    await bp.locator('#pubClose').click();
+    await bp.evaluate(()=>{state.pairs=[];state.basicNames=['A','B'];renderPairs();});
+    await bp.locator('#basicFile').setInputFiles(three(pics.v2));await bp.waitForTimeout(400);
+    await bp.locator('#btnUpdate').click();
+    await bp.waitForFunction(()=>/también se actualizó|No se pudo actualizar la imagen/.test(document.getElementById('publishStatus').textContent),null,{timeout:60000});
+    const shot2=await shotOf();
+    ok('updating a page also redoes its share image',[await bp.locator('#publishStatus').textContent().then(t=>t.startsWith('Página actualizada.')&&t.endsWith('La imagen para compartir también se actualizó.')),shot1.startsWith('200:'),shot2.startsWith('200:'),shot1!==shot2],[true,true,true,true]);
+    ok('the hidden viewer is removed after the update share image',await bp.locator('iframe[aria-hidden="true"]').count(),0);
+    await bctx.close();
+    // envío por partes: si una parte posterior falla, el enlace y la llave de la página a medias quedan a la vista
+    const mctx2=await browser.newContext({locale:'es-MX',viewport:{width:1280,height:900}});
+    const mp=await mctx2.newPage();mp.on('pageerror',e=>berrs.push(e.message));
+    mp.on('dialog',d=>{ if(d.type()==='beforeunload'){d.accept();return;} d.accept(d.type()==='prompt'?d.defaultValue():undefined); });
+    await mp.addInitScript(()=>{window.GATOS_PART_MB=0.000001;});
+    await mp.goto(BASE+'/crear/');await mp.locator('#obStart').click();
+    await mp.evaluate(()=>localStorage.setItem('gatosApiKey','test-key-123'));   // sin el tope del tier sin llave
+    await mp.locator('#basicFile').setInputFiles(['a','b'].flatMap((v,vi)=>[1,2,3].map(f=>({name:`${v}_${f}.png`,mimeType:'image/png',buffer:buf(pics.v1[vi])}))));await mp.waitForTimeout(400);
+    await mp.route('**/api/page/**',r=>r.request().method()==='PATCH'?r.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'rechazado de prueba'})}):r.continue());
+    await mp.locator('#btnPublish').click();
+    await mp.waitForFunction(()=>document.getElementById('publishStatus').textContent.includes('rechazado de prueba'),null,{timeout:40000});
+    const half=await mp.evaluate(()=>{const n=document.getElementById('publishPartial'),t=n.textContent,tok=n.dataset.token,key=sessionStorage.getItem('gatosOwner:'+tok);
+      return {shown:!n.hidden,url:t.includes('/p/'+tok),key:!!key&&key.length>=20&&t.includes(key),incomplete:t.includes('incompleta'),receipt:document.getElementById('pubFrame').style.display==='flex',tok};});
+    const halfFrames=(await (await mp.request.get(BASE+'/p/'+half.tok+'/manifest.json')).json()).frames.length;
+    ok('multi-part: when a later part is refused, the half-published page keeps its link and key on screen',[{...half,tok:''},halfFrames],[{shown:true,url:true,key:true,incomplete:true,receipt:false,tok:''},1]);
+    await mp.unroute('**/api/page/**');
+    await mp.locator('#btnUpdate').click();
+    await mp.waitForFunction(()=>/también se actualizó|No se pudo actualizar la imagen/.test(document.getElementById('publishStatus').textContent),null,{timeout:60000});
+    ok('multi-part: the half-published page is completed with Update page, same link, and the notice goes away',[(await (await mp.request.get(BASE+'/p/'+half.tok+'/manifest.json')).json()).frames.length,await mp.locator('#publishPartial').isVisible()],[3,false]);
+    ok('publish flows: no uncaught browser errors',berrs,[]);
+    await mctx2.close();
   }
   ok('no uncaught browser errors',errors,[]);
   fs.writeFileSync(path.join(OUT,'results.json'),JSON.stringify({checks,errors},null,2));

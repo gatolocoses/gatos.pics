@@ -21,6 +21,14 @@ const fmtT = t => {
 
 function addVideos(files){
   const vids = files.filter(f => f.type.startsWith('video/') || /\.(mp4|webm|mov|mkv|m4v)$/i.test(f.name));
+  // con un proyecto Avanzado abierto, el primer video avisa antes de mezclarse con él (ops#254)
+  if (vids.length && !vidState.files.length){
+    const fromVideo = new Set(vidVariantOf.values());
+    let n = 0;
+    for (const k of state.cells.keys()) if (!fromVideo.has(k.split('|')[0])) n++;
+    if (n && !confirm(n === 1 ? T('El proyecto abierto en Avanzado ya tiene 1 imagen. Los videos se agregan como versiones nuevas junto a las que hay, sin borrar nada. ¿Continuar?')
+      : T`El proyecto abierto en Avanzado ya tiene ${n} imágenes. Los videos se agregan como versiones nuevas junto a las que hay, sin borrar nada. ¿Continuar?`)) return;
+  }
   vidState.files.push(...vids);
   renderVidList();
   syncVideoToAdvanced();
@@ -99,20 +107,37 @@ function renderVidMarks(){
 }
 
 /* el modo video siembra el estado avanzado: variantes = archivos, frames = marcas */
+/* Cada video es dueño de SU variante (ops#254). Antes iban por posición (v1,
+   v2…): quitar o mover un archivo dejaba un nombre apuntando a otro video, y
+   agregar el primero reemplazaba las variantes de un proyecto Avanzado abierto
+   y borraba sus imágenes. Ahora esta función solo crea, ordena y quita las
+   variantes que nacieron de un video; las demás no se tocan, salvo las filas
+   iniciales que nadie usó. */
+const vidVariantOf = new Map();   // File -> id de la variante que creó ese video
+// Abrir un .cmp reemplaza el proyecto entero, también los videos listados (gatos-ops#293): si
+// quedaban, el siguiente cambio en la pestaña Video le sumaba sus versiones al proyecto importado.
+function resetVideos(){
+  const n = vidState.files.length;
+  for (const [f, u] of vidURLs){ if (vidPlayer.src === u){ vidPlayer.removeAttribute('src'); vidPlayer.load(); } URL.revokeObjectURL(u); }
+  vidURLs.clear(); vidVariantOf.clear(); vidState.files.length = 0;
+  renderVidList();
+  return n;
+}
+const vidAutoName = (f, i) => i === 0 ? T('Máster') : f.name.replace(/\.[^.]+$/, '').slice(0, 24);
 function syncVideoToAdvanced(){
-  if (!vidState.files.length) return;
-  const old = new Map(state.variants.map(v => [v.id, v]));
-  state.variants = vidState.files.map((f, i) => {
-    const id = 'v'+(i+1);
-    const o = old.get(id);
-    // fusión por id: si la variante ya existe se conserva entera (nombres,
-    // notas, colores), no solo los campos técnicos
-    return o || {id, name: i === 0 ? T('Máster') : f.name.replace(/\.[^.]+$/, '').slice(0, 24), codec:'', crf:'', bitrate:'', note:'', cmd:'', metric:'', color:PALETTE[i % PALETTE.length]};
+  if (!vidState.files.length && !vidVariantOf.size) return;
+  // un video quitado se lleva su variante y sus capturas
+  for (const [f, id] of [...vidVariantOf]) if (!vidState.files.includes(f)){ vidVariantOf.delete(f); removeVariant(id); }
+  const byId = new Map(state.variants.map(v => [v.id, v]));
+  const fromVideo = vidState.files.map((f, i) => {
+    let v = byId.get(vidVariantOf.get(f));
+    if (!v){ v = defVariant(); v.color = PALETTE[i % PALETTE.length]; vidVariantOf.set(f, v.id); v.auto = v.name; }
+    // el nombre automático sigue al archivo y a su lugar (el primero es el máster); uno escrito a mano se respeta
+    if (v.name === v.auto) v.name = v.auto = vidAutoName(f, i);
+    return v;
   });
-  // las variantes que desaparecen llevan sus celdas: sin esto quedan huérfanas
-  const live = new Set(state.variants.map(v => v.id));
-  for (const k of [...state.cells.keys()]) if (!live.has(k.split('|')[0])) state.cells.delete(k);
-  while (state.variants.some(v => v.id === 'v'+nextVar)) nextVar++;   // monótono: nunca reutilizar un id
+  const mine = new Set(fromVideo.map(v => v.id));
+  state.variants = [...fromVideo, ...state.variants.filter(v => !mine.has(v.id) && !untouchedSeedVariant(v))];
   renderVariants();
 }
 
@@ -169,7 +194,7 @@ $('vidGo').addEventListener('click', async () => {
   if (!vidState.marks.length){ $('vidProg').textContent = T('primero marca al menos un momento'); return; }
   const fmt = 'png';   // evidencia sin pérdida, siempre
   syncVideoToAdvanced();
-  const files = [...vidState.files], variants = [...state.variants];
+  const files = [...vidState.files], variants = files.map(f => state.variants.find(v => v.id === vidVariantOf.get(f)));
   const marks = [...new Set(vidState.marks)].map(t => ({t,key:'t'+String(t).replace('.','_')}));
   // Drop only the unused starter frame, keep existing captures and manual rows.
   if (state.frames.length===1 && state.frames[0].key==='1' && !state.frames[0].label && !state.cells.size) state.frames=[];

@@ -221,6 +221,12 @@ I18N.add({
   'Salir de la prueba': 'Leave the test',
   'Variante {}': 'Variant {}',
   'Recargar la página': 'Reload the page',
+  'Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.': 'You already sent a result for this page from this browser: if you finish this test, the new one replaces the earlier one.',
+  'Tu resultado reemplazó en la tabla de todos al que habías enviado antes desde este navegador.': 'Your result replaced, in everyone\'s standings, the one you had sent before from this browser.',
+  'Preparando la prueba…': 'Preparing the test…',
+  'Esta página cambió desde que la abriste. Recárgala para hacer la prueba con las versiones de ahora.': 'This page changed since you opened it. Reload it to take the test with the current versions.',
+  'la página cambió desde que la abriste': 'the page changed since you opened it',
+  'Llegaron demasiados resultados desde tu conexión en la última hora: este no se sumó.': 'Too many results came from your connection in the last hour: this one was not added.',
   'La página cambió de versiones mientras hacías la prueba: este resultado no se sumó. Recarga la página para hacer la prueba con las versiones de ahora.': 'The page\'s versions changed while you were taking the test: this result was not added. Reload the page to take the test with the current versions.',
   'Vas a ordenar las {} versiones de mejor a peor sin saber cuál es cuál. En cada comparación solo ves «izquierda» y «derecha»: nada dice qué versión es ni si ya la viste antes.': 'You will rank the {} versions from best to worst without knowing which is which. Each comparison only shows "left" and "right": nothing says which version it is or whether you have seen it before.',
   'En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.': 'In each one you pick the one that looks better, or a tie. You can use zoom, diff and blink.',
@@ -304,6 +310,7 @@ I18N.add({
   'Frame {} · izquierda: {} · derecha: {} · CIEGO{}': 'Frame {} · left: {} · right: {} · BLIND{}',
   'Inicio del clip {} · ': 'Clip start {} · ',
   'CIEGO': 'BLIND',
+  'PARPADEO': 'BLINK',
   '{}Frame {} (#{}{}) · izq. {} · der. {}{}{}': '{}Frame {} (#{}{}) · left {} · right {}{}{}',
   'en ámbar lo que difiere de <b>{}</b>': 'in amber, what differs from <b>{}</b>',
   'comando': 'command',
@@ -358,7 +365,7 @@ function makeHttpSource(){
       return m;
     },
     srcFor(id, f){
-      const ext = variant(id).image_exts?.[f] || variant(id).ext || 'webp';
+      const ext = own(variant(id).image_exts, String(f)) || variant(id).ext || 'webp';
       return `img/${id}_${f}.${ext}${VERSION ? '?v='+VERSION : ''}`;
     }
   };
@@ -443,6 +450,9 @@ let missA = false, missB = false;
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+// lectura por clave PROPIA: un cuadro puede llamarse constructor, toString o
+// __proto__ (ids válidos) y un objeto corriente los responde con lo heredado (ops#251)
+const own = (o, k) => o != null && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined;
 function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }
 function variantName(id){
   const v = variant(id);
@@ -541,7 +551,7 @@ function clampPan(){
   if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
 }
 function updateBadge(){
-  if (loadFailA){ zoomBadge.textContent = T('la imagen no cargó'); return; }
+  if (loadFailA || loadFailB){ zoomBadge.textContent = T('la imagen no cargó'); return; }
   if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = T('cargando…'); return; }
   zoomBadge.textContent = zoom === 1 ? T('ajustar') : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
@@ -584,7 +594,12 @@ function oneToOne(){
 }
 function fitView(){ zoom = 1; pan = {x:0, y:0}; applyTransform(); writeHash(); }
 
+// El panel de recortes vive dentro de #comp: lo que nace en él (clic en
+// «cerrar», rueda sobre la lista) es suyo. Sin esto la captura del puntero se
+// llevaba el clic del botón y la rueda hacía zoom en vez de desplazar (ops#250).
+const inCropPanel = e => !!(e.target && e.target.closest && e.target.closest('#cropPanel'));
 comp.addEventListener('wheel', e => {
+  if (inCropPanel(e)) return;
   e.preventDefault();
   setZoomAt(e.clientX, e.clientY, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15));
 }, {passive:false});
@@ -592,6 +607,7 @@ comp.addEventListener('wheel', e => {
 /* ---------- pointer input: mouse + touch unified, pinch zoom ---------- */
 const pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
 comp.addEventListener('pointerdown', e => {
+  if (inCropPanel(e)) return;
   comp.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pointers.size === 2){
@@ -649,7 +665,7 @@ function pointerEnd(e){
 }
 comp.addEventListener('pointerup', pointerEnd);
 comp.addEventListener('pointercancel', pointerEnd);
-comp.addEventListener('dblclick', fitView);
+comp.addEventListener('dblclick', e => { if (!inCropPanel(e)) fitView(); });
 window.addEventListener('resize', () => { computeFit(); clampPan(); applyTransform(); syncVariantOverflow(); });
 new ResizeObserver(() => { computeFit(); clampPan(); applyTransform(); }).observe(comp);
 
@@ -776,15 +792,20 @@ function setHeat(on){
   if (diffMode) renderDiff();
   writeHash();
 }
+// el punto de recorte que trae el enlace espera a conocer las medidas: las da
+// la izquierda, o la derecha cuando la izquierda no tiene este cuadro (ops#250)
+function applyPendingCrop(){
+  if (!pendingCropFraction) return;
+  const {nw, nh} = naturalDims();
+  cropUV = {u:Math.round(pendingCropFraction[0]*nw), v:Math.round(pendingCropFraction[1]*nh)};
+  pendingCropFraction = null; openCropPanel();
+}
 imgA.addEventListener('load', () => {
   loadedUrlA = imgA.src; loadFailA = false;
   imgA.style.visibility = missA ? 'hidden' : ''; if (!missA) shownA = varA;
   computeFit();
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
-  if (pendingCropFraction){
-    cropUV = {u:Math.round(pendingCropFraction[0]*imgA.naturalWidth),v:Math.round(pendingCropFraction[1]*imgA.naturalHeight)};
-    pendingCropFraction = null; openCropPanel();
-  }
+  applyPendingCrop();
   applyTransform(); renderDiff(); updateBadge();
 });
 imgA.addEventListener('error', () => {
@@ -796,12 +817,14 @@ imgA.addEventListener('error', () => {
 /* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
 let smoothScale = true;
 try { smoothScale = localStorage.getItem('gatosSmooth') !== '0'; } catch(e){}
-function setSmooth(on){
+// keep=false: el ajuste vale para esta visita (lo trae un enlace) y no pisa la
+// preferencia guardada de quien lo abre (ops#251)
+function setSmooth(on, keep = true){
   smoothScale = on;
   for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';
   pixBtn.classList.toggle('active', !on);
   pixBtn.setAttribute('aria-pressed', String(!on));
-  try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
+  if (keep) try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
   if (FRAMES.length) writeHash();
 }
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
@@ -810,6 +833,7 @@ imgB.addEventListener('load', () => {
   loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = missB ? 'hidden' : ''; if (!missB) shownB = varB;
   if (!diffMode) diffNote.style.display = 'none';
   if (missA && !imgA.naturalWidth){ computeFit(); clampPan(); applyTransform(); }   // A sin cuadro: B da la medida
+  if (missA) applyPendingCrop();
   updateBadge();
 });
 realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; if (!missB) shownB = varB; renderDiff(); });
@@ -818,7 +842,7 @@ realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false
 function onBError(){
   if (missB) return;
   loadFailB = true; imgB.style.visibility = 'hidden';
-  paintSide('B');
+  paintSide('B'); updateBadge();
   if (diffMode) renderDiff();
   else { diffNote.style.display = 'block'; diffNote.textContent = T('la imagen derecha no cargó'); }
 }
@@ -831,7 +855,9 @@ $('heatBtn').addEventListener('click', () => setHeat(!heat));
 /* ---------- blink mode ---------- */
 let blinkTimer = null;
 // el aviso de B parpadea con su imagen: si B no tiene el cuadro, A y el aviso se alternan
-const setBOpacity = v => { imgB.style.opacity = v; $('missB').style.opacity = v; };
+// y el aviso de A, que ocupa todo el ancho en parpadeo y queda por encima de la
+// imagen de B, se alterna al revés: si no, B no se veía nunca (ops#251)
+const setBOpacity = v => { imgB.style.opacity = v; $('missB').style.opacity = v; $('missA').style.opacity = v === '' ? '' : (v === '0' ? '1' : '0'); };
 function setBlink(on, quiet){
   blinkMode = on;
   if (on) setDiff(false);
@@ -987,6 +1013,7 @@ function drawCropRow(id, canvas){
   ctx.drawImage(im, sx, sy, sw, sh, Math.floor((canvas.width-sw)/2), Math.floor((canvas.height-sh)/2), sw, sh);
 }
 function openCropPanel(){
+  if (blindSides) return;   // en la prueba ciega no hay recortes: numeran las versiones (gatos-ops#239)
   const wasHidden = cropPanel.style.display !== 'block';
   cropPanel.style.display = 'block';
   cropHint.style.display = 'none';
@@ -1044,7 +1071,16 @@ function stateParams(){
     if (!blindMode && varA) p.set('a', varA);
     if (!blindMode && varB) p.set('b', varB);
     if (dividerPos !== 0.5) p.set('d', dividerPos.toFixed(3));
-    if (zoom !== 1){ p.set('z', zoom.toFixed(3)); p.set('x', Math.round(pan.x)); p.set('y', Math.round(pan.y)); }
+    // vista con zoom, portable entre pantallas (ops#253): escala absoluta (px de
+    // pantalla por px de imagen, lo que dice la insignia) y el punto de la imagen
+    // que queda al centro, en fracciones. Antes iban z relativo al ajuste y x/y
+    // en px de la ventana, que en otra pantalla mostraban otra región.
+    if (pendingView){ p.set('s', pendingView.s.toFixed(5)); p.set('cx', pendingView.cx.toFixed(5)); p.set('cy', pendingView.cy.toFixed(5)); }
+    else if (zoom !== 1 && rw > 0 && rh > 0){
+      p.set('s', (fitScale*zoom*dpr()).toFixed(5));
+      p.set('cx', clamp((comp.clientWidth/2-ox-pan.x)/zoom/rw, 0, 1).toFixed(5));
+      p.set('cy', clamp((comp.clientHeight/2-oy-pan.y)/zoom/rh, 0, 1).toFixed(5));
+    }
     if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }
     if (blinkMode) p.set('blink', 1);
     if (solarMode) p.set('solar', 1);
@@ -1053,16 +1089,47 @@ function stateParams(){
     if (cropUV){
       const {nw, nh} = naturalDims();
       p.set('crop', (cropUV.u/nw).toFixed(4)+','+(cropUV.v/nh).toFixed(4));
+    } else if (pendingCropFraction){   // aún sin medidas: el enlace no pierde su punto
+      p.set('crop', pendingCropFraction[0].toFixed(4)+','+pendingCropFraction[1].toFixed(4));
     }
     return p;
 }
+// La vista de un enlace (s, cx, cy) espera a las medidas reales de la imagen:
+// antes de cargar, el ajuste se calcula con 1920×1080 supuestos. Solo decide
+// zoom y pan con las mismas reglas de siempre (zmin/zmax, clampPan); la
+// geometría de ajuste y el PNG no cambian.
+let pendingView = null;
+function applyPendingView(){
+  if (!pendingView) return;
+  const {s, cx, cy} = pendingView;
+  pendingView = null;
+  computeFit();
+  zoom = clamp(s/(fitScale*dpr()), zmin(), zmax());
+  if (Math.abs(zoom-1) < 1e-4) zoom = 1;
+  if (zoom === 1) pan = {x:0, y:0};
+  else {
+    pan.x = comp.clientWidth/2 - ox - cx*rw*zoom;
+    pan.y = comp.clientHeight/2 - oy - cy*rh*zoom;
+    clampPan();
+  }
+  applyTransform(); writeHash();
+}
+// después de los manejadores de 20-modes.js, que ya midieron el ajuste
+imgA.addEventListener('load', applyPendingView);
+imgB.addEventListener('load', () => { if (missA) applyPendingView(); });   // izquierda sin cuadro: mide la derecha
 const stateStorageKey = 'gatosState:' + location.pathname;
+// La vista previa del creador y el visor oculto que dibuja la imagen para
+// compartir son about:srcdoc: comparten el localStorage del creador y su ruta
+// es siempre "srcdoc", así que el estado de una vista previa aparecía en la
+// siguiente y en la imagen publicada (la misma versión en los dos lados). Ahí
+// el estado de la vista no se guarda ni se lee (ops#255).
+const stateKept = location.href !== 'about:srcdoc';
 function writeHash(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(() => {
     try { history.replaceState(null, '', '#'+stateParams()); } catch(e){}
     try {
-      if (blindMode) return; // Never persist the anonymous-to-real assignment.
+      if (blindMode || !stateKept) return; // Never persist the anonymous-to-real assignment.
       localStorage.setItem(stateStorageKey, JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));
     } catch(e){}
   }, 150);
@@ -1072,7 +1139,7 @@ function readState(){
   const h = new URLSearchParams(location.hash.slice(1));
   // .size llego en Safari 17.4: en navegadores viejos es undefined y el estado
   // local siempre ganaba; la vacuidad se mide sin depender de esa propiedad
-  if (h.toString() === '') try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
+  if (stateKept && h.toString() === '') try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
   const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };
   const findFrame = value => value == null ? undefined : FRAMES.find(f => String(f) === String(value));
   frame = findFrame(h.get('f')) ?? findFrame(saved.f) ?? FRAMES[0];
@@ -1084,8 +1151,11 @@ function readState(){
   const hg = parseInt(h.get('g'));
   gainIdx = clamp(Number.isInteger(hg) ? hg : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);
   heat = h.get('heat') === '1' || saved.h === true;
-  const hz = num(h.get('z'));
-  if (hz != null && hz > 0){
+  const hs = num(h.get('s')), hz = num(h.get('z'));
+  if (hs != null && hs > 0){
+    const frac = k => { const n = num(h.get(k)); return n == null ? 0.5 : clamp(n, 0, 1); };
+    pendingView = {s: hs, cx: frac('cx'), cy: frac('cy')};
+  } else if (hz != null && hz > 0){   // enlaces anteriores: z relativo al ajuste, x/y en px de la ventana
     zoom = hz;
     pan.x = num(h.get('x')) || 0;
     pan.y = num(h.get('y')) || 0;
@@ -1103,7 +1173,7 @@ function variantStats(id){
   const m = variant(id).metrics;
   if (!m) return '';
   const lines = [];
-  const pf = m.per_frame && m.per_frame[String(frame)];
+  const pf = own(m.per_frame, String(frame));
   if (pf){
     const l = [];
     const pfS2 = metricNum(pf.ssimulacra2), pfPsnr = metricNum(pf.psnr_avg), pfSsim = metricNum(pf.ssim_all);
@@ -1138,7 +1208,7 @@ function updateMeta(){
   const clipS = metricNum(m.clip_s);
   const where = clipS != null ? ` \u00B7 clip +${clipS.toFixed(1)}s` : '';
   const origin = CLIP.start_label ? T`Inicio del clip ${CLIP.start_label} · ` : '';
-  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? T('CIEGO') : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
+  const modes = [diffMode ? 'DIFF' : '', blinkMode ? T('PARPADEO') : '', blindMode ? T('CIEGO') : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
     T`${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} · der. ${blindMode ? '?' : varB}${modes ? ' · '+modes : ''}${noFrame}`;
 }
@@ -1773,6 +1843,7 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    cada duelo es más largo (gatos-ops#215): testFrames reparte unas
    TEST_BUDGET comparaciones entre los duelos que la prueba puede pedir, así
    que con 2 versiones son hasta 9 cuadros, con 3 hasta 5 y con 4 o 5, 3.
+   De 6 a 8 versiones (gatos-ops#279) cada duelo es de un solo cuadro.
 
    Al final salen los puestos con los nombres revelados, y en una página
    publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
@@ -1798,19 +1869,20 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    (gatos-ops#223), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
-const TEST_MAX = 5, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
+const TEST_MAX = 8, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
 const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, testFrames(VARIANTS.length));
-// se ofrece con 2 a 5 versiones y solo si cada par comparte al menos un cuadro
+// se ofrece con 2 a 8 versiones y solo si cada par comparte al menos un cuadro
 const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
 // duelos que, como mucho, pide la inserción binaria con n versiones: la suma de ceil(log2 k)
 const testDuels = n => { let max = 0; for (let k = 2; k <= n; k++) max += Math.ceil(Math.log2(k)); return max; };
 // cuadros por duelo: TEST_BUDGET entre esos duelos, impar, de 3 a 9 (la misma cuenta hace el servidor, lib/votes.mjs)
-const testFrames = n => { const f = Math.floor(TEST_BUDGET / Math.max(1, testDuels(n))); return Math.max(3, Math.min(9, f % 2 ? f : f - 1)); };
+const testFrames = n => { if (n > 5) return 1;   // de 6 a 8 versiones: un cuadro por duelo (gatos-ops#279)
+  const f = Math.floor(TEST_BUDGET / Math.max(1, testDuels(n))); return Math.max(3, Math.min(9, f % 2 ? f : f - 1)); };
 
 /* El plan es un generador: entrega la comparación que toca ({a, b, f}: izquierda,
    derecha, cuadro) y recibe la respuesta ('a', 'b' o 't'). Es determinista dado
@@ -1872,18 +1944,36 @@ const testHttp = () => !!testToken && location.protocol !== 'file:';
 let testEpoch;
 const testMark = () => { try { return localStorage.getItem('gatosVoted:' + testToken); } catch(e){ return null; } };
 const testVoted = () => { const m = testMark(); return !!m && (testEpoch === undefined || m === (testEpoch || '1')); };
-const testKey = 'gatosTest:' + testToken;
+// Sello del resultado que este navegador ya sumó (gatos-ops#252): lo da el
+// servidor, es opaco, y al repetir la prueba se devuelve para que el resultado
+// nuevo reemplace a aquel. Vale para la época en que se emitió, como la marca.
+const testSealKey = 'gatosSeal:' + testToken;
+function testSeal(){
+  try { const j = JSON.parse(localStorage.getItem(testSealKey)); return j && typeof j.s === 'string' && testVoted() && j.e === testMark() ? j.s : null; } catch(e){ return null; }
+}
+const testKeepSeal = s => { try { if (s) localStorage.setItem(testSealKey, JSON.stringify({e: testEpoch || '1', s})); } catch(e){} };
+// este resultado cuenta: el navegador todavía no sumó en esta época, o tiene con qué reemplazar lo que sumó
+const testCounts = () => !testVoted() || !!testSeal();
+// en una copia sin publicar la clave es su ruta; la vista previa incrustada (about:srcdoc) no guarda nada
+const testLocalOk = !testToken && location.protocol !== 'about:' && !/^about:/.test(location.href);
+const testKey = 'gatosTest:' + (testToken || location.pathname);
 function testSave(){
-  const run = testRun; if (!run || !run.session) return;
-  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, order: run.order, flips: [...run.flips], picks: [...run.picks], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+  const run = testRun; if (!run || !(run.session || testLocalOk)) return;
+  // sin sesión (gatos-ops#264) se guarda también la numeración y el orden de los cuadros: en una copia local no hay servidor que los recuerde
+  const local = run.session ? null : {ids: blindOrder.map(v => v.id), frames: run.frames};
+  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
 function testSaved(){
-  if (!testHttp() || testRun) return null;
+  if (!(testHttp() || testLocalOk) || testRun) return null;
   try {
     const j = JSON.parse(localStorage.getItem(testKey));
-    if (j && j.v === 1 && j.s && j.s.sid && j.s.n === VARIANTS.length && Date.now() - j.t < TEST_KEEP_MS && (j.answers.length || j.known)) return j;
+    if (!j || j.v !== 1 || Date.now() - j.t >= TEST_KEEP_MS || !(j.answers.length || j.known)) return null;
+    if (testHttp() && j.s && j.s.sid && j.s.n === VARIANTS.length) return j;
+    // copia local: vale si sigue teniendo exactamente esas versiones y esos cuadros
+    if (testLocalOk && j.local && j.local.ids.length === VARIANTS.length && j.local.ids.every(id => VARIANTS.some(v => v.id === id))
+      && j.local.frames.every(f => FRAMES.some(x => String(x) === String(f)))) return j;
   } catch(e){}
   return null;
 }
@@ -1893,7 +1983,7 @@ function testClose(){ if (testRun && testRun.settled) return;   // hay que elegi
   if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
 // el botón (o G): si hay una prueba a medias, primero se ofrece seguirla
-function testEnter(){ const saved = testSaved(); if (saved) testOffer(saved); else testIntro(); }
+function testEnter(){ if (testOpening) return; const saved = testSaved(); if (saved) testOffer(saved); else testIntro(); }
 function testOffer(saved){
   const n = saved.answers.length + (saved.known ? saved.known.length : 0);
   testOpen(`<h2>${T('Prueba ciega a medias')}</h2>
@@ -1906,8 +1996,11 @@ function testOffer(saved){
 async function testResume(){
   const saved = testSaved(); if (!saved){ testIntro(); return; }
   const btn = testBody.querySelector('[data-test="resume"]'); if (btn) btn.disabled = true;
+  if (saved.local){ testStart(saved); return; }   // copia local: no hay sesión que pueda haber vencido
   let alive = false;
-  try { alive = (await fetch('b/' + Object.values(saved.s.pics[1])[0], {method: 'HEAD'})).ok; } catch(e){}
+  try { alive = (await fetch('b/' + Object.values(saved.s.pics[1])[0], {method: 'HEAD', signal: testWait()})).ok; } catch(e){}
+  // la tabla pudo reiniciarse mientras tanto: la época de ahora, no la guardada
+  if (alive) try { const j = await (await fetch('/api/vote/' + testToken, {signal: testWait()})).json(); testEpoch = j.epoch || null; } catch(e){}
   if (testRun) return;
   if (alive){ testStart(saved); return; }
   testForget();
@@ -1919,7 +2012,7 @@ function testIntro(note){
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. En cada comparación solo ves «izquierda» y «derecha»: nada dice qué versión es ni si ya la viste antes.`}</p>
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
-    ${testHttp() ? `<p id="testIntroNote">${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
+    ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
     ${typeof note === 'string' ? `<p class="hint" role="status">${testEsc(note)}</p>` : ''}`);
@@ -1943,27 +2036,39 @@ async function testCopyLink(btn){
   setTimeout(() => { if (btn.isConnected) btn.textContent = T('Copiar enlace a la prueba'); }, 1500);
 }
 let testOpening = false;
+// ninguna petición de la prueba espera para siempre (gatos-ops#239)
+const testWait = () => typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined;
 async function testStart(saved){
   if (testRun || testOpening) return;
-  testClose();
-  if (cropMode){ setCropMode(false); closeCrop(); }
   let session = saved ? saved.s : null;
   if (!saved) testForget();
   if (!saved && testHttp()){
+    // el panel sigue puesto mientras se abre la sesión (gatos-ops#239): con el enlace directo tapa la comparación con nombres
     testOpening = true;
-    try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}}); if (r.ok) session = await r.json(); } catch(e){}
+    testOpen(`<h2>${T('Prueba ciega')}</h2><p class="hint" role="status">${T('Preparando la prueba…')}</p>`);
+    try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}, signal: testWait()}); if (r.ok) session = await r.json(); } catch(e){}
     testOpening = false;
+    // la página cambió desde que se cargó esta pestaña: la sesión trae otra cantidad de versiones o cuadros que aquí no existen
+    if (session && (session.n !== VARIANTS.length || session.frames.some(f => !FRAMES.some(x => String(x) === f)))){
+      testOpen(`<h2>${T('Prueba ciega')}</h2><p>${T('Esta página cambió desde que la abriste. Recárgala para hacer la prueba con las versiones de ahora.')}</p>
+        <div class="acts"><button class="xbtn" data-test="reload">${T('Recargar la página')}</button><button data-test="close">${T('Cerrar')}</button></div>`);
+      return;
+    }
   }
+  testClose();
+  closeCrop(); pendingCropFraction = null;   // el panel de recortes numera las versiones: fuera durante la prueba
+  if (cropMode) setCropMode(false);
   const real = VARIANTS, before = {varA, varB, frame};
-  if (session && session.epoch !== undefined) testEpoch = session.epoch;
+  if (!saved && session && session.epoch !== undefined) testEpoch = session.epoch;   // al retomar, la época guardada puede ser vieja
   if (session){
     // versiones de mentira: la «Variante k» es n<k>, y de cada una solo se sabe qué cuadros tiene
     VARIANTS = Array.from({length: session.n}, (_, k) => ({id: 'n' + (k + 1), name: '', color: '#e8e8f0', frames: Object.keys(session.pics[k + 1])}));
     blindPics = Object.fromEntries(VARIANTS.map((v, k) => [v.id, session.pics[k + 1]]));
     blindOrder = VARIANTS;
-  } else blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
+  } else blindOrder = saved && saved.local ? saved.local.ids.map(id => VARIANTS.find(v => v.id === id)) : shuffled(VARIANTS);   // la numeración de ESTA prueba
   // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
-  const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined) : shuffled(FRAMES);
+  const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined)
+    : saved && saved.local ? saved.local.frames.map(f => FRAMES.find(x => String(x) === String(f))) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
     flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), answers: saved ? saved.answers : [], games: [], before};
   if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
@@ -2012,15 +2117,16 @@ function testSettled(groups){
     <div class="acts"><button class="xbtn" data-test="done">${T('Ver mi resultado')}</button><button data-test="more">${T('Seguir con las que faltan')}</button></div>`);
 }
 async function testHold(run, groups){
-  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = !testVoted();
-  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), count, hold: true};
+  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = testCounts(), old = testSeal();
+  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), count, hold: true, ...(old ? {replaces: old} : {})};
   try {
-    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body), signal: testWait()});
     if (!r.ok) return;
     const j = await r.json();
     if (j.epoch !== undefined) testEpoch = j.epoch;
-    if (count) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
-    run.held = count;   // lo que mande esta sesión al final cuenta (reemplaza) solo si esto contó
+    if (count && j.counted !== false) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
+    testKeepSeal(j.seal);
+    run.held = count && j.counted !== false;   // lo que mande esta sesión al final cuenta (reemplaza) solo si esto contó
     if (testRun === run) testSave();
   } catch(e){}
 }
@@ -2040,6 +2146,25 @@ function testShow(){
   $('testBack').disabled = !testRun.answers.length;
   testSave();
   loadImg();
+  setTimeout(() => { if (testRun && testRun.cur === g) testWarm(); }, 120);   // primero las de ahora
+}
+// Precarga (gatos-ops#234): mientras se mira una comparación se piden las
+// imágenes de la que sigue, sea cual sea la respuesta. El plan es determinista:
+// se simula sobre una copia (lados y cuadros elegidos en la copia no cuentan).
+function testWarm(){
+  const run = testRun, cur = run && run.cur, seen = new Set();
+  if (!cur || run.settled) return;
+  run.warm = [];
+  for (const r of ['a', 'b', 't']){
+    const sim = {...run, flips: new Map(run.flips), picks: new Map(run.picks), games: []}, gen = testPlan(sim);
+    let step = gen.next();
+    for (const x of [...run.answers, r]){ if (step.done) break; step = gen.next(x); }
+    if (step.done) continue;
+    for (const id of [step.value.a, step.value.b]){
+      const k = id + '|' + step.value.f; if (seen.has(k)) continue; seen.add(k);
+      srcFor(id, step.value.f).then(u => { if (testRun !== run || run.cur !== cur) return; const im = new Image(); im.src = u; run.warm.push(im); }).catch(() => {});
+    }
+  }
 }
 function testPick(r){
   if (!testRun || testRun.settled) return;
@@ -2070,8 +2195,8 @@ function testFinish(rank){
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
     const n = id => num.get(id);
-    testMine = {sid, run, count: !testVoted(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
-  } else testMine = {rank, games, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
+    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
+  } else testMine = {rank, games, state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -2082,14 +2207,20 @@ async function testSend(){
   try {
     // si ya se mandó en espera (#220), este lo reemplaza: cuenta solo si aquel contó
     if (mine.run && mine.run.holdP){ await mine.run.holdP; if (mine.run.held !== undefined) mine.count = mine.run.held; }
-    const body = mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games};
+    const old = testSeal();
+    const body = {...(mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games}), ...(old ? {replaces: old} : {})};
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
     const j = await r.json().catch(() => ({}));
     // la página cambió de versiones a mitad de la prueba (gatos-ops#228): no se suma y reintentar no sirve;
     // se muestra igual el resultado si esta copia de la página todavía conoce esas versiones
     const stale = r.status === 409 && !!mine.sid && Array.isArray(j.reveal);
     if (stale) mine.stale = true;
-    if (!r.ok && !(stale && j.reveal.every(v => VARIANTS.some(x => x.id === v)))) throw new Error(j.error || 'HTTP ' + r.status);
+    const known = !!mine.sid && Array.isArray(j.reveal) && j.reveal.every(v => VARIANTS.some(x => x.id === v));
+    if (!r.ok && !(stale && known)) throw new Error(j.error || 'HTTP ' + r.status);
+    if (j.limited || j.counted === false) mine.count = false;
+    // se sumó, pero esta pestaña es de antes de un cambio de la página y no conoce esas versiones
+    if (mine.sid && !known){ mine.stale = true; if (mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, (j.epoch !== undefined ? j.epoch : testEpoch) || '1'); } catch(e){}
+      throw new Error(T('la página cambió desde que la abriste')); }
     if (mine.sid){   // la revelación: qué versión era cada número
       const id = k => j.reveal[k - 1];
       mine.rank = mine.rank.map(g => g.map(id)); mine.games = mine.games.map(([a, b, f, r]) => [id(a), id(b), f, r]);
@@ -2097,7 +2228,8 @@ async function testSend(){
     }
     if (j.epoch !== undefined) testEpoch = j.epoch;
     if (!stale && mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
-    mine.state = stale ? 'stale' : mine.count === false ? 'voted' : 'sent';
+    if (!stale) testKeepSeal(j.seal);
+    mine.state = stale ? 'stale' : j.limited ? 'limited' : mine.count === false ? 'voted' : j.replaced ? 'replaced' : 'sent';
   } catch (e){ mine.state = 'failed'; mine.error = e.message; }
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
 }
@@ -2111,6 +2243,8 @@ function testResult(){
   }
   const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
     sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'),
+    replaced: T('Tu resultado reemplazó en la tabla de todos al que habías enviado antes desde este navegador.'),
+    limited: T('Llegaron demasiados resultados desde tu conexión en la última hora: este no se sumó.'),
     stale: T('La página cambió de versiones mientras hacías la prueba: este resultado no se sumó. Recarga la página para hacer la prueba con las versiones de ahora.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
   // lo que respondiste sobre cada versión: comparaciones ganadas, empatadas y perdidas
   const row = Object.fromEntries(VARIANTS.map(v => [v.id, {w: 0, t: 0, l: 0}]));
@@ -2122,7 +2256,7 @@ function testResult(){
     <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
     <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
     <p class="hint" id="testNote" role="status">${testEsc(note)}</p>
-    <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
+    <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' || st === 'replaced' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
 function testStandings(j){
   testOpen(`<h2>${T('Tabla de todos')}</h2>
@@ -2181,15 +2315,16 @@ function applyManifest(m){
     throw Object.assign(new Error(T('manifest inválido: faltan frames o hay menos de 2 variantes')), {manifestInvalid:true});
   FRAMES = m.frames;
   VARIANTS = m.variants;
-  FRAME_LABELS = m.frame_labels || {};
-  FRAME_META = m.frame_meta || {};
+  // sin prototipo: FRAME_LABELS['constructor'] no devuelve la función heredada (ops#251)
+  FRAME_LABELS = Object.assign(Object.create(null), m.frame_labels);
+  FRAME_META = Object.assign(Object.create(null), m.frame_meta);
   CLIP = m.clip || {};
   originalTitle = m.title || T('Comparación');
   document.title = originalTitle; pageTitle.textContent = originalTitle;
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
-  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 5 versiones
+  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 8 versiones
   computeFit();
   loadImg();
   applyTransform();
@@ -2199,7 +2334,7 @@ function applyManifest(m){
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);
-  if (h.has('smooth')) setSmooth(h.get('smooth') !== '0');
+  if (h.has('smooth')) setSmooth(h.get('smooth') !== '0', false);
   if (h.get('crops') === '1') setCropMode(true);
   if (h.get('crop')){
     const [cu, cv] = h.get('crop').split(',').map(Number);

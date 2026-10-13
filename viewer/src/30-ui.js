@@ -6,7 +6,16 @@ function stateParams(){
     if (!blindMode && varA) p.set('a', varA);
     if (!blindMode && varB) p.set('b', varB);
     if (dividerPos !== 0.5) p.set('d', dividerPos.toFixed(3));
-    if (zoom !== 1){ p.set('z', zoom.toFixed(3)); p.set('x', Math.round(pan.x)); p.set('y', Math.round(pan.y)); }
+    // vista con zoom, portable entre pantallas (ops#253): escala absoluta (px de
+    // pantalla por px de imagen, lo que dice la insignia) y el punto de la imagen
+    // que queda al centro, en fracciones. Antes iban z relativo al ajuste y x/y
+    // en px de la ventana, que en otra pantalla mostraban otra región.
+    if (pendingView){ p.set('s', pendingView.s.toFixed(5)); p.set('cx', pendingView.cx.toFixed(5)); p.set('cy', pendingView.cy.toFixed(5)); }
+    else if (zoom !== 1 && rw > 0 && rh > 0){
+      p.set('s', (fitScale*zoom*dpr()).toFixed(5));
+      p.set('cx', clamp((comp.clientWidth/2-ox-pan.x)/zoom/rw, 0, 1).toFixed(5));
+      p.set('cy', clamp((comp.clientHeight/2-oy-pan.y)/zoom/rh, 0, 1).toFixed(5));
+    }
     if (diffMode){ p.set('diff', 1); if (gainIdx !== AMPLIFY_DEFAULT_IDX) p.set('g', gainIdx); if (heat) p.set('heat', 1); }
     if (blinkMode) p.set('blink', 1);
     if (solarMode) p.set('solar', 1);
@@ -15,16 +24,47 @@ function stateParams(){
     if (cropUV){
       const {nw, nh} = naturalDims();
       p.set('crop', (cropUV.u/nw).toFixed(4)+','+(cropUV.v/nh).toFixed(4));
+    } else if (pendingCropFraction){   // aún sin medidas: el enlace no pierde su punto
+      p.set('crop', pendingCropFraction[0].toFixed(4)+','+pendingCropFraction[1].toFixed(4));
     }
     return p;
 }
+// La vista de un enlace (s, cx, cy) espera a las medidas reales de la imagen:
+// antes de cargar, el ajuste se calcula con 1920×1080 supuestos. Solo decide
+// zoom y pan con las mismas reglas de siempre (zmin/zmax, clampPan); la
+// geometría de ajuste y el PNG no cambian.
+let pendingView = null;
+function applyPendingView(){
+  if (!pendingView) return;
+  const {s, cx, cy} = pendingView;
+  pendingView = null;
+  computeFit();
+  zoom = clamp(s/(fitScale*dpr()), zmin(), zmax());
+  if (Math.abs(zoom-1) < 1e-4) zoom = 1;
+  if (zoom === 1) pan = {x:0, y:0};
+  else {
+    pan.x = comp.clientWidth/2 - ox - cx*rw*zoom;
+    pan.y = comp.clientHeight/2 - oy - cy*rh*zoom;
+    clampPan();
+  }
+  applyTransform(); writeHash();
+}
+// después de los manejadores de 20-modes.js, que ya midieron el ajuste
+imgA.addEventListener('load', applyPendingView);
+imgB.addEventListener('load', () => { if (missA) applyPendingView(); });   // izquierda sin cuadro: mide la derecha
 const stateStorageKey = 'gatosState:' + location.pathname;
+// La vista previa del creador y el visor oculto que dibuja la imagen para
+// compartir son about:srcdoc: comparten el localStorage del creador y su ruta
+// es siempre "srcdoc", así que el estado de una vista previa aparecía en la
+// siguiente y en la imagen publicada (la misma versión en los dos lados). Ahí
+// el estado de la vista no se guarda ni se lee (ops#255).
+const stateKept = location.href !== 'about:srcdoc';
 function writeHash(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(() => {
     try { history.replaceState(null, '', '#'+stateParams()); } catch(e){}
     try {
-      if (blindMode) return; // Never persist the anonymous-to-real assignment.
+      if (blindMode || !stateKept) return; // Never persist the anonymous-to-real assignment.
       localStorage.setItem(stateStorageKey, JSON.stringify({f:frame, a:varA, b:varB, d:dividerPos, g:gainIdx, h:heat}));
     } catch(e){}
   }, 150);
@@ -34,7 +74,7 @@ function readState(){
   const h = new URLSearchParams(location.hash.slice(1));
   // .size llego en Safari 17.4: en navegadores viejos es undefined y el estado
   // local siempre ganaba; la vacuidad se mide sin depender de esa propiedad
-  if (h.toString() === '') try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
+  if (stateKept && h.toString() === '') try { saved = JSON.parse(localStorage.getItem(stateStorageKey)) || {}; } catch(e){}
   const num = s => { const n = parseFloat(s); return isFinite(n) ? n : null; };
   const findFrame = value => value == null ? undefined : FRAMES.find(f => String(f) === String(value));
   frame = findFrame(h.get('f')) ?? findFrame(saved.f) ?? FRAMES[0];
@@ -46,8 +86,11 @@ function readState(){
   const hg = parseInt(h.get('g'));
   gainIdx = clamp(Number.isInteger(hg) ? hg : (Number.isInteger(saved.g) ? saved.g : AMPLIFY_DEFAULT_IDX), 0, GAINS.length-1);
   heat = h.get('heat') === '1' || saved.h === true;
-  const hz = num(h.get('z'));
-  if (hz != null && hz > 0){
+  const hs = num(h.get('s')), hz = num(h.get('z'));
+  if (hs != null && hs > 0){
+    const frac = k => { const n = num(h.get(k)); return n == null ? 0.5 : clamp(n, 0, 1); };
+    pendingView = {s: hs, cx: frac('cx'), cy: frac('cy')};
+  } else if (hz != null && hz > 0){   // enlaces anteriores: z relativo al ajuste, x/y en px de la ventana
     zoom = hz;
     pan.x = num(h.get('x')) || 0;
     pan.y = num(h.get('y')) || 0;
@@ -65,7 +108,7 @@ function variantStats(id){
   const m = variant(id).metrics;
   if (!m) return '';
   const lines = [];
-  const pf = m.per_frame && m.per_frame[String(frame)];
+  const pf = own(m.per_frame, String(frame));
   if (pf){
     const l = [];
     const pfS2 = metricNum(pf.ssimulacra2), pfPsnr = metricNum(pf.psnr_avg), pfSsim = metricNum(pf.ssim_all);
@@ -100,7 +143,7 @@ function updateMeta(){
   const clipS = metricNum(m.clip_s);
   const where = clipS != null ? ` \u00B7 clip +${clipS.toFixed(1)}s` : '';
   const origin = CLIP.start_label ? T`Inicio del clip ${CLIP.start_label} · ` : '';
-  const modes = [diffMode ? 'DIFF' : '', blinkMode ? 'BLINK' : '', blindMode ? T('CIEGO') : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
+  const modes = [diffMode ? 'DIFF' : '', blinkMode ? T('PARPADEO') : '', blindMode ? T('CIEGO') : '', solarMode ? 'SOLAR' : ''].filter(Boolean).join('+');
   metaLine.textContent =
     T`${origin}Frame ${lbl} (#${frame}${where}) · izq. ${blindMode ? '?' : varA} · der. ${blindMode ? '?' : varB}${modes ? ' · '+modes : ''}${noFrame}`;
 }

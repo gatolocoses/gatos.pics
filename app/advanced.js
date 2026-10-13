@@ -46,14 +46,21 @@ function defVariant(ids){
 }
 function ensureSeed(){
   if (!state.variants.length){
-    const a = defVariant(); a.name = T('Fuente'); a.note = T('referencia');
-    const b = defVariant(); b.name = 'Encode';
+    const a = defVariant(); a.name = T('Fuente'); a.note = T('referencia'); a.seed = a.name;
+    const b = defVariant(); b.name = 'Encode'; b.seed = b.name;
     state.variants.push(a, b);
   }
   if (!state.frames.length){
-    state.frames.push({key:String(nextFrame++), label:''});
+    state.frames.push({key:String(nextFrame++), label:'', seed:true});
   }
 }
+/* Filas iniciales que nadie tocó (ops#254): tal como nacieron y sin imágenes.
+   Cuando un volcado con nombres o el modo Video traen sus propias versiones y
+   cuadros, estas se van: vacías solo bloqueaban exportar hasta borrarlas a mano. */
+const variantHasCells = id => { for (const k of state.cells.keys()) if (k.startsWith(id+'|')) return true; return false; };
+const frameHasCells = key => { for (const k of state.cells.keys()) if (k.endsWith('|'+key)) return true; return false; };
+const untouchedSeedVariant = v => !!v.seed && v.name === v.seed && !v.codec && !v.crf && !v.bitrate && !v.cmd && !v.metric && !variantHasCells(v.id);
+const untouchedSeedFrame = fr => !!fr.seed && !fr.label && !frameHasCells(fr.key);
 function variantNote(v){
   return [v.codec, v.crf, v.bitrate, v.note].map(s => String(s||'').trim()).filter(Boolean).join(' \u00B7 ');
 }
@@ -140,8 +147,12 @@ function renderFrames(){
             const [vid, fk] = k.split('|');
             if (fk === old){ state.cells.set(vid+'|'+fr.key, state.cells.get(k)); state.cells.delete(k); }
           }
+          // la tabla de imágenes guarda el id en cada casilla: sin repintarla, lo
+          // que se agregara después iba a una casilla fantasma del id viejo (ops#254)
+          renderMatrix();
         }
       });
+      if (inp.dataset.k === 'label') inp.addEventListener('change', renderMatrix);
     });
     row.querySelectorAll('button[data-a]').forEach(b => {
       b.onclick = () => {
@@ -237,6 +248,9 @@ function bulkAdd(files){
       : T('nombre sin guion bajo · se espera <variante>_<frame>');
     misses.push({file:f, why});
   }
+  // el volcado trajo lo suyo: las filas iniciales que nadie usó no se quedan vacías
+  if (createdV.size) state.variants = state.variants.filter(v => !untouchedSeedVariant(v));
+  if (createdF.size) state.frames = state.frames.filter(fr => !untouchedSeedFrame(fr));
   // frames numericos en orden natural tras el volcado
   if (createdF.size && state.frames.every(fr => /^\d+$/.test(fr.key)))
     state.frames.sort((a,b) => parseInt(a.key,10) - parseInt(b.key,10));

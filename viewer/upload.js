@@ -80,7 +80,8 @@ class GatosUpload {
         const retryable = xhr.status === 429 || xhr.status >= 500 || (xhr.status >= 200 && xhr.status < 300);
         const message = response?.error || T`No se pudo enviar (HTTP ${xhr.status}).`;
         this.finish(message + (xhr.status === 429 ? ' '+T('Espera antes de reintentar.') : retryable ? ' '+uncertain : ''), retryable);
-        if (xhr.status === 403 && this.onApiKeyRequired) this.onApiKeyRequired();
+        // 401 = la llave API enviada no es correcta; 403 = hace falta una. Quien llama decide qué pedir
+        if ((xhr.status === 401 || xhr.status === 403) && this.onApiKeyRequired) this.onApiKeyRequired(xhr.status);
       }
     };
     xhr.send(this.request.body);

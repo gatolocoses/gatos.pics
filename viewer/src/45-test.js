@@ -17,6 +17,7 @@
    cada duelo es más largo (gatos-ops#215): testFrames reparte unas
    TEST_BUDGET comparaciones entre los duelos que la prueba puede pedir, así
    que con 2 versiones son hasta 9 cuadros, con 3 hasta 5 y con 4 o 5, 3.
+   De 6 a 8 versiones (gatos-ops#279) cada duelo es de un solo cuadro.
 
    Al final salen los puestos con los nombres revelados, y en una página
    publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
@@ -42,19 +43,20 @@
    (gatos-ops#223), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
-const TEST_MAX = 5, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
+const TEST_MAX = 8, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
 let testRun = null, testMine = null;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
 const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, testFrames(VARIANTS.length));
-// se ofrece con 2 a 5 versiones y solo si cada par comparte al menos un cuadro
+// se ofrece con 2 a 8 versiones y solo si cada par comparte al menos un cuadro
 const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
 // duelos que, como mucho, pide la inserción binaria con n versiones: la suma de ceil(log2 k)
 const testDuels = n => { let max = 0; for (let k = 2; k <= n; k++) max += Math.ceil(Math.log2(k)); return max; };
 // cuadros por duelo: TEST_BUDGET entre esos duelos, impar, de 3 a 9 (la misma cuenta hace el servidor, lib/votes.mjs)
-const testFrames = n => { const f = Math.floor(TEST_BUDGET / Math.max(1, testDuels(n))); return Math.max(3, Math.min(9, f % 2 ? f : f - 1)); };
+const testFrames = n => { if (n > 5) return 1;   // de 6 a 8 versiones: un cuadro por duelo (gatos-ops#279)
+  const f = Math.floor(TEST_BUDGET / Math.max(1, testDuels(n))); return Math.max(3, Math.min(9, f % 2 ? f : f - 1)); };
 
 /* El plan es un generador: entrega la comparación que toca ({a, b, f}: izquierda,
    derecha, cuadro) y recibe la respuesta ('a', 'b' o 't'). Es determinista dado
@@ -116,18 +118,36 @@ const testHttp = () => !!testToken && location.protocol !== 'file:';
 let testEpoch;
 const testMark = () => { try { return localStorage.getItem('gatosVoted:' + testToken); } catch(e){ return null; } };
 const testVoted = () => { const m = testMark(); return !!m && (testEpoch === undefined || m === (testEpoch || '1')); };
-const testKey = 'gatosTest:' + testToken;
+// Sello del resultado que este navegador ya sumó (gatos-ops#252): lo da el
+// servidor, es opaco, y al repetir la prueba se devuelve para que el resultado
+// nuevo reemplace a aquel. Vale para la época en que se emitió, como la marca.
+const testSealKey = 'gatosSeal:' + testToken;
+function testSeal(){
+  try { const j = JSON.parse(localStorage.getItem(testSealKey)); return j && typeof j.s === 'string' && testVoted() && j.e === testMark() ? j.s : null; } catch(e){ return null; }
+}
+const testKeepSeal = s => { try { if (s) localStorage.setItem(testSealKey, JSON.stringify({e: testEpoch || '1', s})); } catch(e){} };
+// este resultado cuenta: el navegador todavía no sumó en esta época, o tiene con qué reemplazar lo que sumó
+const testCounts = () => !testVoted() || !!testSeal();
+// en una copia sin publicar la clave es su ruta; la vista previa incrustada (about:srcdoc) no guarda nada
+const testLocalOk = !testToken && location.protocol !== 'about:' && !/^about:/.test(location.href);
+const testKey = 'gatosTest:' + (testToken || location.pathname);
 function testSave(){
-  const run = testRun; if (!run || !run.session) return;
-  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, order: run.order, flips: [...run.flips], picks: [...run.picks], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+  const run = testRun; if (!run || !(run.session || testLocalOk)) return;
+  // sin sesión (gatos-ops#264) se guarda también la numeración y el orden de los cuadros: en una copia local no hay servidor que los recuerde
+  const local = run.session ? null : {ids: blindOrder.map(v => v.id), frames: run.frames};
+  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
 function testSaved(){
-  if (!testHttp() || testRun) return null;
+  if (!(testHttp() || testLocalOk) || testRun) return null;
   try {
     const j = JSON.parse(localStorage.getItem(testKey));
-    if (j && j.v === 1 && j.s && j.s.sid && j.s.n === VARIANTS.length && Date.now() - j.t < TEST_KEEP_MS && (j.answers.length || j.known)) return j;
+    if (!j || j.v !== 1 || Date.now() - j.t >= TEST_KEEP_MS || !(j.answers.length || j.known)) return null;
+    if (testHttp() && j.s && j.s.sid && j.s.n === VARIANTS.length) return j;
+    // copia local: vale si sigue teniendo exactamente esas versiones y esos cuadros
+    if (testLocalOk && j.local && j.local.ids.length === VARIANTS.length && j.local.ids.every(id => VARIANTS.some(v => v.id === id))
+      && j.local.frames.every(f => FRAMES.some(x => String(x) === String(f)))) return j;
   } catch(e){}
   return null;
 }
@@ -137,7 +157,7 @@ function testClose(){ if (testRun && testRun.settled) return;   // hay que elegi
   if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
 
 // el botón (o G): si hay una prueba a medias, primero se ofrece seguirla
-function testEnter(){ const saved = testSaved(); if (saved) testOffer(saved); else testIntro(); }
+function testEnter(){ if (testOpening) return; const saved = testSaved(); if (saved) testOffer(saved); else testIntro(); }
 function testOffer(saved){
   const n = saved.answers.length + (saved.known ? saved.known.length : 0);
   testOpen(`<h2>${T('Prueba ciega a medias')}</h2>
@@ -150,8 +170,11 @@ function testOffer(saved){
 async function testResume(){
   const saved = testSaved(); if (!saved){ testIntro(); return; }
   const btn = testBody.querySelector('[data-test="resume"]'); if (btn) btn.disabled = true;
+  if (saved.local){ testStart(saved); return; }   // copia local: no hay sesión que pueda haber vencido
   let alive = false;
-  try { alive = (await fetch('b/' + Object.values(saved.s.pics[1])[0], {method: 'HEAD'})).ok; } catch(e){}
+  try { alive = (await fetch('b/' + Object.values(saved.s.pics[1])[0], {method: 'HEAD', signal: testWait()})).ok; } catch(e){}
+  // la tabla pudo reiniciarse mientras tanto: la época de ahora, no la guardada
+  if (alive) try { const j = await (await fetch('/api/vote/' + testToken, {signal: testWait()})).json(); testEpoch = j.epoch || null; } catch(e){}
   if (testRun) return;
   if (alive){ testStart(saved); return; }
   testForget();
@@ -163,7 +186,7 @@ function testIntro(note){
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. En cada comparación solo ves «izquierda» y «derecha»: nada dice qué versión es ni si ya la viste antes.`}</p>
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
-    ${testHttp() ? `<p id="testIntroNote">${testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
+    ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
     ${typeof note === 'string' ? `<p class="hint" role="status">${testEsc(note)}</p>` : ''}`);
@@ -187,27 +210,39 @@ async function testCopyLink(btn){
   setTimeout(() => { if (btn.isConnected) btn.textContent = T('Copiar enlace a la prueba'); }, 1500);
 }
 let testOpening = false;
+// ninguna petición de la prueba espera para siempre (gatos-ops#239)
+const testWait = () => typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined;
 async function testStart(saved){
   if (testRun || testOpening) return;
-  testClose();
-  if (cropMode){ setCropMode(false); closeCrop(); }
   let session = saved ? saved.s : null;
   if (!saved) testForget();
   if (!saved && testHttp()){
+    // el panel sigue puesto mientras se abre la sesión (gatos-ops#239): con el enlace directo tapa la comparación con nombres
     testOpening = true;
-    try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}}); if (r.ok) session = await r.json(); } catch(e){}
+    testOpen(`<h2>${T('Prueba ciega')}</h2><p class="hint" role="status">${T('Preparando la prueba…')}</p>`);
+    try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}, signal: testWait()}); if (r.ok) session = await r.json(); } catch(e){}
     testOpening = false;
+    // la página cambió desde que se cargó esta pestaña: la sesión trae otra cantidad de versiones o cuadros que aquí no existen
+    if (session && (session.n !== VARIANTS.length || session.frames.some(f => !FRAMES.some(x => String(x) === f)))){
+      testOpen(`<h2>${T('Prueba ciega')}</h2><p>${T('Esta página cambió desde que la abriste. Recárgala para hacer la prueba con las versiones de ahora.')}</p>
+        <div class="acts"><button class="xbtn" data-test="reload">${T('Recargar la página')}</button><button data-test="close">${T('Cerrar')}</button></div>`);
+      return;
+    }
   }
+  testClose();
+  closeCrop(); pendingCropFraction = null;   // el panel de recortes numera las versiones: fuera durante la prueba
+  if (cropMode) setCropMode(false);
   const real = VARIANTS, before = {varA, varB, frame};
-  if (session && session.epoch !== undefined) testEpoch = session.epoch;
+  if (!saved && session && session.epoch !== undefined) testEpoch = session.epoch;   // al retomar, la época guardada puede ser vieja
   if (session){
     // versiones de mentira: la «Variante k» es n<k>, y de cada una solo se sabe qué cuadros tiene
     VARIANTS = Array.from({length: session.n}, (_, k) => ({id: 'n' + (k + 1), name: '', color: '#e8e8f0', frames: Object.keys(session.pics[k + 1])}));
     blindPics = Object.fromEntries(VARIANTS.map((v, k) => [v.id, session.pics[k + 1]]));
     blindOrder = VARIANTS;
-  } else blindOrder = shuffled(VARIANTS);   // la numeración de ESTA prueba
+  } else blindOrder = saved && saved.local ? saved.local.ids.map(id => VARIANTS.find(v => v.id === id)) : shuffled(VARIANTS);   // la numeración de ESTA prueba
   // el orden en que entran a ordenarse es otro sorteo: el número no dice nada de cuándo le toca a cada una
-  const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined) : shuffled(FRAMES);
+  const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined)
+    : saved && saved.local ? saved.local.frames.map(f => FRAMES.find(x => String(x) === String(f))) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
     flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), answers: saved ? saved.answers : [], games: [], before};
   if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
@@ -256,15 +291,16 @@ function testSettled(groups){
     <div class="acts"><button class="xbtn" data-test="done">${T('Ver mi resultado')}</button><button data-test="more">${T('Seguir con las que faltan')}</button></div>`);
 }
 async function testHold(run, groups){
-  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = !testVoted();
-  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), count, hold: true};
+  const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = testCounts(), old = testSeal();
+  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), count, hold: true, ...(old ? {replaces: old} : {})};
   try {
-    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
+    const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body), signal: testWait()});
     if (!r.ok) return;
     const j = await r.json();
     if (j.epoch !== undefined) testEpoch = j.epoch;
-    if (count) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
-    run.held = count;   // lo que mande esta sesión al final cuenta (reemplaza) solo si esto contó
+    if (count && j.counted !== false) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
+    testKeepSeal(j.seal);
+    run.held = count && j.counted !== false;   // lo que mande esta sesión al final cuenta (reemplaza) solo si esto contó
     if (testRun === run) testSave();
   } catch(e){}
 }
@@ -284,6 +320,25 @@ function testShow(){
   $('testBack').disabled = !testRun.answers.length;
   testSave();
   loadImg();
+  setTimeout(() => { if (testRun && testRun.cur === g) testWarm(); }, 120);   // primero las de ahora
+}
+// Precarga (gatos-ops#234): mientras se mira una comparación se piden las
+// imágenes de la que sigue, sea cual sea la respuesta. El plan es determinista:
+// se simula sobre una copia (lados y cuadros elegidos en la copia no cuentan).
+function testWarm(){
+  const run = testRun, cur = run && run.cur, seen = new Set();
+  if (!cur || run.settled) return;
+  run.warm = [];
+  for (const r of ['a', 'b', 't']){
+    const sim = {...run, flips: new Map(run.flips), picks: new Map(run.picks), games: []}, gen = testPlan(sim);
+    let step = gen.next();
+    for (const x of [...run.answers, r]){ if (step.done) break; step = gen.next(x); }
+    if (step.done) continue;
+    for (const id of [step.value.a, step.value.b]){
+      const k = id + '|' + step.value.f; if (seen.has(k)) continue; seen.add(k);
+      srcFor(id, step.value.f).then(u => { if (testRun !== run || run.cur !== cur) return; const im = new Image(); im.src = u; run.warm.push(im); }).catch(() => {});
+    }
+  }
 }
 function testPick(r){
   if (!testRun || testRun.settled) return;
@@ -314,8 +369,8 @@ function testFinish(rank){
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
     const n = id => num.get(id);
-    testMine = {sid, run, count: !testVoted(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
-  } else testMine = {rank, games, state: !testHttp() ? 'local' : testVoted() ? 'voted' : 'sending'};
+    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
+  } else testMine = {rank, games, state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -326,14 +381,20 @@ async function testSend(){
   try {
     // si ya se mandó en espera (#220), este lo reemplaza: cuenta solo si aquel contó
     if (mine.run && mine.run.holdP){ await mine.run.holdP; if (mine.run.held !== undefined) mine.count = mine.run.held; }
-    const body = mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games};
+    const old = testSeal();
+    const body = {...(mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games}), ...(old ? {replaces: old} : {})};
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
     const j = await r.json().catch(() => ({}));
     // la página cambió de versiones a mitad de la prueba (gatos-ops#228): no se suma y reintentar no sirve;
     // se muestra igual el resultado si esta copia de la página todavía conoce esas versiones
     const stale = r.status === 409 && !!mine.sid && Array.isArray(j.reveal);
     if (stale) mine.stale = true;
-    if (!r.ok && !(stale && j.reveal.every(v => VARIANTS.some(x => x.id === v)))) throw new Error(j.error || 'HTTP ' + r.status);
+    const known = !!mine.sid && Array.isArray(j.reveal) && j.reveal.every(v => VARIANTS.some(x => x.id === v));
+    if (!r.ok && !(stale && known)) throw new Error(j.error || 'HTTP ' + r.status);
+    if (j.limited || j.counted === false) mine.count = false;
+    // se sumó, pero esta pestaña es de antes de un cambio de la página y no conoce esas versiones
+    if (mine.sid && !known){ mine.stale = true; if (mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, (j.epoch !== undefined ? j.epoch : testEpoch) || '1'); } catch(e){}
+      throw new Error(T('la página cambió desde que la abriste')); }
     if (mine.sid){   // la revelación: qué versión era cada número
       const id = k => j.reveal[k - 1];
       mine.rank = mine.rank.map(g => g.map(id)); mine.games = mine.games.map(([a, b, f, r]) => [id(a), id(b), f, r]);
@@ -341,7 +402,8 @@ async function testSend(){
     }
     if (j.epoch !== undefined) testEpoch = j.epoch;
     if (!stale && mine.count !== false) try { localStorage.setItem('gatosVoted:' + testToken, testEpoch || '1'); } catch(e){}
-    mine.state = stale ? 'stale' : mine.count === false ? 'voted' : 'sent';
+    if (!stale) testKeepSeal(j.seal);
+    mine.state = stale ? 'stale' : j.limited ? 'limited' : mine.count === false ? 'voted' : j.replaced ? 'replaced' : 'sent';
   } catch (e){ mine.state = 'failed'; mine.error = e.message; }
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
 }
@@ -355,6 +417,8 @@ function testResult(){
   }
   const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
     sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'),
+    replaced: T('Tu resultado reemplazó en la tabla de todos al que habías enviado antes desde este navegador.'),
+    limited: T('Llegaron demasiados resultados desde tu conexión en la última hora: este no se sumó.'),
     stale: T('La página cambió de versiones mientras hacías la prueba: este resultado no se sumó. Recarga la página para hacer la prueba con las versiones de ahora.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
   // lo que respondiste sobre cada versión: comparaciones ganadas, empatadas y perdidas
   const row = Object.fromEntries(VARIANTS.map(v => [v.id, {w: 0, t: 0, l: 0}]));
@@ -366,7 +430,7 @@ function testResult(){
     <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
     <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
     <p class="hint" id="testNote" role="status">${testEsc(note)}</p>
-    <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
+    <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' || st === 'replaced' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
 function testStandings(j){
   testOpen(`<h2>${T('Tabla de todos')}</h2>

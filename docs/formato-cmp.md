@@ -128,6 +128,11 @@ borrado de esa página (`x-delete-key`) o con la llave API (`x-api-key`); sin
 una llave válida responde 403, con un código desconocido 404, y con un paquete
 inválido (422) o demasiado grande (413) la página anterior queda intacta.
 
+Al publicar (`POST /api/upload`) la llave API es opcional: sin el encabezado
+`x-api-key` el paquete entra por el cupo abierto a todos. Un `x-api-key` que
+viene pero no es la llave responde 401, con el motivo en `error`: no se publica
+«sin llave» por una llave mal escrita. Corrígela o quita el encabezado.
+
 - `manifest.version` siempre sube: si el paquete nuevo trae la misma versión (o
   una menor, o ninguna), el servicio la deja en la anterior + 1. Así el `?v=`
   de las imágenes, que los navegadores guardan hasta 30 días, cambia y todos
@@ -206,3 +211,23 @@ Cómo se une:
   **parche**, no a la página completa: así una página puede acabar pesando más
   de lo que cabe en un solo envío. La página resultante también tiene un tope
   propio del servicio.
+
+## Actualizar una página grande por partes
+
+Un proyecto que no cabe en un pedido se actualiza en varios. Para que la
+página publicada no quede incompleta mientras llegan (ni si uno falla), las
+partes se juntan en una **copia pendiente** y la página cambia de una vez con
+la última:
+
+1. `PUT /api/page/<token>?pending=start` con un `.cmp` completo de los primeros
+   frames. Responde 202 con `pending` (el id de la copia) y `expires`.
+2. `PATCH /api/page/<token>?pending=<id>` por cada parte siguiente: un `.cmp`
+   parcial cuyo `manifest.frames` lista los frames enviados hasta ahí y cuyas
+   `images` traen solo los nuevos. Responde 202.
+3. En la última parte, el mismo `PATCH` con `&commit=1`: responde 200 con
+   `version` y la página ya es la nueva. Repetirlo no cambia nada.
+
+Cada parte lleva la llave (`x-delete-key` o `x-api-key`) y los topes de siempre.
+La copia vence sola a las dos horas sin partes nuevas; una parte para una copia
+que ya no existe responde 409 y la página publicada sigue como estaba. Sin
+`pending`, `PUT` y `PATCH` actúan sobre la página publicada, como siempre.

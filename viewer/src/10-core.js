@@ -42,7 +42,7 @@ function makeHttpSource(){
       return m;
     },
     srcFor(id, f){
-      const ext = variant(id).image_exts?.[f] || variant(id).ext || 'webp';
+      const ext = own(variant(id).image_exts, String(f)) || variant(id).ext || 'webp';
       return `img/${id}_${f}.${ext}${VERSION ? '?v='+VERSION : ''}`;
     }
   };
@@ -127,6 +127,9 @@ let missA = false, missB = false;
 const cropImgs = new Map();         // variant id -> Image for current frame
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+// lectura por clave PROPIA: un cuadro puede llamarse constructor, toString o
+// __proto__ (ids válidos) y un objeto corriente los responde con lo heredado (ops#251)
+const own = (o, k) => o != null && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined;
 function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:'#ccc'}; }
 function variantName(id){
   const v = variant(id);
@@ -225,7 +228,7 @@ function clampPan(){
   if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
 }
 function updateBadge(){
-  if (loadFailA){ zoomBadge.textContent = T('la imagen no cargó'); return; }
+  if (loadFailA || loadFailB){ zoomBadge.textContent = T('la imagen no cargó'); return; }
   if (!imgA.complete || !imgB.complete){ zoomBadge.textContent = T('cargando…'); return; }
   zoomBadge.textContent = zoom === 1 ? T('ajustar') : Math.round(fitScale*zoom*dpr()*100)+'%';
 }
@@ -268,7 +271,12 @@ function oneToOne(){
 }
 function fitView(){ zoom = 1; pan = {x:0, y:0}; applyTransform(); writeHash(); }
 
+// El panel de recortes vive dentro de #comp: lo que nace en él (clic en
+// «cerrar», rueda sobre la lista) es suyo. Sin esto la captura del puntero se
+// llevaba el clic del botón y la rueda hacía zoom en vez de desplazar (ops#250).
+const inCropPanel = e => !!(e.target && e.target.closest && e.target.closest('#cropPanel'));
 comp.addEventListener('wheel', e => {
+  if (inCropPanel(e)) return;
   e.preventDefault();
   setZoomAt(e.clientX, e.clientY, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15));
 }, {passive:false});
@@ -276,6 +284,7 @@ comp.addEventListener('wheel', e => {
 /* ---------- pointer input: mouse + touch unified, pinch zoom ---------- */
 const pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
 comp.addEventListener('pointerdown', e => {
+  if (inCropPanel(e)) return;
   comp.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pointers.size === 2){
@@ -333,7 +342,7 @@ function pointerEnd(e){
 }
 comp.addEventListener('pointerup', pointerEnd);
 comp.addEventListener('pointercancel', pointerEnd);
-comp.addEventListener('dblclick', fitView);
+comp.addEventListener('dblclick', e => { if (!inCropPanel(e)) fitView(); });
 window.addEventListener('resize', () => { computeFit(); clampPan(); applyTransform(); syncVariantOverflow(); });
 new ResizeObserver(() => { computeFit(); clampPan(); applyTransform(); }).observe(comp);
 

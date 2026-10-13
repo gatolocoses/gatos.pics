@@ -96,15 +96,20 @@ function setHeat(on){
   if (diffMode) renderDiff();
   writeHash();
 }
+// el punto de recorte que trae el enlace espera a conocer las medidas: las da
+// la izquierda, o la derecha cuando la izquierda no tiene este cuadro (ops#250)
+function applyPendingCrop(){
+  if (!pendingCropFraction) return;
+  const {nw, nh} = naturalDims();
+  cropUV = {u:Math.round(pendingCropFraction[0]*nw), v:Math.round(pendingCropFraction[1]*nh)};
+  pendingCropFraction = null; openCropPanel();
+}
 imgA.addEventListener('load', () => {
   loadedUrlA = imgA.src; loadFailA = false;
   imgA.style.visibility = missA ? 'hidden' : ''; if (!missA) shownA = varA;
   computeFit();
   zoom = clamp(zoom, zmin(), zmax()); clampPan();
-  if (pendingCropFraction){
-    cropUV = {u:Math.round(pendingCropFraction[0]*imgA.naturalWidth),v:Math.round(pendingCropFraction[1]*imgA.naturalHeight)};
-    pendingCropFraction = null; openCropPanel();
-  }
+  applyPendingCrop();
   applyTransform(); renderDiff(); updateBadge();
 });
 imgA.addEventListener('error', () => {
@@ -116,12 +121,14 @@ imgA.addEventListener('error', () => {
 /* ---------- escala: suave o píxeles nítidos (inspección de píxel) ---------- */
 let smoothScale = true;
 try { smoothScale = localStorage.getItem('gatosSmooth') !== '0'; } catch(e){}
-function setSmooth(on){
+// keep=false: el ajuste vale para esta visita (lo trae un enlace) y no pisa la
+// preferencia guardada de quien lo abre (ops#251)
+function setSmooth(on, keep = true){
   smoothScale = on;
   for (const el of [imgA, imgB, diffCanvas]) el.style.imageRendering = on ? 'auto' : 'pixelated';
   pixBtn.classList.toggle('active', !on);
   pixBtn.setAttribute('aria-pressed', String(!on));
-  try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
+  if (keep) try { localStorage.setItem('gatosSmooth', on ? '1' : '0'); } catch(e){}
   if (FRAMES.length) writeHash();
 }
 pixBtn.addEventListener('click', () => setSmooth(!smoothScale));
@@ -130,6 +137,7 @@ imgB.addEventListener('load', () => {
   loadedUrlPaneB = imgB.src; loadFailB = false; imgB.style.visibility = missB ? 'hidden' : ''; if (!missB) shownB = varB;
   if (!diffMode) diffNote.style.display = 'none';
   if (missA && !imgA.naturalWidth){ computeFit(); clampPan(); applyTransform(); }   // A sin cuadro: B da la medida
+  if (missA) applyPendingCrop();
   updateBadge();
 });
 realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false; if (!missB) shownB = varB; renderDiff(); });
@@ -138,7 +146,7 @@ realB.addEventListener('load', () => { loadedUrlB = realB.src; loadFailB = false
 function onBError(){
   if (missB) return;
   loadFailB = true; imgB.style.visibility = 'hidden';
-  paintSide('B');
+  paintSide('B'); updateBadge();
   if (diffMode) renderDiff();
   else { diffNote.style.display = 'block'; diffNote.textContent = T('la imagen derecha no cargó'); }
 }
@@ -151,7 +159,9 @@ $('heatBtn').addEventListener('click', () => setHeat(!heat));
 /* ---------- blink mode ---------- */
 let blinkTimer = null;
 // el aviso de B parpadea con su imagen: si B no tiene el cuadro, A y el aviso se alternan
-const setBOpacity = v => { imgB.style.opacity = v; $('missB').style.opacity = v; };
+// y el aviso de A, que ocupa todo el ancho en parpadeo y queda por encima de la
+// imagen de B, se alterna al revés: si no, B no se veía nunca (ops#251)
+const setBOpacity = v => { imgB.style.opacity = v; $('missB').style.opacity = v; $('missA').style.opacity = v === '' ? '' : (v === '0' ? '1' : '0'); };
 function setBlink(on, quiet){
   blinkMode = on;
   if (on) setDiff(false);
@@ -307,6 +317,7 @@ function drawCropRow(id, canvas){
   ctx.drawImage(im, sx, sy, sw, sh, Math.floor((canvas.width-sw)/2), Math.floor((canvas.height-sh)/2), sw, sh);
 }
 function openCropPanel(){
+  if (blindSides) return;   // en la prueba ciega no hay recortes: numeran las versiones (gatos-ops#239)
   const wasHidden = cropPanel.style.display !== 'block';
   cropPanel.style.display = 'block';
   cropHint.style.display = 'none';

@@ -7,15 +7,16 @@ function applyManifest(m){
     throw Object.assign(new Error(T('manifest inválido: faltan frames o hay menos de 2 variantes')), {manifestInvalid:true});
   FRAMES = m.frames;
   VARIANTS = m.variants;
-  FRAME_LABELS = m.frame_labels || {};
-  FRAME_META = m.frame_meta || {};
+  // sin prototipo: FRAME_LABELS['constructor'] no devuelve la función heredada (ops#251)
+  FRAME_LABELS = Object.assign(Object.create(null), m.frame_labels);
+  FRAME_META = Object.assign(Object.create(null), m.frame_meta);
   CLIP = m.clip || {};
   originalTitle = m.title || T('Comparación');
   document.title = originalTitle; pageTitle.textContent = originalTitle;
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
-  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 5 versiones
+  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 8 versiones
   computeFit();
   loadImg();
   applyTransform();
@@ -25,7 +26,7 @@ function applyManifest(m){
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);
-  if (h.has('smooth')) setSmooth(h.get('smooth') !== '0');
+  if (h.has('smooth')) setSmooth(h.get('smooth') !== '0', false);
   if (h.get('crops') === '1') setCropMode(true);
   if (h.get('crop')){
     const [cu, cv] = h.get('crop').split(',').map(Number);
