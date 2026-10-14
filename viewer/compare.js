@@ -316,6 +316,14 @@ I18N.add({
   '{} pruebas enviadas.': '{} tests sent.',
   'Puestos en cada prueba': 'Placings in each test',
   'Volver a mi resultado': 'Back to my result',
+  'Ver': 'View',
+  'Abre esta comparación otra vez, con las mismas versiones a cada lado': 'Opens this comparison again, with the same versions on each side',
+  'Comparación {} de {}:': 'Comparison {} of {}:',
+  'dijiste empate': 'you said tie',
+  'elegiste': 'you picked',
+  'izquierda': 'left',
+  'derecha': 'right',
+  'Una comparación de tu prueba': 'One comparison from your test',
   'Hacer la prueba': 'Take the test',
   'No se pudo leer la tabla: {}': 'Could not read the standings: {}',
   // estado y modos
@@ -1911,7 +1919,7 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
 const TEST_MAX = 8, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
-let testRun = null, testMine = null;
+let testRun = null, testMine = null, testSeen = false;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -2042,7 +2050,7 @@ function testSaved(){
   } catch(e){}
   return null;
 }
-function testOpen(html){ testBody.innerHTML = html; testPanel.style.display = 'flex'; const b = testBody.querySelector('button'); if (b) b.focus(); }
+function testOpen(html){ testSeeEnd(); testBody.innerHTML = html; testPanel.style.display = 'flex'; const b = testBody.querySelector('button'); if (b) b.focus(); }
 function testClose(){ if (testRun && testRun.settled) return;   // hay que elegir: ver el resultado o seguir
   testPanel.classList.remove('solid');
   if (testPanel.style.display === 'flex'){ testPanel.style.display = 'none'; $('testBtn').focus(); } }
@@ -2119,6 +2127,7 @@ let testOpening = false;
 const testWait = () => typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined;
 async function testStart(saved){
   if (testRun || testOpening) return;
+  testSeeEnd();
   let session = saved ? saved.s : null;
   if (!saved) testForget();
   if (!saved && testHttp()){
@@ -2316,7 +2325,7 @@ function testLeave(){
 function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
 function testFinish(rank){
   const run = testRun, games = run.games, sid = run.sid, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
-  run.settled = null;
+  run.settled = null; testSeen = false;
   testLeave();
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
@@ -2388,13 +2397,25 @@ function testResult(){
   testOpen(`<h2>${T('Tu resultado')}</h2>
     <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
     ${testChkLine()}
-    <details class="tgames"><summary>${T('Tus respuestas, comparación por comparación')}</summary>
-      <table class="tgtable"><tr><th>${T('Cuadro')}</th><th>${T('Izquierda')}</th><th>${T('Derecha')}</th><th>${T('Elegiste')}</th></tr>
-      ${testMine.games.map(([a, b, f, r]) => `<tr><td>${testEsc(FRAME_LABELS[f] || f)}</td><td>${testName(a)}</td><td>${testName(b)}</td><td>${r === 't' ? T('Empate') : testName(r === 'a' ? a : b)}</td></tr>`).join('')}</table></details>
+    <details class="tgames"${testSeen ? ' open' : ''}><summary>${T('Tus respuestas, comparación por comparación')}</summary>
+      <table class="tgtable"><tr><th>${T('Cuadro')}</th><th>${T('Izquierda')}</th><th>${T('Derecha')}</th><th>${T('Elegiste')}</th><th></th></tr>
+      ${testMine.games.map(([a, b, f, r], i) => `<tr><td>${testEsc(FRAME_LABELS[f] || f)}</td><td>${testName(a)}</td><td>${testName(b)}</td><td>${r === 't' ? T('Empate') : testName(r === 'a' ? a : b)}</td><td>${testCanSee(a, b, f) ? `<button data-test="see" data-i="${i}" title="${T('Abre esta comparación otra vez, con las mismas versiones a cada lado')}">${T('Ver')}</button>` : ''}</td></tr>`).join('')}</table></details>
     <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
     <p class="hint" id="testNote" role="status">${testEsc(note)}${http && st !== 'local' ? ` <button class="tlink" data-test="privacy-mine">${T('Qué se guarda')}</button>` : ''}</p>
     <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' || st === 'replaced' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
+// volver a mirar una comparación ya respondida: el mismo cuadro con las mismas versiones a cada lado,
+// ya con sus nombres. Una barra dice qué se está viendo y lleva de vuelta al resultado
+const testCanSee = (a, b, f) => FRAMES.some(x => String(x) === String(f)) && [a, b].every(id => VARIANTS.some(v => v.id === id));
+function testSee(i){
+  const [a, b, f, r] = testMine.games[i];
+  testSeen = true; testClose();
+  varA = a; varB = b; frame = FRAMES.find(x => String(x) === String(f));
+  refreshFrameButtons(); refreshVariantButtons(); loadImg(); updateMeta(); writeHash();
+  $('testSeeText').innerHTML = testEsc(T`Comparación ${i + 1} de ${testMine.games.length}:`) + ' ' + (r === 't' ? T('dijiste empate') : testEsc(T('elegiste')) + ' ' + testName(r === 'a' ? a : b) + ' (' + (r === 'a' ? T('izquierda') : T('derecha')) + ')');
+  $('testSeeBar').hidden = false; $('testSeeBack').focus();
+}
+function testSeeEnd(){ $('testSeeBar').hidden = true; }
 function testStandings(j){
   testOpen(`<h2>${T('Tabla de todos')}</h2>
     <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('Ordenada por el puesto medio en que quedó cada versión: cuanto más bajo, mejor.')}</p>
@@ -2418,7 +2439,7 @@ async function testAll(){
 testBody.addEventListener('click', e => {
   const b = e.target.closest('[data-test]'); if (!b) return;
   const act = b.dataset.test;
-  if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult();
+  if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult(); else if (act === 'see') testSee(+b.dataset.i);
   else if (act === 'send') testSend(); else if (act === 'all') testAll();
   else if (act === 'link') testCopyLink(b); else if (act === 'reload') location.reload();
   else if (act === 'privacy') testPrivacy('intro'); else if (act === 'privacy-mine') testPrivacy('mine'); else if (act === 'intro') testIntro();
@@ -2431,6 +2452,8 @@ $('testRight').addEventListener('click', () => testPick('b'));
 $('testTie').addEventListener('click', () => testPick('t'));
 $('testBack').addEventListener('click', testBackOne);
 $('testQuit').addEventListener('click', testQuit);
+$('testSeeBack').addEventListener('click', () => { testSeeEnd(); testResult(); });
+$('testSeeClose').addEventListener('click', testSeeEnd);
 // teclas de la prueba: ← y → eligen lado, ↑/↓/0 empate, Retroceso vuelve una. Las
 // que cambiarían el par o lo revelarían (números, espacio, G, R, S, C) no hacen nada
 function testKeys(e){

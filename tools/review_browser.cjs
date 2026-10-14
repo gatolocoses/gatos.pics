@@ -714,6 +714,13 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('blind test: the result ranks 1st to 4th with the real names revealed by the server, and is sent by itself', [mine.map(r=>r[0]), mine[0].length, [...P].sort(), await tpg.locator('[data-test="send"]').count(), await tpg.evaluate(()=>[blindMode,document.body.classList.contains('testing'),testBar.hidden,document.title,localStorage.getItem('gatosVoted:'+testToken),VARIANTS.map(v=>v.id).join(),blindPics])],
       [['1º','2º','3º','4º'], 3, [...names].sort(), 0, [false,false,true,'Prueba ciega','1',vids.join(),null]]);
     ok('blind test: the result says how many comparisons were answered', new RegExp('Respondiste '+asked+' comparaciones').test(await tpg.textContent('#testBody')));
+    // volver a mirar una comparación desde el resultado: mismo cuadro, mismas versiones a cada lado, y vuelta al resultado
+    await tpg.locator('.tgames summary').click();
+    const g2 = await tpg.evaluate(()=>testMine.games[1].slice(0,3).map(String));
+    await tpg.locator('[data-test="see"][data-i="1"]').click();
+    ok('blind test: View on a row of the result opens that comparison with the same sides, named', await tpg.evaluate(()=>[testPanel.style.display, varA, varB, String(frame), blindMode, testSeeBar.hidden, /Comparación 2 de /.test(testSeeText.textContent), document.querySelectorAll('[data-test="see"]').length===testMine.games.length]), ['none', ...g2, false, false, true, true]);
+    await tpg.locator('#testSeeBack').click();
+    ok('blind test: the bar returns to the result with the list open', await tpg.evaluate(()=>[testPanel.style.display, testSeeBar.hidden, document.querySelector('.tgames').open, /Tu resultado/.test(testBody.textContent)]), ['flex', true, true, true]);
     await tpg.locator('[data-test="all"]').click(); await tpg.waitForSelector('#testBody h2:has-text("Tabla de todos")');
     ok('blind test: everyone\'s standings after one test', [(await rows(tpg)).map(r=>r.slice(0,4)), /1 prueba enviada/.test(await tpg.textContent('#testBody'))], [[['1º',P[0],'1.00','1º ×1'],['2º',P[1],'2.00','2º ×1'],['3º',P[2],'3.00','3º ×1'],['4º',P[3],'4.00','4º ×1']], true]);
     // un duelo dividido (gana una, gana la otra) pide el tercer cuadro; Atrás deshace y el plan se rehace igual

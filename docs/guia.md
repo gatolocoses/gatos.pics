@@ -199,7 +199,8 @@ como mucho.
 En cada comparación puedes decir, si quieres, **qué notaste**: el botón **¿Por qué?** abre unas
 etiquetas rápidas (nitidez, grano, bloques, bandas, color, movimiento) y una nota corta. Se marcan
 antes de elegir, así que no usarlas no cuesta nada. Al final, **Tus respuestas, comparación por
-comparación** muestra qué elegiste en cada cuadro. En la misma fila, **Marcar dónde** deja señalar
+comparación** muestra qué elegiste en cada cuadro, y **Ver** en cada una la abre otra vez con las
+mismas versiones a cada lado (**Volver a mi resultado** regresa a la lista). En la fila de **¿Por qué?**, **Marcar dónde** deja señalar
 con un toque el punto de la imagen donde viste la diferencia.
 
 Una página puede pedir **comprobaciones** (`blind` en su manifiesto): una comparación de control con

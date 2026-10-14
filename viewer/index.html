@@ -193,6 +193,8 @@
   /* los tres botones van al centro exacto de la página, sobre el divisor: Empate queda encima de la línea */
   #testBar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
   #testBar[hidden]{display:none;}
+  #testSeeBar{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000; font-size:13px;}
+  #testSeeBar[hidden]{display:none;}
   #testWhy{grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center;}
   #testWhy[hidden]{display:none;}
   #testDot{position:absolute; z-index:5; width:26px; height:26px; margin:-13px 0 0 -13px; border:2px solid #ffb454; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,.6); pointer-events:none;}
@@ -222,7 +224,7 @@
   .tgtable{width:100%; border-collapse:collapse; font-size:13px; margin:6px 0;}
   .tgtable :is(th,td){text-align:left; padding:5px 8px; border-bottom:1px solid #2a2a36;} .tgtable th{color:var(--dim); font-weight:400; font-size:12px;}
   .tlink{background:none; border:0; padding:0; min-height:0 !important; color:inherit; text-decoration:underline; cursor:pointer; font:inherit;}
-  @media (pointer:coarse){ #testBar button, #testBody button{min-height:44px;} }
+  @media (pointer:coarse){ #testBar button, #testSeeBar button, #testBody button{min-height:44px;} }
   #sharePanel .modal-box{max-width:560px; max-height:86%; overflow:auto;}
   @media (prefers-reduced-motion:reduce){ .hrow-panes .variants{scroll-behavior:auto;} }
   @media (pointer:coarse){
@@ -328,6 +330,11 @@
   </div>
 </header>
 
+<div id="testSeeBar" role="group" aria-label="Una comparación de tu prueba" hidden>
+  <span id="testSeeText" role="status"></span>
+  <button data-t id="testSeeBack" class="xbtn">Volver a mi resultado</button>
+  <button data-t id="testSeeClose">Cerrar</button>
+</div>
 <div id="testBar" role="group" aria-label="Prueba ciega" hidden>
   <span id="testStep" role="status"></span>
   <div class="tpick">
