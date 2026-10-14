@@ -86,6 +86,8 @@
   .spacer{flex:1;}
   #comp{flex:1; position:relative; overflow:hidden; cursor:crosshair; touch-action:none;}
   .pane{position:absolute; inset:0; overflow:hidden;}
+  #goneNote{position:absolute; top:14px; left:50%; transform:translateX(-50%); z-index:6; max-width:calc(100% - 32px); display:flex; gap:12px; align-items:center; padding:8px 12px; border-radius:10px; background:rgba(20,20,28,.92); border:1px solid var(--line,#33334a); color:#e8e8f0; font-size:14px;}
+  #goneNote[hidden]{display:none;}
   .pane img, #diffCanvas{
     position:absolute; transform-origin:0 0; user-select:none; -webkit-user-drag:none;
     will-change:transform; image-rendering:auto; decoding:async;
@@ -191,6 +193,13 @@
   /* los tres botones van al centro exacto de la página, sobre el divisor: Empate queda encima de la línea */
   #testBar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:8px 16px; background:var(--panel2); border-bottom:1px solid #000;}
   #testBar[hidden]{display:none;}
+  #testWhy{grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center;}
+  #testWhy[hidden]{display:none;}
+  #testWhy .twl{color:var(--muted,#9a9ab0); font-size:13px;}
+  #testWhy button{min-height:32px !important; padding:4px 10px; font-size:13px;}
+  @media (max-width:820px){ #testWhy .twl{flex-basis:100%; text-align:center;} #testWhy input{flex-basis:100%; max-width:none;} }
+  #testWhy button[aria-pressed="true"]{background:var(--accent,#ffb454); color:#111;}
+  #testWhy input{flex:1 1 220px; max-width:360px; padding:6px 8px; background:#23232e; color:#e8e8f0; border:1px solid #333; border-radius:6px;}
   #testBar .tpick{display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;}
   #testBar .tpick #testLeft{justify-self:end;}
   #testBar .tpick #testRight{justify-self:start;}
@@ -207,6 +216,10 @@
   .ttable{width:100%; border-collapse:collapse; font-size:13px; margin:6px 0;}
   .ttable :is(th,td){text-align:left; padding:6px 8px; border-bottom:1px solid #2a2a36;}
   .ttable th{color:var(--dim); font-weight:400; font-size:12px;}
+  .tgames{margin:6px 0;} .tgames summary{cursor:pointer; color:var(--dim); font-size:13px;}
+  .tgtable{width:100%; border-collapse:collapse; font-size:13px; margin:6px 0;}
+  .tgtable :is(th,td){text-align:left; padding:5px 8px; border-bottom:1px solid #2a2a36;} .tgtable th{color:var(--dim); font-weight:400; font-size:12px;}
+  .tlink{background:none; border:0; padding:0; min-height:0 !important; color:inherit; text-decoration:underline; cursor:pointer; font:inherit;}
   @media (pointer:coarse){ #testBar button, #testBody button{min-height:44px;} }
   #sharePanel .modal-box{max-width:560px; max-height:86%; overflow:auto;}
   @media (prefers-reduced-motion:reduce){ .hrow-panes .variants{scroll-behavior:auto;} }
@@ -321,8 +334,21 @@
     <button id="testRight" class="xbtn" title="Se ve mejor la de la derecha (→)"></button>
   </div>
   <div class="tside">
+    <button data-t id="testWhyBtn" aria-expanded="false" title="Opcional: decir qué notaste en esta comparación">¿Por qué?</button>
     <button data-t id="testBack" title="Volver a la comparación anterior (Retroceso)">Atrás</button>
     <button data-t id="testQuit">Salir de la prueba</button>
+  </div>
+  <div id="testWhy" hidden>
+    <span data-t class="twl">Opcional, antes de elegir: ¿qué notaste?</span>
+    <button data-t data-tag="sharp" aria-pressed="false">Nitidez</button>
+    <button data-t data-tag="grain_more" aria-pressed="false">Más grano o ruido</button>
+    <button data-t data-tag="grain_less" aria-pressed="false">Menos grano o ruido</button>
+    <button data-t data-tag="blocky" aria-pressed="false">Bloques</button>
+    <button data-t data-tag="banding" aria-pressed="false">Bandas</button>
+    <button data-t data-tag="colour" aria-pressed="false">Color</button>
+    <button data-t data-tag="motion" aria-pressed="false">Movimiento borroso</button>
+    <button data-t data-tag="other" aria-pressed="false">Otra cosa</button>
+    <input id="testWhyNote" type="text" maxlength="200" autocomplete="off" placeholder="Nota corta (opcional, sin datos personales)">
   </div>
 </div>
 
@@ -336,6 +362,7 @@
   </filter>
 </svg>
 <div id="comp">
+  <div id="goneNote" role="status" hidden><span data-t>La comparación que buscabas ya no existe. Mientras tanto: gatos.</span><button id="goneClose" data-t title="Cerrar este aviso">Cerrar</button></div>
   <div class="pane" id="paneA">
     <img id="imgA" alt="A" decoding="async">
     <div data-t class="pane-miss" id="missA" role="status" hidden>Esta variante no tiene este cuadro</div>

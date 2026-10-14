@@ -24,6 +24,8 @@ function applyManifest(m){
   // arranca ajustada en todas las pantallas (gatolocoses/gatos.pics#31): el
   // salto a 1:1 en móvil dejaba la imagen más chica que la pantalla con
   // dpr ≥ 2 y recortada con capturas 1080p; 1:1 queda a un toque
+  // enlace muerto (gatos-ops#307): se llegó aquí porque la página pedida ya no existe
+  if (h.get('gone') === '1'){ $('goneNote').hidden = false; $('goneClose').onclick = () => { $('goneNote').hidden = true; }; }
   if (h.get('diff') === '1') setDiff(true);
   if (h.get('blink') === '1') setBlink(true);
   if (h.get('solar') === '1') setSolar(true);

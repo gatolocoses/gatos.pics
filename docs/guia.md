@@ -196,6 +196,15 @@ comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24). Con 6,
 7 u 8 versiones cada duelo es de un solo cuadro: 11, 14 y 17 comparaciones
 como mucho.
 
+En cada comparación puedes decir, si quieres, **qué notaste**: el botón **¿Por qué?** abre unas
+etiquetas rápidas (nitidez, grano, bloques, bandas, color, movimiento) y una nota corta. Se marcan
+antes de elegir, así que no usarlas no cuesta nada. Al final, **Tus respuestas, comparación por
+comparación** muestra qué elegiste en cada cuadro.
+
+Quien publicó la página puede ver el detalle de cada resultado (qué se eligió en cada cuadro, los
+motivos y cuánto tardó cada respuesta) con la llave de su página; la tabla pública solo muestra
+totales. No se guarda nada de quién respondió: el enlace **Qué se guarda** de la prueba lo explica.
+
 Si las versiones de la página no tienen la misma área de imagen (por ejemplo una
 edición con el cuadro más alto contra otra recortada a formato ancho), durante la
 prueba solo se ve la parte que todas comparten: así unas bandas negras no dicen

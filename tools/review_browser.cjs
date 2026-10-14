@@ -927,6 +927,44 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const six = await mk(['a','b','c','d','e','f','g','h','i']);
     await tpg.goto(six.url); await loaded(tpg);
     ok('blind test: not offered with more than 8 versions', await tpg.locator('#testBtn').isVisible(), false);
+    // detalle y motivos (gatos-ops#310): etiquetas y nota opcionales, tiempo por respuesta, vista por comparación y aviso de privacidad
+    {
+      const dp = await mk(vids.slice(0,2));
+      const dctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800},extraHTTPHeaders:{'x-forwarded-for':'203.0.113.21'}});
+      const dpg = await dctx.newPage(); dpg.on('pageerror',e=>errors.push(e.message)); dpg.on('dialog',d=>d.accept());
+      await dpg.goto(dp.url); await loaded(dpg); await dpg.evaluate(()=>testIntro());
+      const intro = await dpg.evaluate(()=>[/No se guarda nada/.test(testBody.textContent), !!testBody.querySelector('[data-test="privacy"]')]);
+      await dpg.click('[data-test="privacy"]');
+      const notice = await dpg.evaluate(()=>[/Qué se guarda:/.test(testBody.textContent), /Qué no se guarda:/.test(testBody.textContent), /solo lo ve quien publicó/.test(testBody.textContent)]);
+      await dpg.click('[data-test="intro"]'); await dpg.click('[data-test="start"]'); await started(dpg);
+      const closed = await dpg.evaluate(()=>testWhy.hidden);
+      await dpg.click('#testWhyBtn'); await dpg.click('#testWhy [data-tag="blocky"]'); await dpg.fill('#testWhyNote','se ve en bloques en lo oscuro');
+      await dpg.keyboard.press('Tab'); await dpg.evaluate(()=>document.activeElement.blur());
+      await dpg.waitForTimeout(120); await dpg.keyboard.press('ArrowLeft');
+      await dpg.waitForFunction(()=>!testRun||testRun.settled||testRun.answers.length===1);
+      const reset = await dpg.evaluate(()=>[testWhy.querySelectorAll('[aria-pressed="true"]').length, testWhyNote.value, testWhy.hidden]);
+      await run(dpg); await dpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      const res = await dpg.evaluate(()=>[testBody.querySelectorAll('.tgtable tr').length-1===testMine.games.length, /No se guardó nada/.test(testBody.textContent), !!testBody.querySelector('[data-test="privacy-mine"]'), testWhy.hidden]);
+      const det = (await (await fetch(BASE+'/api/vote/'+dp.token,{headers:{'x-delete-key':dp.delete_key}})).json()).detail, c = det.ballots[0].comparisons;
+      ok('blind test detail: the introduction links to a privacy notice instead of promising that nothing is kept', [intro, notice], [[false,true],[true,true,true]]);
+      ok('blind test detail: optional tags and note are sent with that answer only, they reset for the next one, and every answer carries its time', [closed, reset, c[0].tags, c[0].note, c.every(x=>Number.isInteger(x.ms)&&x.ms>=0), c.slice(1).every(x=>x.tags===undefined&&x.note===undefined), c[0].ms>=100],
+        [true, [0,'',false], ['blocky'], 'se ve en bloques en lo oscuro', true, true, true]);
+      ok('blind test detail: the result shows every comparison, has no "nothing was stored" promise, and the why row closes', res, [true,false,true,true]);
+      await dctx.close();
+    }
+    // enlace muerto (gatos-ops#307): quien llega con #gone=1 ve el aviso; se cierra y no queda en el enlace
+    {
+      const gpg = await tctx.newPage(); gpg.on('pageerror',e=>errors.push(e.message));
+      await gpg.goto(tp.url+'#gone=1'); await loaded(gpg);
+      const shown = await gpg.evaluate(()=>[goneNote.hidden, /ya no existe/.test(goneNote.textContent)]);
+      await gpg.keyboard.press('ArrowRight'); await gpg.waitForTimeout(400);
+      const hash = await gpg.evaluate(()=>location.hash.includes('gone'));
+      await gpg.click('#goneClose');
+      ok('dead link: arriving with #gone=1 shows the notice, it can be closed, and the link does not keep it', [shown, hash, await gpg.evaluate(()=>goneNote.hidden)], [[false,true], false, true]);
+      const npg = await tctx.newPage(); await npg.goto(tp.url); await loaded(npg);
+      ok('dead link: a normal visit shows no notice', await npg.evaluate(()=>goneNote.hidden), true);
+      await gpg.close(); await npg.close();
+    }
     // área común (gatos-ops#305): con frame_areas, durante la prueba cada imagen se recorta a lo que todas comparten
     {
       const ar = await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',

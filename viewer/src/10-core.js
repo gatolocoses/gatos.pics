@@ -275,7 +275,7 @@ function fitView(){ zoom = 1; pan = {x:0, y:0}; applyTransform(); writeHash(); }
 // El panel de recortes vive dentro de #comp: lo que nace en él (clic en
 // «cerrar», rueda sobre la lista) es suyo. Sin esto la captura del puntero se
 // llevaba el clic del botón y la rueda hacía zoom en vez de desplazar (ops#250).
-const inCropPanel = e => !!(e.target && e.target.closest && e.target.closest('#cropPanel'));
+const inCropPanel = e => !!(e.target && e.target.closest && e.target.closest('#cropPanel, #goneNote'));   // paneles dentro de #comp: sus clics y su rueda son suyos
 comp.addEventListener('wheel', e => {
   if (inCropPanel(e)) return;
   e.preventDefault();

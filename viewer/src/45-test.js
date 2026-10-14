@@ -135,7 +135,7 @@ function testSave(){
   const run = testRun; if (!run || !(run.session || testLocalOk)) return;
   // sin sesión (gatos-ops#264) se guarda también la numeración y el orden de los cuadros: en una copia local no hay servidor que los recuerde
   const local = run.session ? null : {ids: blindOrder.map(v => v.id), frames: run.frames};
-  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], extra: [...run.extra], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
@@ -180,6 +180,18 @@ async function testResume(){
   testForget();
   testIntro(T('La prueba que dejaste ya venció: hay que empezar otra.'));
 }
+/* Aviso de privacidad (gatos-ops#310). Desde que quien publica puede ver el detalle de cada resultado,
+   ya no es cierto que «no se guarda nada»: aquí se dice qué se guarda, qué no, quién lo ve y hasta cuándo. */
+const testPrivLink = `<button class="tlink" data-test="privacy">${T('Qué se guarda')}</button>`;
+function testPrivacy(back){
+  testOpen(`<h2>${T('Privacidad de la prueba ciega')}</h2>
+    <p><b>${T('Qué se guarda:')}</b> ${T('tus respuestas (qué lado elegiste en cada comparación), lo que marques o escribas en «¿Por qué?», cuánto tardaste en cada respuesta y la hora del envío, redondeada al minuto.')}</p>
+    <p><b>${T('Qué no se guarda:')}</b> ${T('tu dirección, tu navegador, una cuenta ni cookies de seguimiento. Tu resultado no lleva nada que diga quién eres. La dirección se usa un momento para frenar abusos y no se guarda.')}</p>
+    <p><b>${T('Quién lo ve:')}</b> ${T('la tabla con los totales es pública. El detalle (respuestas, motivos y notas) solo lo ve quien publicó la página.')}</p>
+    <p><b>${T('Hasta cuándo:')}</b> ${T('mientras exista la página, o hasta que quien la publicó reinicie sus resultados.')}</p>
+    <p class="hint">${T('En tu navegador queda una marca para que repetir la prueba reemplace tu resultado en vez de sumar otro. Si escribes una nota, no pongas datos personales.')}</p>
+    <div class="acts"><button class="xbtn" data-test="${back === 'mine' ? 'mine' : 'intro'}">${T('Volver')}</button></div>`);
+}
 function testIntro(note){
   const n = VARIANTS.length, hi = testDuels(n) * Math.min(testFrames(n), FRAMES.length);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
@@ -187,7 +199,7 @@ function testIntro(note){
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
     ${testAreas() ? `<p id="testAreaNote">${T('En esta página las versiones no tienen la misma área de imagen: durante la prueba solo se ve la parte que todas comparten.')}</p>` : ''}
-    ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos. No se guarda nada sobre ti.')}</p>` : ''}
+    ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos.') + ' ' + testPrivLink}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
     ${typeof note === 'string' ? `<p class="hint" role="status">${testEsc(note)}</p>` : ''}`);
@@ -245,7 +257,7 @@ async function testStart(saved){
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined)
     : saved && saved.local ? saved.local.frames.map(f => FRAMES.find(x => String(x) === String(f))) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
-    flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), answers: saved ? saved.answers : [], games: [], before};
+    flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), extra: new Map(saved && saved.extra || []), answers: saved ? saved.answers : [], games: [], before};
   if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
   // lo que quedó en espera ya está sumado en el servidor: no se manda otra vez
   if (saved && saved.held !== undefined){ testRun.held = saved.held; testRun.holdP = Promise.resolve(); }
@@ -293,7 +305,7 @@ function testSettled(groups){
 }
 async function testHold(run, groups){
   const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = testCounts(), old = testSeal();
-  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), count, hold: true, ...(old ? {replaces: old} : {})};
+  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, run.games), count, hold: true, ...(old ? {replaces: old} : {})};
   try {
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body), signal: testWait()});
     if (!r.ok) return;
@@ -325,8 +337,18 @@ function testClipOne(el){
 imgA.addEventListener('load', () => { testClipOne(imgA); testClipOne(diffCanvas); });
 imgB.addEventListener('load', () => { testClipOne(imgB); testClipOne(diffCanvas); });
 const testAreas = () => VARIANTS.length && FRAMES.some(f => FRAME_AREAS[String(f)]);
+/* Lo opcional de cada respuesta (gatos-ops#310): cuánto tardó, y si quien responde quiere, qué notó
+   (etiquetas rápidas y una nota corta). Se marca ANTES de elegir, así saltarlo no cuesta ningún toque.
+   Va por par y cuadro (run.extra), en los números de la prueba: no dice qué versión es cuál. */
+const testWhy = $('testWhy'), testWhyNote = $('testWhyNote');
+const testWhyTags = () => [...testWhy.querySelectorAll('[data-tag][aria-pressed="true"]')].map(b => b.dataset.tag);
+function testWhyReset(){ for (const b of testWhy.querySelectorAll('[data-tag]')) b.setAttribute('aria-pressed', 'false'); testWhyNote.value = ''; }
+testWhy.addEventListener('click', e => { const b = e.target.closest('[data-tag]'); if (b) b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); });
+$('testWhyBtn').addEventListener('click', () => { testWhy.hidden = !testWhy.hidden; $('testWhyBtn').setAttribute('aria-expanded', String(!testWhy.hidden)); computeFit(); applyTransform(); });
+const testExtraKey = g => [g.a, g.b].sort().join('|') + '|' + g.f;
 function testShow(){
   const g = testRun.cur;
+  testWhyReset(); testRun.shownAt = performance.now();
   varA = g.a; varB = g.b; frame = g.f;
   $('testStep').textContent = T`Comparación ${(testRun.known ? testRun.known.size : 0) + testRun.answers.length + 1} · como mucho ${testRun.max} · ¿cuál se ve mejor?`;
   $('testLeft').textContent = '← ' + T('Izquierda');
@@ -357,16 +379,24 @@ function testWarm(){
 function testPick(r){
   if (!testRun || testRun.settled) return;
   const run = testRun;
+  if (run.cur){
+    const x = {ms: Math.round(performance.now() - (run.shownAt || performance.now()))}, tags = testWhyTags(), note = testWhyNote.value.trim().slice(0, 200);
+    if (tags.length) x.t = tags; if (note) x.n = note;
+    run.extra.set(testExtraKey(run.cur), x);
+  }
   run.answers.push(r);
   const step = run.gen.next(r);   // el plan anota la respuesta en run.games
   if (step.done) testSettled(step.value); else { run.cur = step.value; testShow(); }
 }
+// lo opcional, alineado con las comparaciones que se mandan (null donde no hay nada)
+const testExtras = (run, games) => games.map(([a, b, f]) => run.extra.get([a, b].sort().join('|') + '|' + f) || null);
 function testBackOne(){ if (testRun && !testRun.settled && testRun.answers.length){ testRun.answers.pop(); testReplay(); } }
 // sale del modo: vuelve la vista de antes, se olvida la numeración y se sueltan las imágenes sin nombre
 function testLeave(){
   const before = testRun.before;
   if (testRun.sid){ VARIANTS = testRun.real; blindPics = null; }   // vuelven las versiones de verdad
   testRun = null; blindOrder = null; blindSides = false;
+  testWhy.hidden = true; $('testWhyBtn').setAttribute('aria-expanded', 'false'); testWhyReset();
   for (const el of [imgA, imgB, diffCanvas]) el.style.clipPath = '';   // fuera de la prueba la página se ve entera
   testForget();   // terminada o abandonada a propósito: ya no hay nada que seguir
   document.body.classList.remove('testing');
@@ -384,8 +414,8 @@ function testFinish(rank){
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
     const n = id => num.get(id);
-    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r])};
-  } else testMine = {rank, games, state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
+    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, games)};
+  } else testMine = {rank, games, extra: testExtras(run, games), state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -397,7 +427,7 @@ async function testSend(){
     // si ya se mandó en espera (#220), este lo reemplaza: cuenta solo si aquel contó
     if (mine.run && mine.run.holdP){ await mine.run.holdP; if (mine.run.held !== undefined) mine.count = mine.run.held; }
     const old = testSeal();
-    const body = {...(mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, count: mine.count} : {rank: mine.rank, games: mine.games}), ...(old ? {replaces: old} : {})};
+    const body = {...(mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, extra: mine.extra, count: mine.count} : {rank: mine.rank, games: mine.games, extra: mine.extra}), ...(old ? {replaces: old} : {})};
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
     const j = await r.json().catch(() => ({}));
     // la página cambió de versiones a mitad de la prueba (gatos-ops#228): no se suma y reintentar no sirve;
@@ -431,7 +461,7 @@ function testResult(){
     return;
   }
   const note = {local: T('Esta copia no está publicada en gatos.pics: el resultado no se envía.'), voted: T('Ya habías enviado un resultado de esta página desde este navegador: este no se sumó.'),
-    sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos. No se guardó nada sobre ti.'),
+    sending: T('Sumando tu resultado a la tabla de todos…'), sent: T('Tu resultado se sumó a la tabla de todos.'),
     replaced: T('Tu resultado reemplazó en la tabla de todos al que habías enviado antes desde este navegador.'),
     limited: T('Llegaron demasiados resultados desde tu conexión en la última hora: este no se sumó.'),
     stale: T('La página cambió de versiones mientras hacías la prueba: este resultado no se sumó. Recarga la página para hacer la prueba con las versiones de ahora.'), failed: T`No se pudo enviar tu resultado: ${testMine.error}`}[st];
@@ -443,8 +473,11 @@ function testResult(){
     return g.map(id => `<tr><td>${p}º</td><td>${testName(id)}</td><td>${row[id].w}-${row[id].t}-${row[id].l}</td></tr>`).join(''); }).join('');
   testOpen(`<h2>${T('Tu resultado')}</h2>
     <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
+    <details class="tgames"><summary>${T('Tus respuestas, comparación por comparación')}</summary>
+      <table class="tgtable"><tr><th>${T('Cuadro')}</th><th>${T('Izquierda')}</th><th>${T('Derecha')}</th><th>${T('Elegiste')}</th></tr>
+      ${testMine.games.map(([a, b, f, r]) => `<tr><td>${testEsc(FRAME_LABELS[f] || f)}</td><td>${testName(a)}</td><td>${testName(b)}</td><td>${r === 't' ? T('Empate') : testName(r === 'a' ? a : b)}</td></tr>`).join('')}</table></details>
     <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
-    <p class="hint" id="testNote" role="status">${testEsc(note)}</p>
+    <p class="hint" id="testNote" role="status">${testEsc(note)}${http && st !== 'local' ? ` <button class="tlink" data-test="privacy-mine">${T('Qué se guarda')}</button>` : ''}</p>
     <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' || st === 'replaced' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
 function testStandings(j){
@@ -473,6 +506,7 @@ testBody.addEventListener('click', e => {
   if (act === 'start') testStart(); else if (act === 'close') testClose(); else if (act === 'mine') testResult();
   else if (act === 'send') testSend(); else if (act === 'all') testAll();
   else if (act === 'link') testCopyLink(b); else if (act === 'reload') location.reload();
+  else if (act === 'privacy') testPrivacy('intro'); else if (act === 'privacy-mine') testPrivacy('mine'); else if (act === 'intro') testIntro();
   else if (act === 'resume') testResume(); else if (act === 'fresh'){ testForget(); testIntro(); }
   else if (act === 'done'){ if (testRun && testRun.settled) testFinish(testRun.settled); } else if (act === 'more') testMore();
 });
