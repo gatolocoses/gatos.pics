@@ -24,6 +24,7 @@ const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
 let FRAMES = [], VARIANTS = [];
 let FRAME_LABELS = {}, FRAME_META = {};
+let BLIND_CFG = {};    // opciones de la prueba ciega de esta página (gatos-ops#312): { repeat: 1|2, control: true }
 let FRAME_AREAS = {};   // por cuadro, el área [x, y, ancho, alto] que todas las versiones tienen con imagen (gatos-ops#305)
 let VERSION = '', CLIP = {};
 const AMPLIFY_DEFAULT_IDX = 1;
@@ -286,6 +287,7 @@ comp.addEventListener('wheel', e => {
 const pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
 comp.addEventListener('pointerdown', e => {
   if (inCropPanel(e)) return;
+  if (blindSides && testMarkArmed){ e.preventDefault(); testMarkAt(e.clientX, e.clientY); return; }   // prueba ciega: marcar dónde se vio la diferencia (gatos-ops#312)
   comp.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pointers.size === 2){

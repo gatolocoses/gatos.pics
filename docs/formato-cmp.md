@@ -47,6 +47,7 @@ gatos.pics lo acepta como contrato de publicación.
 | `frames` | array | sí | Identificadores de frame (número o string). Define el orden de los botones. |
 | `frame_labels` | objeto | no | `String(frame)` → etiqueta bonita. Sin etiqueta, el botón muestra el id. |
 | `frame_areas` | objeto | no | `String(frame)` → `[x, y, ancho, alto]` en píxeles de la imagen: el área que **todas** las versiones tienen con imagen en ese cuadro. La prueba ciega muestra solo esa área, para que unas bandas negras no delaten una versión. |
+| `blind` | objeto | no | Opciones de la prueba ciega de esta página, apagadas por omisión: `repeat` (0, 1 o 2: comparaciones que se repiten al final con los lados cambiados, para saber si quien responde elige lo mismo) y `control` (`true`: una vez se muestra la misma versión en los dos lados). No cambian el resultado; quien publica las ve en el detalle. |
 | `frame_meta` | objeto | no | `String(frame)` → `{ "clip_s": 12.5 }`: metadato informativo por frame. |
 | `clip` | objeto | no | `{ "start_label": "minuto 21" }`: contexto del origen de las capturas. |
 | `variants` | array | sí | Mínimo 2 para una comparación. |
@@ -187,7 +188,7 @@ Cómo se une:
 - `images` solo trae las imágenes nuevas. Cada una reemplaza la del mismo
   `<id>_<frame>`; las demás imágenes de esa variante, y todas las de las
   variantes que no mencionas, quedan como estaban.
-- `title`, `frames`, `frame_labels`, `frame_areas` y `clip`: si vienen reemplazan lo guardado;
+- `title`, `frames`, `frame_labels`, `frame_areas`, `blind` y `clip`: si vienen reemplazan lo guardado;
   si no vienen se conservan. Un frame nuevo solo se acepta si el parche trae su
   imagen para **todas** las variantes que quedan en la página, salvo las
   variantes parciales (su `frames` no lo incluye, no lo necesitan).

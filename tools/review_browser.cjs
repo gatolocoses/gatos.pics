@@ -952,6 +952,45 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       ok('blind test detail: the result shows every comparison, has no "nothing was stored" promise, and the why row closes', res, [true,false,true,true]);
       await dctx.close();
     }
+    // comprobaciones y «dónde» (gatos-ops#312): con `blind` en el manifiesto hay un par de control y una repetición; se puede marcar un punto
+    {
+      const cp = await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',
+        manifest:{title:'Comprobaciones',version:1,frames:frs,blind:{repeat:1,control:true},variants:vids.slice(0,2).map((id,i)=>({id,name:names[i]}))},images:Object.fromEntries(vids.slice(0,2).flatMap(v=>frs.map(f=>[v+'_'+f,img])))})})).json();
+      const cctx2 = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800},extraHTTPHeaders:{'x-forwarded-for':'203.0.113.22'}});
+      const cpg2 = await cctx2.newPage(); cpg2.on('pageerror',e=>errors.push(e.message)); cpg2.on('dialog',d=>d.accept());
+      await cpg2.goto(cp.url); await loaded(cpg2); await cpg2.evaluate(()=>testIntro());
+      const told = await cpg2.evaluate(()=>!!document.getElementById('testChkNote'));
+      await cpg2.evaluate(()=>testStart()); await started(cpg2);
+      const max0 = await cpg2.evaluate(()=>testRun.max);
+      // marcar un punto en la primera comparación
+      await cpg2.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
+      await cpg2.click('#testWhyBtn'); await cpg2.click('#testMarkBtn');
+      const box = await cpg2.evaluate(()=>{const r=imgA.getBoundingClientRect(); return [r.left+r.width*0.25, r.top+r.height*0.5];});
+      const div0 = await cpg2.evaluate(()=>dividerPos);
+      await cpg2.mouse.click(box[0], box[1]);
+      const marked = await cpg2.evaluate(()=>[testMarkAtPoint&&Math.abs(testMarkAtPoint[0]-0.25)<0.01&&Math.abs(testMarkAtPoint[1]-0.5)<0.01, testMarkArmed, /marcado/.test(testMarkBtn.textContent), !testDot.hidden]);
+      const div1 = await cpg2.evaluate(()=>dividerPos);
+      // recorre la prueba anotando qué clase de comparación fue cada una
+      const kinds = [];
+      for (let i = 0; i < 40; i++){
+        const st = await cpg2.evaluate(()=>testRun ? (testRun.settled ? 'settled' : (testRun.cur.chk || 'game') + (varA === varB ? ':same' : '')) : 'done');
+        if (st === 'done') break;
+        if (st === 'settled'){ await cpg2.click('[data-test="done"]'); break; }
+        kinds.push(st);
+        await cpg2.keyboard.press(await cpg2.evaluate(()=>{const g=testRun.cur, idx=id=>blindOrder.findIndex(v=>v.id===id); return g.a===g.b ? 'ArrowUp' : idx(g.a)<idx(g.b) ? 'ArrowLeft' : 'ArrowRight';}));
+        await cpg2.waitForTimeout(30);
+      }
+      await cpg2.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      const line = await cpg2.evaluate(()=>(document.getElementById('testChkLine')||{}).textContent||'');
+      const dt = (await (await fetch(BASE+'/api/vote/'+cp.token,{headers:{'x-delete-key':cp.delete_key}})).json()).detail;
+      ok('blind test checks: the page says so, one control pair shows the same version on both sides, one repeat comes at the end, and neither enters the result', [told, max0, kinds.filter(k=>k==='control:same').length, kinds.filter(k=>k.startsWith('repeat')).length, kinds[kinds.length-1].startsWith('repeat'), dt.ballots[0].comparisons.length===kinds.filter(k=>k==='game').length],
+        [true, 6, 1, 1, true, true]);
+      ok('blind test checks: the owner sees them, and the voter is told how consistent they were', [dt.ballots[0].checks.control.answer, dt.ballots[0].checks.repeats.length, dt.ballots[0].checks.repeats[0].same, dt.consistency, /elegiste la misma versión en 1/.test(line), /dijiste empate/.test(line)],
+        ['tie', 1, true, {repeats:1,repeats_same:1,control_shown:1,control_picked:0}, true, true]);
+      const w = dt.ballots[0].comparisons[0].where;
+      ok('blind test where: an armed mark takes the next click on the picture (the divider does not move) and reaches the owner', [marked, div0===div1, !!w&&Math.abs(w.x-0.25)<0.01&&Math.abs(w.y-0.5)<0.01, dt.ballots[0].comparisons.slice(1).every(c=>c.where===undefined)], [[true,false,true,true], true, true, true]);
+      await cctx2.close();
+    }
     // enlace muerto (gatos-ops#307): quien llega con #gone=1 ve el aviso; se cierra y no queda en el enlace
     {
       const gpg = await tctx.newPage(); gpg.on('pageerror',e=>errors.push(e.message));

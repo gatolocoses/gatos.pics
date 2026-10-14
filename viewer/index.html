@@ -195,6 +195,8 @@
   #testBar[hidden]{display:none;}
   #testWhy{grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center;}
   #testWhy[hidden]{display:none;}
+  #testDot{position:absolute; z-index:5; width:26px; height:26px; margin:-13px 0 0 -13px; border:2px solid #ffb454; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,.6); pointer-events:none;}
+  #testDot[hidden]{display:none;}
   #testWhy .twl{color:var(--muted,#9a9ab0); font-size:13px;}
   #testWhy button{min-height:32px !important; padding:4px 10px; font-size:13px;}
   @media (max-width:820px){ #testWhy .twl{flex-basis:100%; text-align:center;} #testWhy input{flex-basis:100%; max-width:none;} }
@@ -348,6 +350,7 @@
     <button data-t data-tag="colour" aria-pressed="false">Color</button>
     <button data-t data-tag="motion" aria-pressed="false">Movimiento borroso</button>
     <button data-t data-tag="other" aria-pressed="false">Otra cosa</button>
+    <button data-t id="testMarkBtn" aria-pressed="false" title="Opcional: marcar en la imagen dónde viste la diferencia">Marcar dónde</button>
     <input id="testWhyNote" type="text" maxlength="200" autocomplete="off" placeholder="Nota corta (opcional, sin datos personales)">
   </div>
 </div>
@@ -362,6 +365,7 @@
   </filter>
 </svg>
 <div id="comp">
+  <div id="testDot" hidden></div>
   <div id="goneNote" role="status" hidden><span data-t>La comparación que buscabas ya no existe. Mientras tanto: gatos.</span><button id="goneClose" data-t title="Cerrar este aviso">Cerrar</button></div>
   <div class="pane" id="paneA">
     <img id="imgA" alt="A" decoding="async">

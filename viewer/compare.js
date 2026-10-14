@@ -221,6 +221,14 @@ I18N.add({
   'Salir de la prueba': 'Leave the test',
   'Variante {}': 'Variant {}',
   'Recargar la página': 'Reload the page',
+  'Marcar dónde': 'Mark where',
+  'Opcional: marcar en la imagen dónde viste la diferencia': 'Optional: mark on the picture where you saw the difference',
+  'Punto marcado ✓': 'Spot marked ✓',
+  'Toca la imagen…': 'Tap the picture…',
+  'En esta página algunas comparaciones se repiten o son de control: sirven para saber qué tan firmes son las respuestas y no cambian tu resultado.': 'On this page some comparisons are repeated or are controls: they show how firm the answers are and do not change your result.',
+  'Se repitieron {} comparaciones con los lados cambiados: elegiste la misma versión en {}.': '{} comparisons were repeated with the sides swapped: you chose the same version in {}.',
+  'En la comparación de control (la misma versión en los dos lados) dijiste empate: bien visto.': 'In the control comparison (the same version on both sides) you said tie: well spotted.',
+  'En la comparación de control los dos lados eran la misma versión, y elegiste uno.': 'In the control comparison both sides were the same version, and you picked one.',
   '¿Por qué?': 'Why?',
   'Opcional: decir qué notaste en esta comparación': 'Optional: say what you noticed in this comparison',
   'Opcional, antes de elegir: ¿qué notaste?': 'Optional, before you choose: what did you notice?',
@@ -377,6 +385,7 @@ const diffCtx = diffCanvas.getContext('2d', {willReadFrequently:true});
 
 let FRAMES = [], VARIANTS = [];
 let FRAME_LABELS = {}, FRAME_META = {};
+let BLIND_CFG = {};    // opciones de la prueba ciega de esta página (gatos-ops#312): { repeat: 1|2, control: true }
 let FRAME_AREAS = {};   // por cuadro, el área [x, y, ancho, alto] que todas las versiones tienen con imagen (gatos-ops#305)
 let VERSION = '', CLIP = {};
 const AMPLIFY_DEFAULT_IDX = 1;
@@ -639,6 +648,7 @@ comp.addEventListener('wheel', e => {
 const pdist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
 comp.addEventListener('pointerdown', e => {
   if (inCropPanel(e)) return;
+  if (blindSides && testMarkArmed){ e.preventDefault(); testMarkAt(e.clientX, e.clientY); return; }   // prueba ciega: marcar dónde se vio la diferencia (gatos-ops#312)
   comp.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pointers.size === 2){
@@ -1953,17 +1963,41 @@ function* testDuel(run, x, y){
   }
   return d;
 }
+/* Comprobaciones (gatos-ops#312), si la página las pide en su manifiesto (`blind`). Son comparaciones
+   de más que NO entran en el resultado: dicen qué tan firmes fueron las respuestas.
+   - control: una vez, la misma versión en los dos lados. Quien elige un lado adivina.
+   - repeat: al final, una o dos comparaciones ya respondidas, con los lados cambiados.
+   Salen del mismo plan, así «Atrás», retomar y «seguir» las rehacen igual que a las demás. */
+function* testControl(run, v){
+  const f = run.frames.find(f => hasFrame(v, f)); if (f === undefined) return;
+  const key = 'c|' + v + '|' + f; let r = run.chkKnown ? run.chkKnown.get(key) : undefined;
+  if (r === undefined) r = yield {a: v, b: v, f, chk: 'control'};
+  run.checks.push({k: 'control', key, v, f, r});
+}
+function* testRepeats(run, n){
+  const dec = run.games.filter(g => g[3] !== 't');
+  const pick = [...new Set(n === 1 ? [dec[dec.length >> 1]] : [dec[0], dec[dec.length - 1]])].filter(Boolean);
+  for (const [a, b, f, r] of pick){
+    const key = 'r|' + [a, b].sort().join('|') + '|' + f; let r2 = run.chkKnown ? run.chkKnown.get(key) : undefined;
+    if (r2 === undefined) r2 = yield {a: b, b: a, f, chk: 'repeat'};   // los lados, al revés
+    const first = r === 'a' ? a : b, again = r2 === 't' ? null : r2 === 'a' ? b : a;
+    run.checks.push({k: 'repeat', key, a, b, f, r: r2, same: again === first});
+  }
+}
 function* testPlan(run){
-  const groups = [];
+  const groups = [], cfg = run.blind || {};
+  let duels = 0;
   for (const x of run.order){
     let lo = 0, hi = groups.length, tied = false;
     while (lo < hi && !tied){
       const mid = (lo + hi) >> 1, d = yield* testDuel(run, x, groups[mid][0]);
+      if (++duels === 1 && cfg.control) yield* testControl(run, groups[mid][0]);
       if (d === 0){ groups[mid].push(x); tied = true; }
       else if (d > 0) hi = mid; else lo = mid + 1;
     }
     if (!tied) groups.splice(lo, 0, [x]);
   }
+  if (cfg.repeat) yield* testRepeats(run, cfg.repeat);
   return groups;
 }
 const testEsc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -1992,7 +2026,7 @@ function testSave(){
   const run = testRun; if (!run || !(run.session || testLocalOk)) return;
   // sin sesión (gatos-ops#264) se guarda también la numeración y el orden de los cuadros: en una copia local no hay servidor que los recuerde
   const local = run.session ? null : {ids: blindOrder.map(v => v.id), frames: run.frames};
-  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], extra: [...run.extra], answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], extra: [...run.extra], chk: run.chkKnown ? [...run.chkKnown] : null, answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
@@ -2055,6 +2089,7 @@ function testIntro(note){
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. En cada comparación solo ves «izquierda» y «derecha»: nada dice qué versión es ni si ya la viste antes.`}</p>
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
+    ${BLIND_CFG.repeat || BLIND_CFG.control ? `<p id="testChkNote">${T('En esta página algunas comparaciones se repiten o son de control: sirven para saber qué tan firmes son las respuestas y no cambian tu resultado.')}</p>` : ''}
     ${testAreas() ? `<p id="testAreaNote">${T('En esta página las versiones no tienen la misma área de imagen: durante la prueba solo se ve la parte que todas comparten.')}</p>` : ''}
     ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos.') + ' ' + testPrivLink}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
@@ -2114,11 +2149,11 @@ async function testStart(saved){
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined)
     : saved && saved.local ? saved.local.frames.map(f => FRAMES.find(x => String(x) === String(f))) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
-    flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), extra: new Map(saved && saved.extra || []), answers: saved ? saved.answers : [], games: [], before};
+    flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), extra: new Map(saved && saved.extra || []), blind: BLIND_CFG, checks: [], chkKnown: saved && saved.chk ? new Map(saved.chk) : null, answers: saved ? saved.answers : [], games: [], before};
   if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
   // lo que quedó en espera ya está sumado en el servidor: no se manda otra vez
   if (saved && saved.held !== undefined){ testRun.held = saved.held; testRun.holdP = Promise.resolve(); }
-  testRun.max = testDuels(VARIANTS.length) * Math.min(testFrames(VARIANTS.length), FRAMES.length);
+  testRun.max = testDuels(VARIANTS.length) * Math.min(testFrames(VARIANTS.length), FRAMES.length) + (BLIND_CFG.control ? 1 : 0) + (BLIND_CFG.repeat || 0);
   blindMode = true; blindSides = true;
   document.body.classList.add('testing');
   $('testBar').hidden = false;
@@ -2130,7 +2165,7 @@ async function testStart(saved){
 // rehace el plan con las respuestas dadas y deja en pantalla la comparación que toca (o termina)
 function testReplay(){
   const run = testRun, gen = testPlan(run);
-  run.games = [];
+  run.games = []; run.checks = [];
   let step = gen.next();
   for (const r of run.answers){ if (step.done) break; step = gen.next(r); }
   run.gen = gen;
@@ -2162,7 +2197,7 @@ function testSettled(groups){
 }
 async function testHold(run, groups){
   const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = testCounts(), old = testSeal();
-  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, run.games), count, hold: true, ...(old ? {replaces: old} : {})};
+  const body = {sid: run.sid, rank: groups.map(g => g.map(n)), games: run.games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, run.games), checks: testChecks(run, n), count, hold: true, ...(old ? {replaces: old} : {})};
   try {
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body), signal: testWait()});
     if (!r.ok) return;
@@ -2177,6 +2212,7 @@ async function testHold(run, groups){
 function testMore(){
   const run = testRun; if (!run || !run.settled) return;
   run.known = new Map(run.games.map(([a, b, f, r]) => [testPairKey(a, b) + '|' + f, r === 't' ? 't' : r === 'a' ? a : b]));
+  run.chkKnown = new Map(run.checks.map(c => [c.key, c.r]));   // lo ya comprobado no se vuelve a preguntar
   run.full = true; run.settled = null; run.answers = [];
   testPanel.style.display = 'none';
   testReplay();
@@ -2199,7 +2235,19 @@ const testAreas = () => VARIANTS.length && FRAMES.some(f => FRAME_AREAS[String(f
    Va por par y cuadro (run.extra), en los números de la prueba: no dice qué versión es cuál. */
 const testWhy = $('testWhy'), testWhyNote = $('testWhyNote');
 const testWhyTags = () => [...testWhy.querySelectorAll('[data-tag][aria-pressed="true"]')].map(b => b.dataset.tag);
-function testWhyReset(){ for (const b of testWhy.querySelectorAll('[data-tag]')) b.setAttribute('aria-pressed', 'false'); testWhyNote.value = ''; }
+// Marcar dónde (gatos-ops#312): con el botón armado, el siguiente toque en la imagen no mueve nada:
+// guarda ese punto (de 0 a 1 del ancho y el alto de la imagen) para la respuesta de esta comparación.
+let testMarkArmed = false, testMarkAtPoint = null;
+function testMarkUi(){ const b = $('testMarkBtn'); b.setAttribute('aria-pressed', String(testMarkArmed)); b.textContent = testMarkAtPoint ? T('Punto marcado ✓') : testMarkArmed ? T('Toca la imagen…') : T('Marcar dónde'); }
+function testMarkAt(cx, cy){
+  const r = comp.getBoundingClientRect(), {nw, nh} = naturalDims();
+  testMarkAtPoint = [clamp(((cx - r.left) - ox - pan.x) / zoom / fitScale / nw, 0, 1), clamp(((cy - r.top) - oy - pan.y) / zoom / fitScale / nh, 0, 1)];
+  testMarkArmed = false; testMarkUi();
+  const dot = $('testDot'); dot.style.left = (cx - r.left) + 'px'; dot.style.top = (cy - r.top) + 'px'; dot.hidden = false;
+  clearTimeout(testMarkAt.t); testMarkAt.t = setTimeout(() => { dot.hidden = true; }, 1200);
+}
+$('testMarkBtn').addEventListener('click', () => { testMarkArmed = !testMarkArmed; if (testMarkArmed) testMarkAtPoint = null; testMarkUi(); });
+function testWhyReset(){ for (const b of testWhy.querySelectorAll('[data-tag]')) b.setAttribute('aria-pressed', 'false'); testWhyNote.value = ''; testMarkArmed = false; testMarkAtPoint = null; testMarkUi(); $('testDot').hidden = true; }
 testWhy.addEventListener('click', e => { const b = e.target.closest('[data-tag]'); if (b) b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); });
 $('testWhyBtn').addEventListener('click', () => { testWhy.hidden = !testWhy.hidden; $('testWhyBtn').setAttribute('aria-expanded', String(!testWhy.hidden)); computeFit(); applyTransform(); });
 const testExtraKey = g => [g.a, g.b].sort().join('|') + '|' + g.f;
@@ -2223,7 +2271,7 @@ function testWarm(){
   if (!cur || run.settled) return;
   run.warm = [];
   for (const r of ['a', 'b', 't']){
-    const sim = {...run, flips: new Map(run.flips), picks: new Map(run.picks), games: []}, gen = testPlan(sim);
+    const sim = {...run, flips: new Map(run.flips), picks: new Map(run.picks), games: [], checks: []}, gen = testPlan(sim);
     let step = gen.next();
     for (const x of [...run.answers, r]){ if (step.done) break; step = gen.next(x); }
     if (step.done) continue;
@@ -2238,13 +2286,15 @@ function testPick(r){
   const run = testRun;
   if (run.cur){
     const x = {ms: Math.round(performance.now() - (run.shownAt || performance.now()))}, tags = testWhyTags(), note = testWhyNote.value.trim().slice(0, 200);
-    if (tags.length) x.t = tags; if (note) x.n = note;
+    if (tags.length) x.t = tags; if (note) x.n = note; if (testMarkAtPoint) x.p = testMarkAtPoint;
     run.extra.set(testExtraKey(run.cur), x);
   }
   run.answers.push(r);
   const step = run.gen.next(r);   // el plan anota la respuesta en run.games
   if (step.done) testSettled(step.value); else { run.cur = step.value; testShow(); }
 }
+// las comprobaciones, en los números de la prueba (el servidor sabe qué versión es cada uno)
+const testChecks = (run, n) => run.checks.map(c => c.k === 'control' ? {k: 'control', v: n(c.v), f: String(c.f), r: c.r} : {k: 'repeat', a: n(c.a), b: n(c.b), f: String(c.f), same: c.same});
 // lo opcional, alineado con las comparaciones que se mandan (null donde no hay nada)
 const testExtras = (run, games) => games.map(([a, b, f]) => run.extra.get([a, b].sort().join('|') + '|' + f) || null);
 function testBackOne(){ if (testRun && !testRun.settled && testRun.answers.length){ testRun.answers.pop(); testReplay(); } }
@@ -2271,8 +2321,8 @@ function testFinish(rank){
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
     const n = id => num.get(id);
-    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, games)};
-  } else testMine = {rank, games, extra: testExtras(run, games), state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
+    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, games), checks: testChecks(run, n), chk: run.checks.slice()};
+  } else testMine = {rank, games, extra: testExtras(run, games), checks: testChecks(run, id => id), chk: run.checks.slice(), state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
   testResult();
   if (testMine.state === 'sending') testSend();
 }
@@ -2284,7 +2334,7 @@ async function testSend(){
     // si ya se mandó en espera (#220), este lo reemplaza: cuenta solo si aquel contó
     if (mine.run && mine.run.holdP){ await mine.run.holdP; if (mine.run.held !== undefined) mine.count = mine.run.held; }
     const old = testSeal();
-    const body = {...(mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, extra: mine.extra, count: mine.count} : {rank: mine.rank, games: mine.games, extra: mine.extra}), ...(old ? {replaces: old} : {})};
+    const body = {...(mine.sid ? {sid: mine.sid, rank: mine.rank, games: mine.games, extra: mine.extra, checks: mine.checks, count: mine.count} : {rank: mine.rank, games: mine.games, extra: mine.extra, checks: mine.checks}), ...(old ? {replaces: old} : {})};
     const r = await fetch('/api/vote/' + testToken, {method: 'POST', headers: {'content-type': 'application/json', 'accept-language': I18N.lang}, body: JSON.stringify(body)});
     const j = await r.json().catch(() => ({}));
     // la página cambió de versiones a mitad de la prueba (gatos-ops#228): no se suma y reintentar no sirve;
@@ -2309,6 +2359,13 @@ async function testSend(){
   } catch (e){ mine.state = 'failed'; mine.error = e.message; }
   if (testMine === mine && testBody.querySelector('#testNote')) testResult();
 }
+// lo que dijeron las comprobaciones de esta prueba, para quien la hizo
+function testChkLine(){
+  const c = testMine.chk || [], rep = c.filter(x => x.k === 'repeat'), ctl = c.find(x => x.k === 'control'), out = [];
+  if (rep.length) out.push(T`Se repitieron ${rep.length} comparaciones con los lados cambiados: elegiste la misma versión en ${rep.filter(x => x.same).length}.`);
+  if (ctl) out.push(ctl.r === 't' ? T('En la comparación de control (la misma versión en los dos lados) dijiste empate: bien visto.') : T('En la comparación de control los dos lados eran la misma versión, y elegiste uno.'));
+  return out.length ? `<p class="hint" id="testChkLine">${out.map(testEsc).join(' ')}</p>` : '';
+}
 function testResult(){
   const st = testMine.state, http = testHttp();
   if (testMine.sid){   // todavía sin revelar: solo el estado (y reintentar si falló)
@@ -2330,6 +2387,7 @@ function testResult(){
     return g.map(id => `<tr><td>${p}º</td><td>${testName(id)}</td><td>${row[id].w}-${row[id].t}-${row[id].l}</td></tr>`).join(''); }).join('');
   testOpen(`<h2>${T('Tu resultado')}</h2>
     <table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>${lines}</table>
+    ${testChkLine()}
     <details class="tgames"><summary>${T('Tus respuestas, comparación por comparación')}</summary>
       <table class="tgtable"><tr><th>${T('Cuadro')}</th><th>${T('Izquierda')}</th><th>${T('Derecha')}</th><th>${T('Elegiste')}</th></tr>
       ${testMine.games.map(([a, b, f, r]) => `<tr><td>${testEsc(FRAME_LABELS[f] || f)}</td><td>${testName(a)}</td><td>${testName(b)}</td><td>${r === 't' ? T('Empate') : testName(r === 'a' ? a : b)}</td></tr>`).join('')}</table></details>
@@ -2399,6 +2457,7 @@ function applyManifest(m){
   FRAME_LABELS = Object.assign(Object.create(null), m.frame_labels);
   FRAME_META = Object.assign(Object.create(null), m.frame_meta);
   FRAME_AREAS = Object.assign(Object.create(null), m.frame_areas);
+  BLIND_CFG = m.blind && typeof m.blind === 'object' ? m.blind : {};
   CLIP = m.clip || {};
   originalTitle = m.title || T('Comparación');
   document.title = originalTitle; pageTitle.textContent = originalTitle;

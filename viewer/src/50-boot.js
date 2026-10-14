@@ -11,6 +11,7 @@ function applyManifest(m){
   FRAME_LABELS = Object.assign(Object.create(null), m.frame_labels);
   FRAME_META = Object.assign(Object.create(null), m.frame_meta);
   FRAME_AREAS = Object.assign(Object.create(null), m.frame_areas);
+  BLIND_CFG = m.blind && typeof m.blind === 'object' ? m.blind : {};
   CLIP = m.clip || {};
   originalTitle = m.title || T('Comparación');
   document.title = originalTitle; pageTitle.textContent = originalTitle;

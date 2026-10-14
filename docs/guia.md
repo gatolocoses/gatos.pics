@@ -199,7 +199,13 @@ como mucho.
 En cada comparación puedes decir, si quieres, **qué notaste**: el botón **¿Por qué?** abre unas
 etiquetas rápidas (nitidez, grano, bloques, bandas, color, movimiento) y una nota corta. Se marcan
 antes de elegir, así que no usarlas no cuesta nada. Al final, **Tus respuestas, comparación por
-comparación** muestra qué elegiste en cada cuadro.
+comparación** muestra qué elegiste en cada cuadro. En la misma fila, **Marcar dónde** deja señalar
+con un toque el punto de la imagen donde viste la diferencia.
+
+Una página puede pedir **comprobaciones** (`blind` en su manifiesto): una comparación de control con
+la misma versión en los dos lados, y una o dos comparaciones repetidas al final con los lados
+cambiados. No cambian tu resultado: dicen qué tan firmes fueron las respuestas. La introducción
+avisa cuando la página las usa, y al final ves cómo te fue en ellas.
 
 Quien publicó la página puede ver el detalle de cada resultado (qué se eligió en cada cuadro, los
 motivos y cuánto tardó cada respuesta) con la llave de su página; la tabla pública solo muestra
