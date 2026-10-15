@@ -1353,7 +1353,7 @@ function showTip(b){
   } else {
     body = esc(cmdText);
   }
-  const legend = other && other.cmd ? T`en ámbar lo que difiere de <b>${esc(other.name)}</b>`
+  const legend = other && other.cmd ? T`en ámbar lo que difiere de <b>${esc(other.name || other.id)}</b>`   // el nombre es opcional en el formato
                                      : T('comando');
   cmdTip.innerHTML = '<div class="tiphead"><span class="tt">' + legend + '</span>'
     + '<button data-act="copy">' + T('Copiar') + '</button><button data-act="close">\u00d7</button></div>'

@@ -1042,15 +1042,15 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const sp=await sctx.newPage();const serrs=[];sp.on('pageerror',e=>serrs.push(e.message));
     await sp.goto(publication.url);await loaded(sp);
     const odd=await sp.evaluate(async base=>{
-      const frames=['constructor','__proto__','toString','f1'],images={};
+      const frames=['valueOf','hasOwnProperty','toString','f1'],images={};   // __proto__, constructor y prototype ya no se aceptan (gatos-ops#316)
       for(const id of ['a','b']) for(const f of frames){const c=document.createElement('canvas');c.width=64;c.height=36;const x=c.getContext('2d');x.fillStyle=id==='a'?'#246':'#642';x.fillRect(0,0,64,36);images[id+'_'+f]=c.toDataURL('image/png');}
       const r=await fetch(base+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},
         body:JSON.stringify({format:'gatos.pics/cmp@1',manifest:{title:'ids raros',version:1,frames,frame_labels:{f1:'Uno'},variants:[{id:'a',name:'A',color:'#7bd389'},{id:'b',name:'B',color:'#ffb454',metrics:{ssimulacra2:80,per_frame:{f1:{ssimulacra2:81}}}}]},images})});
       return r.json();},BASE);
     await sp.goto(odd.url);await loaded(sp);
-    ok('frame ids like constructor and __proto__ show their own id, not an inherited value',await sp.locator('#frames button').allTextContents(),['constructor','__proto__','toString','Uno']);
-    await sp.keyboard.press('ArrowRight');await sp.waitForFunction(()=>frame==='__proto__'&&loadedUrlA===imgA.src);
-    ok('the footer and the stats stay clean on a frame called __proto__',await sp.evaluate(()=>({meta:metaLine.textContent.startsWith('Frame __proto__ (#__proto__)'),stats:statsB.textContent,w:imgA.naturalWidth})),{meta:true,stats:'S2 media 80.0',w:64});
+    ok('frame ids like valueOf and hasOwnProperty show their own id, not an inherited value',await sp.locator('#frames button').allTextContents(),['valueOf','hasOwnProperty','toString','Uno']);
+    await sp.keyboard.press('ArrowRight');await sp.waitForFunction(()=>frame==='hasOwnProperty'&&loadedUrlA===imgA.src);
+    ok('the footer and the stats stay clean on a frame called hasOwnProperty',await sp.evaluate(()=>({meta:metaLine.textContent.startsWith('Frame hasOwnProperty (#hasOwnProperty)'),stats:statsB.textContent,w:imgA.naturalWidth})),{meta:true,stats:'S2 media 80.0',w:64});
     await sp.keyboard.press('b');
     ok('the Spanish footer names blink mode in Spanish',await sp.locator('#metaLine').textContent().then(t=>[t.includes('PARPADEO'),t.includes('BLINK')]),[true,false]);
     await sp.keyboard.press('b');
@@ -1060,6 +1060,17 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('a link with smooth=0 applies to that visit without overwriting the saved preference',[before,await lp.evaluate(()=>[smoothScale,localStorage.getItem('gatosSmooth'),location.hash.includes('smooth=0')])],['1',[false,'1',true]]);
     await lp.keyboard.press('n');
     ok('toggling Nítido by hand is still remembered',await lp.evaluate(()=>[smoothScale,localStorage.getItem('gatosSmooth')]),[true,'1']);
+    // versiones con comando y sin nombre (una página hecha por la API): el comando se abre igual
+    const noName=await sp.evaluate(async base=>{
+      const c=document.createElement('canvas');c.width=64;c.height=36;const du=c.toDataURL('image/png');
+      const r=await fetch(base+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},
+        body:JSON.stringify({format:'gatos.pics/cmp@1',manifest:{title:'sin nombres',version:1,frames:['1'],variants:[{id:'crf30',cmd:'SvtAv1EncApp --crf 30'},{id:'crf32',cmd:'SvtAv1EncApp --crf 32'}]},images:{crf30_1:du,crf32_1:du}})});
+      return r.json();},BASE);
+    const np=await sctx.newPage();const nerrs=[];np.on('pageerror',e=>nerrs.push(e.message));
+    await np.goto(noName.url);await loaded(np);
+    const tip=await np.evaluate(()=>{const b=document.querySelector('#varA button.vbtn[data-cmd]');try{showTip(b);}catch(e){return 'error: '+e.message;}return [getComputedStyle(cmdTip).display,/difiere de crf32/.test(cmdTip.textContent)];});
+    ok('a version with a command and no name: the command tooltip opens and names the other version by its id',[tip,nerrs],[['block',true],[]]);
+    await np.close();
     await lp.keyboard.press('n');
     ok('and so is turning it on',await lp.evaluate(()=>localStorage.getItem('gatosSmooth')),'0');
     await lp.keyboard.press('n');await lp.close();

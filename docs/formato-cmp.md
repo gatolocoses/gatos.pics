@@ -44,7 +44,7 @@ gatos.pics lo acepta como contrato de publicación.
 |---|---|---|---|
 | `title` | string | no | Título de la página y de la pestaña. |
 | `version` | number | no | Entero creciente; en hospedaje se usa como `?v=` para romper caché. |
-| `frames` | array | sí | Identificadores de frame (número o string). Define el orden de los botones. |
+| `frames` | array | sí | Identificadores de frame (número o string, `[A-Za-z0-9_-]`, hasta 32). Define el orden de los botones. `__proto__`, `constructor` y `prototype` están reservados. |
 | `frame_labels` | objeto | no | `String(frame)` → etiqueta bonita. Sin etiqueta, el botón muestra el id. |
 | `frame_areas` | objeto | no | `String(frame)` → `[x, y, ancho, alto]` en píxeles de la imagen: el área que **todas** las versiones tienen con imagen en ese cuadro. La prueba ciega muestra solo esa área, para que unas bandas negras no delaten una versión. |
 | `blind` | objeto | no | Opciones de la prueba ciega de esta página, apagadas por omisión: `repeat` (0, 1 o 2: comparaciones que se repiten al final con los lados cambiados, para saber si quien responde elige lo mismo) y `control` (`true`: una vez se muestra la misma versión en los dos lados). No cambian el resultado; quien publica las ve en el detalle. |
@@ -56,7 +56,7 @@ gatos.pics lo acepta como contrato de publicación.
 
 | Campo | Tipo | Obligatorio | Nota |
 |---|---|---|---|
-| `id` | string | sí | Corto, seguro para nombre de archivo (`[a-z0-9_-]`). Parte de la clave de imagen. |
+| `id` | string | sí | Corto, seguro para nombre de archivo (`[A-Za-z0-9_-]`, hasta 32). Parte de la clave de imagen. `__proto__`, `constructor` y `prototype` están reservados. |
 | `name` | string | no | Nombre visible. Si falta, se muestra el id. |
 | `color` | string | no | Punto de color del botón, `#rrggbb`. |
 | `note` | string | no | Línea secundaria del botón. Convención: campos unidos por ` · ` (`codec · CRF 26 · Mb/s`). |
