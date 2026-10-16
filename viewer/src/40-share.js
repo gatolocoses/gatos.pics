@@ -155,6 +155,10 @@ function renderViewCanvas(){
   return c;
 }
 
+// el enlace directo a la prueba ciega: ?test=1, que el servidor ve y le da su propia tarjeta
+// en Discord, sin imagen ni nombres (gatos-ops#336); al abrirlo, 50-boot lo vuelve #test=1
+function testLink(){ const u = new URL(location.href); u.hash = ''; u.searchParams.set('test', '1'); return u.href; }
+
 let shotUploader = null;
 async function openShare(){
   if (shotUploader?.busy){ sharePanel.style.display = 'flex'; return; }
@@ -167,7 +171,7 @@ async function openShare(){
   $('shotUpload').hidden = true;
   $('shareUp').disabled = true;
   const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [[T('Enlace a esta vista'), url]];
-  if (rows.length && !blindMode && !$('testBtn').hidden) rows.push([T('Enlace directo a la prueba ciega'), location.href.split('#')[0] + '#test=1']);
+  if (rows.length && !blindMode && !$('testBtn').hidden) rows.push([T('Enlace directo a la prueba ciega'), testLink()]);
   $('shareBlindNote').hidden = !blindMode;
   $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
   $('shareOwner').hidden = true;

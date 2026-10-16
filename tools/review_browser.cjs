@@ -866,7 +866,8 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       ok('blind test link: the introduction lists the versions by name, in the page order', await lpg.evaluate(()=>testBody.querySelector('#testNames').textContent), 'Se comparan: '+names.join(', ')+'.');
       await lctx.grantPermissions(['clipboard-read','clipboard-write']);
       await lpg.click('[data-test="link"]');
-      ok('blind test link: the introduction has a button that copies it', [await lpg.evaluate(()=>navigator.clipboard.readText()), await lpg.textContent('[data-test="link"]')], [tp.url.replace(/\/?$/,'/')+'#test=1', 'copiado ✓']);
+      // el que se copia lleva ?test=1, que el servidor ve (su tarjeta en Discord, gatos-ops#336); el #test=1 de antes sigue abriendo
+      ok('blind test link: the introduction has a button that copies it', [await lpg.evaluate(()=>navigator.clipboard.readText()), await lpg.textContent('[data-test="link"]')], [tp.url.replace(/\/?$/,'/')+'?test=1', 'copiado ✓']);
       await lpg.click('[data-test="start"]'); await started(lpg);
       ok('blind test link: starting shows the test (panel closed, background back to normal)', await lpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), blindMode]), ['none',false,true]);
       // otra pestaña: cambiar solo el # de una página abierta la recarga, y eso corta la navegación de la suite
@@ -875,10 +876,12 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       ok('blind test link: a normal link does not open it', await npg.evaluate(()=>testPanel.style.display), 'none');
       await npg.evaluate(()=>openShare()); await npg.waitForFunction(()=>sharePanel.style.display==='flex');
       const links = await npg.evaluate(()=>[...shareRows.querySelectorAll('textarea')].map(t=>t.value));
-      ok('blind test link: the share panel offers it next to the link to the view', [links.length, links[1]], [2, tp.url.replace(/\/?$/,'/')+'#test=1']);
+      ok('blind test link: the share panel offers it next to the link to the view', [links.length, links[1]], [2, tp.url.replace(/\/?$/,'/')+'?test=1']);
       const cpg = await lctx.newPage(); cpg.on('pageerror',e=>errors.push(e.message));
       await cpg.goto(links[1]); await loaded(cpg);
       const opened = await cpg.evaluate(()=>testPanel.style.display);
+      // ?test=1 queda como #test=1 en la barra: el enlace a la vista que se comparta después no abre la prueba
+      ok('blind test link: ?test=1 opens it and becomes #test=1 in the address bar', [opened, await cpg.evaluate(()=>[location.search, new URLSearchParams(location.hash.slice(1)).get('test')])], ['flex', ['', '1']]);
       await cpg.keyboard.press('Escape');
       ok('blind test link: cancelling goes to the normal page', [opened, ...await cpg.evaluate(()=>[testPanel.style.display, testPanel.classList.contains('solid'), blindMode])], ['flex','none',false,false]);
       await lctx.close();

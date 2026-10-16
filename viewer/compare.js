@@ -1685,6 +1685,10 @@ function renderViewCanvas(){
   return c;
 }
 
+// el enlace directo a la prueba ciega: ?test=1, que el servidor ve y le da su propia tarjeta
+// en Discord, sin imagen ni nombres (gatos-ops#336); al abrirlo, 50-boot lo vuelve #test=1
+function testLink(){ const u = new URL(location.href); u.hash = ''; u.searchParams.set('test', '1'); return u.href; }
+
 let shotUploader = null;
 async function openShare(){
   if (shotUploader?.busy){ sharePanel.style.display = 'flex'; return; }
@@ -1697,7 +1701,7 @@ async function openShare(){
   $('shotUpload').hidden = true;
   $('shareUp').disabled = true;
   const rows = location.protocol === 'file:' || location.href === 'about:srcdoc' ? [] : [[T('Enlace a esta vista'), url]];
-  if (rows.length && !blindMode && !$('testBtn').hidden) rows.push([T('Enlace directo a la prueba ciega'), location.href.split('#')[0] + '#test=1']);
+  if (rows.length && !blindMode && !$('testBtn').hidden) rows.push([T('Enlace directo a la prueba ciega'), testLink()]);
   $('shareBlindNote').hidden = !blindMode;
   $('shareCodes').replaceChildren(); $('shareCodes').style.display = 'none';
   $('shareOwner').hidden = true;
@@ -1914,8 +1918,8 @@ for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
    el orden y las respuestas). Al volver se ofrece seguir. Nada de eso dice
    qué versión es cada número, y nada nuevo se guarda en el servidor.
 
-   Un enlace que termina en #test=1 abre la página directo en la introducción
-   (gatos-ops#223), sobre fondo opaco: la comparación normal, con sus nombres a
+   Un enlace con ?test=1 (o #test=1, el de antes) abre la página directo en la introducción
+   (gatos-ops#223, #336), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
 const TEST_MAX = 8, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
@@ -2113,9 +2117,9 @@ function testIntro(note){
     }).catch(() => {});
   }
 }
-// el enlace directo a la prueba (#test=1), también desde la introducción (gatos-ops#226)
+// el enlace directo a la prueba (testLink), también desde la introducción (gatos-ops#226)
 async function testCopyLink(btn){
-  const url = location.href.split('#')[0] + '#test=1';
+  const url = testLink();
   let ok = false;
   if (navigator.clipboard && window.isSecureContext){ try { await navigator.clipboard.writeText(url); ok = true; } catch(e){} }
   if (!ok){ prompt(T('Copia este enlace:'), url); return; }
@@ -2515,6 +2519,16 @@ function applyManifest(m){
     if (link || testSaved()) testEnter();
   }
 }
+// ?test=1 (gatos-ops#336) es la forma del enlace a la prueba que el servidor ve, para darle su
+// tarjeta; adentro vale #test=1, como siempre, y ningún otro enlace de la página lo arrastra
+try {
+  const u = new URL(location.href);
+  if (u.searchParams.get('test') === '1'){
+    u.searchParams.delete('test');
+    const h = new URLSearchParams(u.hash.slice(1)); h.set('test', '1'); u.hash = h.toString();
+    history.replaceState(history.state, '', u.href);
+  }
+} catch (e){}
 (async () => {
   computeFit();
   applyTransform();

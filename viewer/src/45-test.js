@@ -39,8 +39,8 @@
    el orden y las respuestas). Al volver se ofrece seguir. Nada de eso dice
    qué versión es cada número, y nada nuevo se guarda en el servidor.
 
-   Un enlace que termina en #test=1 abre la página directo en la introducción
-   (gatos-ops#223), sobre fondo opaco: la comparación normal, con sus nombres a
+   Un enlace con ?test=1 (o #test=1, el de antes) abre la página directo en la introducción
+   (gatos-ops#223, #336), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
 const TEST_MAX = 8, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
@@ -238,9 +238,9 @@ function testIntro(note){
     }).catch(() => {});
   }
 }
-// el enlace directo a la prueba (#test=1), también desde la introducción (gatos-ops#226)
+// el enlace directo a la prueba (testLink), también desde la introducción (gatos-ops#226)
 async function testCopyLink(btn){
-  const url = location.href.split('#')[0] + '#test=1';
+  const url = testLink();
   let ok = false;
   if (navigator.clipboard && window.isSecureContext){ try { await navigator.clipboard.writeText(url); ok = true; } catch(e){} }
   if (!ok){ prompt(T('Copia este enlace:'), url); return; }

@@ -46,6 +46,16 @@ function applyManifest(m){
     if (link || testSaved()) testEnter();
   }
 }
+// ?test=1 (gatos-ops#336) es la forma del enlace a la prueba que el servidor ve, para darle su
+// tarjeta; adentro vale #test=1, como siempre, y ningún otro enlace de la página lo arrastra
+try {
+  const u = new URL(location.href);
+  if (u.searchParams.get('test') === '1'){
+    u.searchParams.delete('test');
+    const h = new URLSearchParams(u.hash.slice(1)); h.set('test', '1'); u.hash = h.toString();
+    history.replaceState(history.state, '', u.href);
+  }
+} catch (e){}
 (async () => {
   computeFit();
   applyTransform();

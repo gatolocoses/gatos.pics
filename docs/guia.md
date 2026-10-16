@@ -239,8 +239,10 @@ son las de la página): recarga y haz la prueba con las de ahora.
 
 Para invitar a alguien a la prueba sin que vea antes la comparación, usa el
 **enlace directo a la prueba ciega** del panel **Compartir**, o el botón
-**Copiar enlace a la prueba** de la introducción (termina en `#test=1`): abre la página ya en la introducción, que dice qué versiones se
-comparan.
+**Copiar enlace a la prueba** de la introducción (termina en `?test=1`; los de
+antes, con `#test=1`, abren igual): abre la página ya en la introducción, que
+dice qué versiones se comparan. Pegado en Discord, este enlace muestra una
+tarjeta sin imagen ni nombres de versión, para no dar pistas.
 
 Durante la prueba nada dice de qué versión es cada imagen. En una página
 publicada el servidor sortea la numeración y sirve las imágenes bajo
@@ -258,6 +260,11 @@ con la llave de la página. Los códigos para foros del recibo pasan a usarla en
 cuanto está lista; si no se pudo crear, siguen con la primera imagen y puedes
 hacerla desde la página con «Compartir». Para cambiarla por otra vista, usa
 «Compartir» en la página con tu llave.
+
+Esa imagen es también la que muestra Discord (y otros chats con vista previa)
+al pegar el enlace de la página, en una tarjeta con el título, cuántos frames
+y qué versiones tiene; si la página no tiene imagen para compartir, la tarjeta
+lleva su primera imagen.
 
 ### Progreso al publicar o actualizar una imagen
 
