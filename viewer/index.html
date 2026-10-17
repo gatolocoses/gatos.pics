@@ -281,9 +281,9 @@
     .modal button{min-height:44px;padding:0 16px;font-size:15px;border-radius:8px}
     #shareDl,#shareUp{flex:1 1 auto}
     #pageDelete{min-height:44px;font-size:13px}
-    #shareKey,#reportReason,#reportNote,#shareRows textarea,#shareCodes textarea{font-size:16px !important}
+    #shareKey,#addVerName,#reportReason,#reportNote,#shareRows textarea,#shareCodes textarea{font-size:16px !important}
     #shareRows textarea,#shareCodes textarea{height:auto !important;min-height:64px}
-    #shareKey,#reportReason,#reportNote{padding:10px 12px;min-height:44px}
+    #shareKey,#addVerName,#reportReason,#reportNote{padding:10px 12px;min-height:44px}
     #helpDialog{width:100vw;max-width:none;margin:auto 0 0;max-height:88dvh;border-radius:14px 14px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom))}
   }
   /* apaisado táctil: título y tira en una fila */
@@ -481,6 +481,25 @@
       <input id="shareKey" type="password" autocomplete="off" placeholder="La recibiste al publicar" style="width:100%; margin-top:4px; padding:8px; background:var(--panel2); color:var(--text); border:1px solid #363642; border-radius:6px;">
       <button data-t id="shareUseKey" type="button" hidden style="margin-top:6px; font-size:12px; background:none; border:none; color:var(--accent2); cursor:pointer; padding:0;">usar la llave guardada (esta sesión)</button>
       <p data-t style="font-size:12px; color:var(--dim); margin-top:6px;">Solo el autor puede reemplazar la imagen compartida. La nueva imagen aparecerá también en los enlaces que ya publicaste.</p>
+      <div id="addVer" hidden style="margin-top:12px; border-top:1px solid #33333a; padding-top:10px;">
+        <button data-t id="addVerOpen" type="button" aria-expanded="false">Añadir una versión…</button>
+        <div id="addVerForm" hidden style="margin-top:8px;">
+          <p data-t style="font-size:12px; color:var(--dim);">Sube una imagen por frame, del mismo tamaño que las de la página, con tu llave de borrado. Se ordenan por nombre de archivo y van a los frames en este orden:</p>
+          <ol id="addVerFrames" style="font-size:12px; margin:6px 0 8px 20px; max-height:140px; overflow:auto;"></ol>
+          <label data-t for="addVerName" style="display:block; font-size:12px;">Nombre de la versión</label>
+          <input id="addVerName" type="text" maxlength="80" autocomplete="off" style="width:100%; margin-top:4px; padding:8px; background:var(--panel2); color:var(--text); border:1px solid #363642; border-radius:6px;">
+          <label data-t for="addVerFiles" style="display:block; font-size:12px; margin-top:8px;">Imágenes (una por frame)</label>
+          <input id="addVerFiles" type="file" multiple accept="image/png,image/webp,image/jpeg,image/avif,image/gif,image/bmp" style="margin-top:4px; font-size:12px;">
+          <p id="addVerNote" role="status" aria-live="polite" style="font-size:12px; color:var(--dim); margin-top:6px;"></p>
+          <button data-t id="addVerSend" type="button" disabled style="margin-top:6px;">Añadir a la página</button>
+          <div id="addVerUpload" class="upload-status" hidden>
+            <progress id="addVerProgress" max="1" value="0" aria-label="Progreso del envío de la versión"></progress>
+            <p id="addVerStatus" role="status" aria-live="polite"></p>
+            <button data-t id="addVerCancel" hidden>Cancelar envío</button>
+            <button data-t id="addVerRetry" hidden>Reintentar el envío</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
       <button data-t id="shareDl" class="xbtn" style="display:none;">Descargar PNG</button>

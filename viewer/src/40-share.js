@@ -254,6 +254,7 @@ async function openShare(){
   up.style.display = 'inline-block';
   up.disabled = false;
   $('shareOwner').hidden = false;
+  addVerSetup(m[1]);   // sumar una versión con la llave (42-addversion.js, #342)
   // la llave de borrado ya no se autocompleta ni persiste para siempre: migra
   // a sessionStorage (vive una sesion) y se pega explicitamente (ops#97/#100 —
   // un marco hostil no hereda la llave lista para un solo clic)

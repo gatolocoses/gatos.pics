@@ -1189,6 +1189,58 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('publish flows: no uncaught browser errors',berrs,[]);
     await mctx2.close();
   }
+  // sumar una versión desde la página (gatos-ops#342): con la llave de borrado, una imagen por frame
+  // ordenadas por nombre; solo esas imágenes viajan, por PATCH
+  {
+    const zl = require('zlib');
+    const crcT = Array.from({length:256},(_,i)=>{let c=i;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;return c>>>0;});
+    const crc = b => {let c=0xFFFFFFFF;for(const x of b)c=crcT[(c^x)&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+    const chunk = (t,d) => {const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const td=Buffer.concat([Buffer.from(t),d]);const c=Buffer.alloc(4);c.writeUInt32BE(crc(td));return Buffer.concat([l,td,c]);};
+    const solid = (w,h,rgb) => {const ih=Buffer.alloc(13);ih.writeUInt32BE(w,0);ih.writeUInt32BE(h,4);ih[8]=8;ih[9]=2;const row=Buffer.concat([Buffer.from([0]),Buffer.alloc(w*3).map((_,i)=>rgb[i%3])]);
+      return Buffer.concat([Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]),chunk('IHDR',ih),chunk('IDAT',zl.deflateSync(Buffer.concat(Array(h).fill(row)))),chunk('IEND',Buffer.alloc(0))]);};
+    const du = b => 'data:image/png;base64,'+b.toString('base64');
+    const frs = ['5','6','7'];
+    const pub = await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',
+      manifest:{title:'Sumar versión',version:1,frames:frs,frame_labels:{'5':'uno','6':'dos','7':'tres'},variants:[{id:'a',name:'A'},{id:'b',name:'B'}]},
+      images:Object.fromEntries(['a','b'].flatMap((v,vi)=>frs.map((f,fi)=>[v+'_'+f,du(solid(64,36,[40*vi+10,20*fi+30,90]))])))})})).json();
+    const actx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:900}});
+    const ap = await actx.newPage(); const aerrs=[]; ap.on('pageerror',e=>aerrs.push(e.message)); ap.on('dialog',d=>d.accept());
+    await ap.goto(pub.url); await loaded(ap);
+    await ap.locator('#shareBtn').click(); await ap.waitForFunction(()=>sharePanel.style.display==='flex');
+    await ap.locator('#addVerOpen').waitFor({state:'visible'});   // el área del autor aparece cuando termina el PNG de la vista
+    ok('add version: the owner area of the share panel offers it', await ap.locator('#addVerOpen').isVisible(), true);
+    await ap.locator('#addVerOpen').click();
+    const cols = {'10.png':[200,30,30],'1.png':[30,200,30],'2.png':[30,30,200]};
+    const files = Object.entries(cols).map(([name,rgb])=>({name,mimeType:'image/png',buffer:solid(64,36,rgb)}));
+    await ap.locator('#addVerFiles').setInputFiles(files.slice(0,2));
+    await ap.waitForFunction(()=>/Elegiste 2 imágenes/.test(document.getElementById('addVerNote').textContent));
+    ok('add version: a count other than one per frame is refused before sending', await ap.locator('#addVerSend').isDisabled(), true);
+    await ap.locator('#addVerFiles').setInputFiles([...files.slice(0,2),{name:'3.png',mimeType:'image/png',buffer:solid(32,18,[1,2,3])}]);
+    await ap.waitForFunction(()=>/mide 32x18/.test(document.getElementById('addVerNote').textContent));
+    ok('add version: a picture of another size is refused before sending', await ap.locator('#addVerSend').isDisabled(), true);
+    await ap.locator('#addVerFiles').setInputFiles(files);
+    await ap.locator('#addVerName').fill('Mi encode x265');
+    await ap.waitForFunction(()=>/Listo para enviar/.test(document.getElementById('addVerNote').textContent));
+    ok('add version: pictures go to frames by file name in numeric order, listed with the frame labels', await ap.locator('#addVerFrames li').allTextContents(), ['uno ← 1.png','dos ← 2.png','tres ← 10.png']);
+    // llave equivocada: el servicio dice que no, se ve su respuesta y la página no cambia
+    await ap.locator('#shareKey').fill('llave-equivocada-000000000000');
+    await ap.locator('#addVerSend').click();
+    await ap.waitForFunction(()=>addVerUploader && !addVerUploader.busy && document.getElementById('addVerStatus').textContent.length > 0 && !/Enviando|Preparando|Iniciando|Esperando/.test(document.getElementById('addVerStatus').textContent),null,{timeout:20000});
+    const said = await ap.locator('#addVerStatus').textContent();
+    await ap.waitForFunction(()=>!document.getElementById('addVerSend').disabled,null,{timeout:5000});   // se vuelve a comprobar y queda listo para reintentar
+    const m0 = await (await fetch(pub.url+'manifest.json')).json();
+    ok('add version: a wrong key shows the server answer and the page stays as it was', [m0.variants.length, said.length > 0 && !/Listo/.test(said)], [2, true]);
+    await ap.locator('#shareKey').fill(pub.delete_key);
+    await Promise.all([ap.waitForEvent('load',{timeout:20000}), ap.locator('#addVerSend').click()]);
+    await loaded(ap);
+    const m1 = await (await fetch(pub.url+'manifest.json')).json(), nv = m1.variants[2];
+    ok('add version: the page has the new version at the end, with its name', [m1.variants.length, nv && nv.name, nv && nv.id], [3, 'Mi encode x265', 'mi-encode-x265']);
+    const srcs = frs.map(f => 'img/'+nv.id+'_'+f+'.'+((nv.image_exts && nv.image_exts[f]) || nv.ext || 'png'));
+    const px = await ap.evaluate(async (srcs) => Promise.all(srcs.map(src => new Promise(res => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); res([...x.getImageData(5, 5, 1, 1).data.slice(0, 3)]); }; im.onerror = () => res(null); im.src = src; }))), srcs);
+    ok('add version: each frame got its picture (1.png, 2.png, 10.png in that order)', px, [[30,200,30],[30,30,200],[200,30,30]]);
+    ok('add version: no uncaught browser errors', aerrs, []);
+    await actx.close();
+  }
   ok('no uncaught browser errors',errors,[]);
   fs.writeFileSync(path.join(OUT,'results.json'),JSON.stringify({checks,errors},null,2));
   console.log('Artifacts: '+OUT);

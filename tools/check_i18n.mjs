@@ -12,7 +12,7 @@
 // Uso: node tools/check_i18n.mjs            comprueba el producto
 //      node tools/check_i18n.mjs --mark f   propone marcas data-t para un HTML
 //      node tools/check_i18n.mjs --list f   lista los literales de un JS
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -203,7 +203,9 @@ export function report(results){
 const p = (...parts) => path.join(PRODUCT, ...parts);
 export const PRODUCT_SURFACES = [
   { name: 'visor', html: [p('viewer', 'index.html')],
-    js: ['10-core.js', '20-modes.js', '30-ui.js', '40-share.js', '45-test.js', '50-boot.js'].map(f => p('viewer', 'src', f)).concat(p('viewer', 'upload.js')),
+    // todas las partes del motor desde la 10 (las 05-07 son el runtime y los diccionarios): una parte
+    // nueva entra sola al chequeo (#342: una lista fija la habría dejado afuera sin avisar)
+    js: readdirSync(p('viewer', 'src')).filter(f => /^\d{2}-.+\.js$/.test(f) && f >= '10').sort().map(f => p('viewer', 'src', f)).concat(p('viewer', 'upload.js')),
     dicts: [p('viewer', 'src', '06-lang-upload.js'), p('viewer', 'src', '07-lang.js')], ident: ['gatos.pics', 'A', 'B'] },
   { name: 'creador', html: [p('app', 'index.html')],
     js: ['assets.js', 'builder.js', 'basic.js', 'export.js', 'advanced.js', 'capture.js', 'publish.js', 'guide.js', 'zip.js', 's2.js'].map(f => p('app', f)).concat(p('viewer', 'upload.js')),

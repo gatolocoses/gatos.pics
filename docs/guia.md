@@ -293,6 +293,14 @@ los mismos, y los foros que ya lo enlazaban muestran la versión nueva. La
 imagen para compartir también se rehace sola (hace falta la llave de borrado
 de la página; con solo la llave API, rehazla desde la página con «Compartir»).
 
+Para **sumar una sola versión** no hace falta el proyecto: en la página abre
+**Compartir**, pega tu llave de borrado y pulsa **Añadir una versión…**. Elige
+una imagen por frame, del mismo tamaño que las de la página: se ordenan por
+nombre de archivo y la lista muestra a qué frame va cada una antes de enviar.
+Solo viajan esas imágenes; el enlace sigue igual y la versión nueva entra
+también en la prueba ciega. Si perdiste la llave, quien administra gatos.pics
+puede darte una nueva (la anterior deja de servir).
+
 Con un proyecto muy pesado la actualización también va por partes, pero la
 página publicada no cambia mientras llegan: gatos.pics las junta aparte y la
 reemplaza de una vez cuando llega la última. Si una parte falla o cierras la
@@ -320,8 +328,8 @@ Detalle en `formato-cmp.md`.
 Si lo que cambia es una sola variante (terminó otro encode de la escalera), un
 script tuyo puede mandar solo esas imágenes con `PATCH /api/page/<código>` en
 vez de reenviar todo: se suman, se reemplazan o se quitan variantes y el resto
-de la página queda como estaba. El detalle está en `formato-cmp.md`. El
-creador todavía no tiene un botón para esto.
+de la página queda como estaba. El detalle está en `formato-cmp.md`. A mano,
+es el botón **Añadir una versión…** de la página (arriba).
 
 ## S2 (SSIMULACRA2) en lenguaje claro
 
