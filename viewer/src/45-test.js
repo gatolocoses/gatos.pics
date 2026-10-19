@@ -5,19 +5,11 @@
    Por dentro cada versión sí tiene un número al azar (blindOrder): es como
    las respuestas viajan al servidor.
 
-   La prueba no recorre todos los pares: ORDENA las versiones con lo que se va
-   respondiendo (inserción binaria). Cada versión nueva se compara contra la
-   del medio de las ya ordenadas, y según gane o pierda, contra la mitad que
-   corresponde: con 4 versiones son 4 o 5 duelos, no 6; con 5, de 6 a 8, no 10.
-   Lo que no se comparó se deduce: si A le gana a B y B a C, A va antes que C.
-   Un duelo se juega cuadro a cuadro, en los cuadros que menos se han visto
-   en esa prueba (testPicks, gatos-ops#232), y se
-   corta en cuanto los cuadros que quedan ya no lo cambian (ganar 1, empate ½).
-   Un duelo empatado deja a las dos en el mismo puesto. Con pocas versiones
-   cada duelo es más largo (gatos-ops#215): testFrames reparte unas
-   TEST_BUDGET comparaciones entre los duelos que la prueba puede pedir, así
-   que con 2 versiones son hasta 9 cuadros, con 3 hasta 5 y con 4 o 5, 3.
-   De 6 a 8 versiones (gatos-ops#279) cada duelo es de un solo cuadro.
+   La prueba no recorre todos los pares: elige cada comparación (un cuadro entre dos
+   versiones) con lo que se va respondiendo (44-plan.js, gatos-ops#347): primero un mínimo
+   para cada versión, después casi todo para las que pelean arriba, y para cuando el orden de
+   las primeras queda claro o se acaba el presupuesto. El orden sale de la misma cuenta que la
+   tabla de todos (Bradley-Terry): lo que no se comparó se estima con lo que sí.
 
    Al final salen los puestos con los nombres revelados, y en una página
    publicada el resultado se suma solo a la tabla de todos (/api/vote/<token>):
@@ -43,59 +35,15 @@
    (gatos-ops#223, #336), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
-const TEST_MAX = 8, TEST_BUDGET = 15, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
+const TEST_MAX = 8, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
 let testRun = null, testMine = null, testSeen = false;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
-const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f)).slice(0, testFrames(VARIANTS.length));
+const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f));
 // se ofrece con 2 a 8 versiones y solo si cada par comparte al menos un cuadro
 const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
-// duelos que, como mucho, pide la inserción binaria con n versiones: la suma de ceil(log2 k)
-const testDuels = n => { let max = 0; for (let k = 2; k <= n; k++) max += Math.ceil(Math.log2(k)); return max; };
-// cuadros por duelo: TEST_BUDGET entre esos duelos, impar, de 3 a 9 (la misma cuenta hace el servidor, lib/votes.mjs)
-const testFrames = n => { if (n > 5) return 1;   // de 6 a 8 versiones: un cuadro por duelo (gatos-ops#279)
-  const f = Math.floor(TEST_BUDGET / Math.max(1, testDuels(n))); return Math.max(3, Math.min(9, f % 2 ? f : f - 1)); };
-
-/* El plan es un generador: entrega la comparación que toca ({a, b, f}: izquierda,
-   derecha, cuadro) y recibe la respuesta ('a', 'b' o 't'). Es determinista dado
-   `run` (orden de entrada, cuadros y lados ya sorteados), así «Atrás» lo rehace
-   desde el principio con las respuestas anteriores. Devuelve los grupos, de
-   mejor a peor; un grupo de varias = empatadas. */
-// Los cuadros de un duelo (gatos-ops#232): de los que comparten las dos, los que
-// menos se han usado en los duelos anteriores de esta prueba, para no ver
-// siempre las mismas imágenes. Se eligen una vez por par y se guardan
-// (run.picks): «Atrás», retomar y «seguir con las que faltan» los conservan.
-function testPicks(run, x, y){
-  const key = [x, y].sort().join('|');
-  if (!run.picks.has(key)){
-    const use = new Map();
-    for (const fs of run.picks.values()) for (const f of fs) use.set(f, (use.get(f) || 0) + 1);
-    const n = testShared(x, y, run.frames).length;
-    run.picks.set(key, run.frames.filter(f => hasFrame(x, f) && hasFrame(y, f)).map((f, i) => [use.get(f) || 0, i, f])
-      .sort((a, b) => a[0] - b[0] || a[1] - b[1]).slice(0, n).map(t => t[2]));
-  }
-  return run.picks.get(key);
-}
-function* testDuel(run, x, y){
-  const frames = testPicks(run, x, y);
-  let d = 0;   // puntos de x menos puntos de y
-  for (let i = 0; i < frames.length; i++){
-    const key = [x, y].sort().join('|') + '|' + frames[i], had = run.known && run.known.get(key);
-    if (had !== undefined){   // ya respondida antes de «seguir» (#220): quién ganó, o 't'
-      run.games.push([x, y, String(frames[i]), had === 't' ? 't' : had === x ? 'a' : 'b']);
-      if (had !== 't') d += had === x ? 1 : -1;
-    } else {
-      if (!run.flips.has(key)) run.flips.set(key, Math.random() < .5);
-      const flip = run.flips.get(key), g = flip ? {a: y, b: x, f: frames[i]} : {a: x, b: y, f: frames[i]}, r = yield g;
-      run.games.push([g.a, g.b, String(g.f), r]);
-      if (r !== 't') d += (r === 'a') !== flip ? 1 : -1;
-    }
-    if (!run.full && Math.abs(d) > frames.length - 1 - i) break;   // los cuadros que quedan ya no lo cambian
-  }
-  return d;
-}
 /* Comprobaciones (gatos-ops#312), si la página las pide en su manifiesto (`blind`). Son comparaciones
    de más que NO entran en el resultado: dicen qué tan firmes fueron las respuestas.
    - control: una vez, la misma versión en los dos lados. Quien elige un lado adivina.
@@ -116,22 +64,6 @@ function* testRepeats(run, n){
     const first = r === 'a' ? a : b, again = r2 === 't' ? null : r2 === 'a' ? b : a;
     run.checks.push({k: 'repeat', key, a, b, f, r: r2, same: again === first});
   }
-}
-function* testPlan(run){
-  const groups = [], cfg = run.blind || {};
-  let duels = 0;
-  for (const x of run.order){
-    let lo = 0, hi = groups.length, tied = false;
-    while (lo < hi && !tied){
-      const mid = (lo + hi) >> 1, d = yield* testDuel(run, x, groups[mid][0]);
-      if (++duels === 1 && cfg.control) yield* testControl(run, groups[mid][0]);
-      if (d === 0){ groups[mid].push(x); tied = true; }
-      else if (d > 0) hi = mid; else lo = mid + 1;
-    }
-    if (!tied) groups.splice(lo, 0, [x]);
-  }
-  if (cfg.repeat) yield* testRepeats(run, cfg.repeat);
-  return groups;
 }
 const testEsc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const testName = id => `<b style="color:${testEsc(variant(id).color || '#e8e8f0')}">${testEsc(variant(id).name || id)}</b>`;
@@ -159,7 +91,7 @@ function testSave(){
   const run = testRun; if (!run || !(run.session || testLocalOk)) return;
   // sin sesión (gatos-ops#264) se guarda también la numeración y el orden de los cuadros: en una copia local no hay servidor que los recuerde
   const local = run.session ? null : {ids: blindOrder.map(v => v.id), frames: run.frames};
-  try { localStorage.setItem(testKey, JSON.stringify({v: 1, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], picks: [...run.picks], extra: [...run.extra], chk: run.chkKnown ? [...run.chkKnown] : null, answers: run.answers, known: run.known ? [...run.known] : null, held: run.held})); } catch(e){}
+  try { localStorage.setItem(testKey, JSON.stringify({v: 2, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], extra: [...run.extra], chk: run.chkKnown ? [...run.chkKnown] : null, answers: run.answers, more: run.more || 0, held: run.held})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
@@ -167,7 +99,7 @@ function testSaved(){
   if (!(testHttp() || testLocalOk) || testRun) return null;
   try {
     const j = JSON.parse(localStorage.getItem(testKey));
-    if (!j || j.v !== 1 || Date.now() - j.t >= TEST_KEEP_MS || !(j.answers.length || j.known)) return null;
+    if (!j || j.v !== 2 || Date.now() - j.t >= TEST_KEEP_MS || !j.answers.length) return null;   // v2 (#347): una prueba del plan de antes no se retoma
     if (testHttp() && j.s && j.s.sid && j.s.n === VARIANTS.length) return j;
     // copia local: vale si sigue teniendo exactamente esas versiones y esos cuadros
     if (testLocalOk && j.local && j.local.ids.length === VARIANTS.length && j.local.ids.every(id => VARIANTS.some(v => v.id === id))
@@ -183,7 +115,7 @@ function testClose(){ if (testRun && testRun.settled) return;   // hay que elegi
 // el botón (o G): si hay una prueba a medias, primero se ofrece seguirla
 function testEnter(){ if (testOpening) return; const saved = testSaved(); if (saved) testOffer(saved); else testIntro(); }
 function testOffer(saved){
-  const n = saved.answers.length + (saved.known ? saved.known.length : 0);
+  const n = saved.answers.length;
   testOpen(`<h2>${T('Prueba ciega a medias')}</h2>
     <p>${n === 1 ? T('Dejaste una prueba ciega sin terminar en esta página, con 1 respuesta.') : T`Dejaste una prueba ciega sin terminar en esta página, con ${n} respuestas.`} ${T('Puedes seguir donde ibas.')}</p>
     <p class="hint" id="testNote" role="status"></p>
@@ -217,7 +149,7 @@ function testPrivacy(back){
     <div class="acts"><button class="xbtn" data-test="${back === 'mine' ? 'mine' : 'intro'}">${T('Volver')}</button></div>`);
 }
 function testIntro(note){
-  const n = VARIANTS.length, hi = testDuels(n) * Math.min(testFrames(n), FRAMES.length);
+  const n = VARIANTS.length, hi = testBudget(n, BLIND_CFG);
   testOpen(`<h2>${T('Prueba ciega')}</h2>
     <p>${T`Vas a ordenar las ${n} versiones de mejor a peor sin saber cuál es cuál. En cada comparación solo ves «izquierda» y «derecha»: nada dice qué versión es ni si ya la viste antes.`}</p>
     <p id="testNames">${T('Se comparan:')} ${VARIANTS.map(v => testName(v.id)).join(', ')}.</p>
@@ -283,11 +215,9 @@ async function testStart(saved){
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined)
     : saved && saved.local ? saved.local.frames.map(f => FRAMES.find(x => String(x) === String(f))) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
-    flips: new Map(saved ? saved.flips : []), picks: new Map(saved && saved.picks || []), extra: new Map(saved && saved.extra || []), blind: BLIND_CFG, checks: [], chkKnown: saved && saved.chk ? new Map(saved.chk) : null, answers: saved ? saved.answers : [], games: [], before};
-  if (saved && saved.known){ testRun.known = new Map(saved.known); testRun.full = true; }
+    flips: new Map(saved ? saved.flips : []), extra: new Map(saved && saved.extra || []), more: saved && saved.more || 0, blind: BLIND_CFG, checks: [], chkKnown: saved && saved.chk ? new Map(saved.chk) : null, answers: saved ? saved.answers : [], games: [], before};
   // lo que quedó en espera ya está sumado en el servidor: no se manda otra vez
   if (saved && saved.held !== undefined){ testRun.held = saved.held; testRun.holdP = Promise.resolve(); }
-  testRun.max = testDuels(VARIANTS.length) * Math.min(testFrames(VARIANTS.length), FRAMES.length) + (BLIND_CFG.control ? 1 : 0) + (BLIND_CFG.repeat || 0);
   blindMode = true; blindSides = true;
   document.body.classList.add('testing');
   $('testBar').hidden = false;
@@ -305,29 +235,24 @@ function testReplay(){
   run.gen = gen;
   if (step.done) testSettled(step.value); else { run.cur = step.value; testShow(); }
 }
-/* El orden ya salió de las respuestas. Si algún duelo se cortó antes de jugar
-   todos sus cuadros se ofrece seguir (gatos-ops#220): quien sigue juega los
-   cuadros que faltan de cada duelo, con la misma numeración y sin que se haya
-   revelado nada. En una página publicada el resultado se manda ya, en espera
-   (`hold`): cuenta desde ahora y el resultado final de esta sesión lo
-   reemplaza, así que irse a la mitad no pierde nada ni suma dos veces. */
-const testPairKey = (a, b) => [a, b].sort().join('|');
-function testExtra(run){
-  const n = new Map();
-  for (const [a, b] of run.games) n.set(testPairKey(a, b), (n.get(testPairKey(a, b)) || 0) + 1);
-  let left = 0;
-  for (const [k, c] of n){ const [a, b] = k.split('|'); left += testShared(a, b, run.frames).length - c; }
-  return left;
-}
+/* El orden ya salió de las respuestas. Se ofrece seguir una vez (gatos-ops#220, #347): quien sigue
+   juega tantas comparaciones más como versiones hay, entre las que van arriba, con la misma
+   numeración y sin que se haya revelado nada. En una página publicada el resultado se manda ya, en
+   espera (`hold`): cuenta desde ahora y el resultado final de esta sesión lo reemplaza, así que irse
+   a la mitad no pierde nada ni suma dos veces. */
+// comparaciones como mucho: el presupuesto (más «seguir») y las comprobaciones
+const testMax = run => testBudget(VARIANTS.length, run.blind || {}) + (run.more || 0) * VARIANTS.length + (BLIND_CFG.control ? 1 : 0) + (BLIND_CFG.repeat || 0);
+// queda algún par con cuadros sin usar (si no, seguir no tiene qué preguntar)
+const testRoom = run => testPairs().some(([a, b]) => testShared(a, b, run.frames).length > run.games.filter(g => (g[0] === a && g[1] === b) || (g[0] === b && g[1] === a)).length);
 function testSettled(groups){
-  const run = testRun, left = run.full ? 0 : testExtra(run);
-  if (!left){ testFinish(groups); return; }
+  const run = testRun;
+  if (run.more || !testRoom(run)){ testFinish(groups); return; }
   run.settled = groups;
   if (run.sid && !run.holdP) run.holdP = testHold(run, groups);
   testSave();
   testOpen(`<h2>${T('Ya hay suficientes respuestas')}</h2>
-    <p>${T`Con tus ${run.games.length} respuestas ya se pueden ordenar las versiones. Puedes ver tu resultado ahora o seguir con lo que falta de los mismos pares (${left} más): si sigues, tu resultado se actualiza al terminar.`}</p>
-    <div class="acts"><button class="xbtn" data-test="done">${T('Ver mi resultado')}</button><button data-test="more">${T('Seguir con las que faltan')}</button></div>`);
+    <p>${T`Con tus ${run.games.length} respuestas ya se pueden ordenar las versiones. Puedes ver tu resultado ahora o seguir con ${VARIANTS.length} comparaciones más entre las que van arriba: si sigues, tu resultado se actualiza al terminar.`}</p>
+    <div class="acts"><button class="xbtn" data-test="done">${T('Ver mi resultado')}</button><button data-test="more">${T('Seguir comparando las mejores')}</button></div>`);
 }
 async function testHold(run, groups){
   const num = new Map(blindOrder.map((v, i) => [v.id, i + 1])), n = id => num.get(id), count = testCounts(), old = testSeal();
@@ -345,9 +270,7 @@ async function testHold(run, groups){
 }
 function testMore(){
   const run = testRun; if (!run || !run.settled) return;
-  run.known = new Map(run.games.map(([a, b, f, r]) => [testPairKey(a, b) + '|' + f, r === 't' ? 't' : r === 'a' ? a : b]));
-  run.chkKnown = new Map(run.checks.map(c => [c.key, c.r]));   // lo ya comprobado no se vuelve a preguntar
-  run.full = true; run.settled = null; run.answers = [];
+  run.more = (run.more || 0) + 1; run.settled = null;   // las respuestas siguen: el plan las rehace y continúa
   testPanel.style.display = 'none';
   testReplay();
 }
@@ -389,7 +312,7 @@ function testShow(){
   const g = testRun.cur;
   testWhyReset(); testRun.shownAt = performance.now();
   varA = g.a; varB = g.b; frame = g.f;
-  $('testStep').textContent = T`Comparación ${(testRun.known ? testRun.known.size : 0) + testRun.answers.length + 1} · como mucho ${testRun.max} · ¿cuál se ve mejor?`;
+  $('testStep').textContent = T`Comparación ${testRun.answers.length + 1} · como mucho ${testMax(testRun)} · ¿cuál se ve mejor?`;
   $('testLeft').textContent = '← ' + T('Izquierda');
   $('testRight').textContent = T('Derecha') + ' →';
   $('testBack').disabled = !testRun.answers.length;
@@ -405,7 +328,7 @@ function testWarm(){
   if (!cur || run.settled) return;
   run.warm = [];
   for (const r of ['a', 'b', 't']){
-    const sim = {...run, flips: new Map(run.flips), picks: new Map(run.picks), games: [], checks: []}, gen = testPlan(sim);
+    const sim = {...run, flips: new Map(run.flips), games: [], checks: []}, gen = testPlan(sim);
     let step = gen.next();
     for (const x of [...run.answers, r]){ if (step.done) break; step = gen.next(x); }
     if (step.done) continue;
@@ -543,9 +466,9 @@ function testSee(i){
 function testSeeEnd(){ $('testSeeBar').hidden = true; }
 function testStandings(j){
   testOpen(`<h2>${T('Tabla de todos')}</h2>
-    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('Ordenada por el puesto medio en que quedó cada versión: cuanto más bajo, mejor.')}</p>
-    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th>${T('Puesto medio')}</th><th>${T('Puestos en cada prueba')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>
-    ${j.standings.map((s, i) => `<tr><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${s.mean == null ? '—' : s.mean.toFixed(2)}</td><td>${s.places.map((n, p) => n ? `${p + 1}º ×${n}` : '').filter(Boolean).join(' · ')}</td><td>${s.w}-${s.t}-${s.l}</td></tr>`).join('')}</table>` : ''}
+    <p class="hint">${j.ballots === 1 ? T('1 prueba enviada.') : T`${j.ballots} pruebas enviadas.`} ${T('Ordenada por la probabilidad de ganarle a una versión promedio, con todas las comparaciones de todas las pruebas. Con pocas comparaciones ese número todavía dice poco.')}</p>
+    ${j.ballots ? `<table class="ttable"><tr><th>${T('Puesto')}</th><th>${T('Versión')}</th><th title="${T('probabilidad de ganarle a una versión promedio')}">${T('Puntuación')}</th><th>${T('Comparaciones')}</th><th title="${T('comparaciones ganadas, empatadas y perdidas')}">${T('G-E-P')}</th></tr>
+    ${j.standings.map((s, i) => `<tr${s.few ? ' class="tfew"' : ''}><td>${i + 1}º</td><td>${testName(s.id)}</td><td>${s.score == null ? '—' : Math.round(s.score * 100) + ' %'}</td><td>${s.n ?? s.w + s.t + s.l}${s.few ? ` <span class="tfewtag">${T('pocas comparaciones')}</span>` : ''}</td><td>${s.w}-${s.t}-${s.l}</td></tr>`).join('')}</table>` : ''}
     <div class="acts">${testMine ? `<button data-test="mine">${T('Volver a mi resultado')}</button>` : `<button class="xbtn" data-test="start">${T('Hacer la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
 async function testAll(){

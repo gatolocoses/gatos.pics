@@ -684,7 +684,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('blind test: the intro says how many comparisons and that the result will be added', await tpg.evaluate(()=>[/las 4 versiones/.test(testBody.textContent),/como mucho 15 comparaciones/.test(testBody.textContent),/tu resultado se suma a la tabla de todos/.test(testBody.textContent)]), [true,true,true]);
     const seen = []; tpg.on('request', r => seen.push(new URL(r.url()).pathname));
     await tpg.locator('[data-test="start"]').click(); await started(tpg);
-    const st0 = await tpg.evaluate(()=>({max:testRun.max, enter:[...testRun.order].sort().join(), frames:testRun.frames.length, known:JSON.stringify([VARIANTS,blindPics,testRun.order]),
+    const st0 = await tpg.evaluate(()=>({max:testMax(testRun), enter:[...testRun.order].sort().join(), frames:testRun.frames.length, known:JSON.stringify([VARIANTS,blindPics,testRun.order]),
       nums:blindOrder.map(v=>v.id).sort().join(), labels:[labelAName.textContent,labelBName.textContent], btns:[testLeft.textContent,testRight.textContent], title:document.title, step:testStep.textContent,
       hidden:['.hrow-panes','#shareBtn','#testBtn','#cropBtn'].map(q=>getComputedStyle(document.querySelector(q)).display), names:['WEB-DL','AV1','H.264'].some(n=>document.querySelector('header').innerText.includes(n)||comp.innerText.includes(n)||metaLine.textContent.includes(n))}));
     ok('blind test: all 4 versions enter the sort, only Left and Right on screen (no number, no real name)', [st0.max,st0.enter,st0.frames,st0.nums,st0.title,st0.hidden.every(d=>d==='none'),st0.names,st0.labels.join()==='Izquierda,Derecha'&&st0.btns.join()==='← Izquierda,Derecha →'&&!/Variante|\d/.test(st0.labels.join()+st0.btns.join()),/^Comparación 1 · como mucho 15 ·/.test(st0.step)],
@@ -704,10 +704,12 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.keyboard.press('ArrowLeft'); await tpg.keyboard.press('Backspace');
     ok('blind test: Backspace returns to the previous comparison', await tpg.evaluate(()=>[varA,varB,String(frame),testRun.answers.length,testBack.disabled]), [...g0,0,true]);
     const asked = await run(tpg);
-    ok('blind test: a clear order needs far fewer comparisons than all pairs on 3 frames (18)', asked >= 8 && asked <= 10);
+    // #347: cada versión su mínimo (2) y el resto a las primeras, dentro del presupuesto (15 con 4 versiones)
+    ok('blind test: a clear order takes the minimum for every version and stays within the 15 comparisons', [asked >= 4, asked <= 15, await tpg.evaluate(()=>{const c={}; testMine.games.forEach(g=>{c[g[0]]=(c[g[0]]||0)+1; c[g[1]]=(c[g[1]]||0)+1;}); return Object.values(c).every(n=>n>=2)&&Object.keys(c).length===4;})], [true,true,true]);
     // variedad (gatos-ops#232): cada duelo toma los cuadros menos vistos; con 4 cuadros y duelos a 3, el uso queda parejo
-    ok('blind test: duels rotate through the frames (all 4 used, evenly), 3 distinct frames per duel', await tpg.evaluate(()=>{const p=[...testMine.run.picks.values()], use={}; p.flat().forEach(f=>use[f]=(use[f]||0)+1); const c=Object.values(use);
-      return [c.length, Math.max(...c)-Math.min(...c)<=1, p.every(d=>new Set(d).size===3), new Set(p.map(d=>[...d].map(String).sort().join())).size>1];}), [4,true,true,true]);
+    // cada comparación usa el cuadro que menos se vio (#347): los 4 cuadros, parejos, y un par nunca dos veces en el mismo
+    ok('blind test: comparisons rotate through the frames (all 4 used, evenly), never the same pair twice on a frame', await tpg.evaluate(()=>{const g=testMine.games, use={}; g.forEach(x=>use[x[2]]=(use[x[2]]||0)+1); const c=Object.values(use);
+      return [c.length, Math.max(...c)-Math.min(...c)<=2, new Set(g.map(x=>[x[0],x[1]].sort().join('|')+'|'+x[2])).size===g.length];}), [4,true,true]);
     await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     const mine = await rows(tpg), P = mine.map(r=>r[1]);   // P: el orden real que salió (lo sorteó el servidor)
     ok('blind test: nothing requested during the test names a version (network tab)', [seen.some(u=>/\/img\//.test(u)||vids.some(v=>u.includes(v+'_'))), seen.filter(u=>/\/b\/[A-Za-z0-9_-]+$/.test(u)).length>=2, seen.includes('/api/blind/'+tp.token)], [false,true,true]);
@@ -722,15 +724,18 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.locator('#testSeeBack').click();
     ok('blind test: the bar returns to the result with the list open', await tpg.evaluate(()=>[testPanel.style.display, testSeeBar.hidden, document.querySelector('.tgames').open, /Tu resultado/.test(testBody.textContent)]), ['flex', true, true, true]);
     await tpg.locator('[data-test="all"]').click(); await tpg.waitForSelector('#testBody h2:has-text("Tabla de todos")');
-    ok('blind test: everyone\'s standings after one test', [(await rows(tpg)).map(r=>r.slice(0,4)), /1 prueba enviada/.test(await tpg.textContent('#testBody'))], [[['1º',P[0],'1.00','1º ×1'],['2º',P[1],'2.00','2º ×1'],['3º',P[2],'3.00','3º ×1'],['4º',P[3],'4.00','4º ×1']], true]);
-    // un duelo dividido (gana una, gana la otra) pide el tercer cuadro; Atrás deshace y el plan se rehace igual
+    // por comparaciones (Bradley-Terry): puntuación de mayor a menor, y las comparaciones son la suma de G-E-P
+    const tr = await rows(tpg), pct = s => parseInt(s, 10);
+    ok('blind test: everyone\'s standings after one test', [tr.map(r=>r.slice(0,2)), tr.every((r,i)=>/^\d+ %$/.test(r[2]) && (!i || pct(r[2]) <= pct(tr[i-1][2]))), tr.every(r=>parseInt(r[3],10)===r[4].split('-').map(Number).reduce((a,b)=>a+b,0)), /1 prueba enviada/.test(await tpg.textContent('#testBody'))],
+      [[['1º',P[0]],['2º',P[1]],['3º',P[2]],['4º',P[3]]], true, true, true]);
+    // #347: primero el mínimo para todas, contra rivales distintos; Atrás deshace y el plan se rehace igual
     await tpg.locator('[data-test="mine"]').click(); await tpg.locator('[data-test="start"]').click(); await started(tpg);
     const d0 = await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f)}));
     await tpg.keyboard.press('ArrowLeft');
-    const d1 = await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f), left:testRun.cur.a}));
-    await tpg.keyboard.press(await tpg.evaluate(()=>{ const first=testRun.games[0], won=first[3]==='a'?first[0]:first[1]; return testRun.cur.a===won?'ArrowRight':'ArrowLeft'; }));   // ahora gana la otra: 1-1
-    const d2 = await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f), n:testRun.answers.length}));
-    ok('blind test: a split duel (1-1) goes to a third frame of the same pair', [d1.pair===d0.pair&&d1.f!==d0.f, d2.pair===d0.pair&&new Set([d0.f,d1.f,d2.f]).size===3, d2.n], [true,true,2]);
+    const d1 = await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f)}));
+    await tpg.keyboard.press('ArrowLeft');
+    const d2 = await tpg.evaluate(()=>({n:testRun.answers.length}));
+    ok('blind test: the first comparisons go to different pairs (every version gets its minimum first)', [d1.pair!==d0.pair, d2.n], [true,2]);
     await tpg.keyboard.press('Backspace'); await tpg.keyboard.press('Backspace');
     ok('blind test: Backspace twice returns to the first comparison of the same plan', await tpg.evaluate(()=>({pair:[testRun.cur.a,testRun.cur.b].sort().join(), f:String(testRun.cur.f), n:testRun.answers.length})), {...d0, n:0});
     await tpg.keyboard.press('Escape');
@@ -748,10 +753,11 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await epg.goto(tp.url); await loaded(epg); await epg.locator('#testBtn').click(); await epg.locator('[data-test="start"]').click(); await started(epg);
     ok('blind test: in English', await epg.evaluate(()=>[document.title, [labelAName.textContent,labelBName.textContent,testLeft.textContent,testRight.textContent,metaLine.textContent.replace(/\d+/,'N')].join('|'), /^Comparison 1 · 15 at most · which looks better\?$/.test(testStep.textContent), testTie.textContent]), ['Blind test','Left|Right|← Left|Right →|Frame N · BLIND',true,'Tie']);
     const askedTie = await run(epg,'tie'); await epg.waitForFunction(()=>/was added to everyone/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    ok('blind test: all ties share first place (3 duels of 3 frames each)', [(await rows(epg)).map(r=>r[0]), askedTie], [['1º','1º','1º','1º'], 9]);
+    ok('blind test: all ties share first place (no order gets clear: the whole budget of 15)', [(await rows(epg)).map(r=>r[0]), askedTie], [['1º','1º','1º','1º'], 15]);
     await epg.locator('[data-test="all"]').click(); await epg.waitForSelector('#testBody h2:has-text("standings")');
-    ok('blind test: two people add up, nothing untranslated', [(await rows(epg)).map(r=>r.slice(1,4).join(' | ')), await epg.evaluate(()=>[...I18N.miss])],
-      [[P2[0]+' | 1.00 | 1º ×2',P2[1]+' | 1.50 | 1º ×1 · 2º ×1',P2[2]+' | 2.00 | 1º ×1 · 3º ×1',P2[3]+' | 2.50 | 1º ×1 · 4º ×1'], []]);   // cuenta la repetición de la primera persona, que reemplazó su resultado (#252)
+    const tr2 = await rows(epg);
+    ok('blind test: two people add up, nothing untranslated', [tr2.map(r=>r[1]), tr2.every(r=>/^\d+ %$/.test(r[2]) && /^\d+/.test(r[3])), await epg.evaluate(()=>[...I18N.miss])],
+      [[P2[0],P2[1],P2[2],P2[3]], true, []]);   // cuenta la repetición de la primera persona, que reemplazó su resultado (#252)
     // salir a medias restaura la vista y no manda nada; «Ciego» después sortea su propio orden
     await epg.locator('[data-test="close"]').click();
     const before = await epg.evaluate(()=>[varA,varB,String(frame)]);
@@ -907,8 +913,9 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       await kpg.keyboard.press('Escape'); await kpg.keyboard.press('ArrowLeft');
       ok('keep going: the choice cannot be skipped with Escape or an arrow', await kpg.evaluate(()=>[testPanel.style.display, !!testRun.settled]), ['flex', true]);
       await kpg.click('[data-test="more"]');
-      const st = await kpg.evaluate(()=>[testPanel.style.display, testRun.full, testBack.disabled, testStep.textContent]);
-      ok('keep going: it continues on the same numbering with the next comparison number', [st[0], st[1], st[2], new RegExp('^Comparación '+(quick+1)+' ·').test(st[3])], ['none', true, true, true]);
+      const st = await kpg.evaluate(()=>[testPanel.style.display, testRun.more, testBack.disabled, testStep.textContent]);
+      // #347: seguir suma comparaciones al mismo plan; las respuestas siguen (Atrás también)
+      ok('keep going: it continues on the same numbering with the next comparison number', [st[0], st[1], st[2], new RegExp('^Comparación '+(quick+1)+' ·').test(st[3])], ['none', 1, false, true]);
       let extra = 0;
       for (; extra < 40; extra++){
         if (!(await kpg.evaluate(()=>!!testRun))) break;
@@ -971,7 +978,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       await cpg2.goto(cp.url); await loaded(cpg2); await cpg2.evaluate(()=>testIntro());
       const told = await cpg2.evaluate(()=>!!document.getElementById('testChkNote'));
       await cpg2.evaluate(()=>testStart()); await started(cpg2);
-      const max0 = await cpg2.evaluate(()=>testRun.max);
+      const max0 = await cpg2.evaluate(()=>testMax(testRun));
       // marcar un punto en la primera comparación
       await cpg2.waitForFunction(()=>/\/b\//.test(imgA.src)&&loadedUrlA===imgA.src&&imgA.naturalWidth>0,null,{timeout:10000}).catch(()=>{});
       await cpg2.click('#testWhyBtn'); await cpg2.click('#testMarkBtn');
@@ -994,7 +1001,7 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
       const line = await cpg2.evaluate(()=>(document.getElementById('testChkLine')||{}).textContent||'');
       const dt = (await (await fetch(BASE+'/api/vote/'+cp.token,{headers:{'x-delete-key':cp.delete_key}})).json()).detail;
       ok('blind test checks: the page says so, one control pair shows the same version on both sides, one repeat comes at the end, and neither enters the result', [told, max0, kinds.filter(k=>k==='control:same').length, kinds.filter(k=>k.startsWith('repeat')).length, kinds[kinds.length-1].startsWith('repeat'), dt.ballots[0].comparisons.length===kinds.filter(k=>k==='game').length],
-        [true, 6, 1, 1, true, true]);
+        [true, 17, 1, 1, true, true]);   // como mucho: 15 de presupuesto (#347) más el control y la repetición
       ok('blind test checks: the owner sees them, and the voter is told how consistent they were', [dt.ballots[0].checks.control.answer, dt.ballots[0].checks.repeats.length, dt.ballots[0].checks.repeats[0].same, dt.consistency, /elegiste la misma versión en 1/.test(line), /dijiste empate/.test(line)],
         ['tie', 1, true, {repeats:1,repeats_same:1,control_shown:1,control_picked:0}, true, true]);
       const w = dt.ballots[0].comparisons[0].where;
@@ -1034,9 +1041,9 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.goto(eight.url); await loaded(tpg);
     const off8 = await tpg.locator('#testBtn').isVisible();
     await tpg.evaluate(()=>testStart()); await started(tpg);
-    const max8 = await tpg.evaluate(()=>[testRun.max, testFrames(8), testFrames(6), testFrames(5)]);
+    const max8 = await tpg.evaluate(()=>[testMax(testRun), testBudget(8,{}), testBudget(6,{}), testBudget(5,{})]);
     const asked8 = await run(tpg); await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
-    ok('blind test: offered with 8 versions, one frame per duel, at most 17 comparisons, all 8 ranked and counted', [off8, max8, asked8<=17&&asked8>=7, (await rows(tpg)).length, (await (await fetch(BASE+'/api/vote/'+eight.token)).json()).ballots], [true,[17,1,1,3],true,8,1]);
+    ok('blind test: offered with 8 versions, at most 24 comparisons (3 per version; 18 with 6, 15 with 5), all 8 ranked and counted', [off8, max8, asked8<=24&&asked8>=8, (await rows(tpg)).length, (await (await fetch(BASE+'/api/vote/'+eight.token)).json()).ballots], [true,[24,24,18,15],true,8,1]);
     await tctx.close(); await ectx2.close(); await mctx.close();
   }
   {

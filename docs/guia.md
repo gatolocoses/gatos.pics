@@ -185,16 +185,15 @@ comparación, así que no sabes si la de ahora es la que elegiste antes. En cada
 comparación eliges la que se ve mejor (`←` o `→`) o empate (`↑`); `Retroceso`
 vuelve una. Sirven el zoom, el diff y el parpadeo.
 
-La prueba no te hace comparar todo contra todo: **ordena** las versiones con lo
-que vas respondiendo. Cada versión nueva se enfrenta a la del medio de las ya
-ordenadas y, según gane o pierda, a la mitad que corresponde. Lo que no viste
-se deduce: si una le gana a otra y esa a una tercera, la primera va antes.
-Cada duelo se juega cuadro a cuadro, con los lados sorteados, y se corta en
-cuanto está decidido: dos seguidas para la misma, o a puntos al tercer cuadro
-(ganar 1, empate ½). Con respuestas claras, 4 versiones piden unas 9
-comparaciones (como mucho 15) y 5 versiones unas 14 (como mucho 24). Con 6,
-7 u 8 versiones cada duelo es de un solo cuadro: 11, 14 y 17 comparaciones
-como mucho.
+La prueba no te hace comparar todo contra todo: cada comparación es **un cuadro
+entre dos versiones** y la prueba elige la siguiente con lo que vas respondiendo.
+Primero cada versión juega un mínimo (2) contra rivales distintos: la que pierde
+dos veces ya se nota y ninguna sube con un solo acierto. Después casi todas las
+comparaciones van a las que pelean arriba: las parejas más reñidas, en cuadros
+que ese par todavía no vio. Termina cuando el orden de las primeras queda claro
+o se acaba el presupuesto: 15 comparaciones con hasta 5 versiones, 3 por versión
+con 6, 7 u 8 (18, 21 y 24). Al final puedes **seguir comparando las mejores**
+para afinar el orden de arriba.
 
 En cada comparación puedes decir, si quieres, **qué notaste**: el botón **¿Por qué?** abre unas
 etiquetas rápidas (nitidez, grano, bloques, bandas, color, movimiento) y una nota corta. Se marcan
@@ -217,15 +216,17 @@ edición con el cuadro más alto contra otra recortada a formato ancho), durante
 prueba solo se ve la parte que todas comparten: así unas bandas negras no dicen
 cuál es cuál. Hace falta que la página lo declare (`frame_areas` en el manifiesto).
 
-Para que no veas siempre las mismas imágenes, cada duelo usa los cuadros que
-menos han salido en tu prueba: en una página con cuadros suficientes no se
-repite ninguno. Dentro de un duelo las dos versiones se comparan siempre en el
+Para que no veas siempre las mismas imágenes, cada comparación usa el cuadro que
+menos ha salido en tu prueba, y un mismo par nunca se compara dos veces en el
 mismo cuadro.
 
-Al terminar ves los puestos, del 1º al último, con los nombres revelados; un
-duelo empatado deja a las dos en el mismo puesto. En una página publicada el
-resultado se suma solo a la **tabla de todos**, ordenada por el puesto medio
-de cada versión entre quienes hicieron la prueba. Un navegador suma una vez
+Al terminar ves los puestos, del 1º al último, con los nombres revelados. El orden
+sale de todas tus comparaciones juntas (lo que no comparaste se estima con lo
+que sí); las que quedan exactamente igual comparten puesto. En una página
+publicada el resultado se suma solo a la **tabla de todos**, ordenada por la
+probabilidad de ganarle a una versión promedio, con todas las comparaciones de
+todas las pruebas; las versiones con pocas comparaciones llevan el aviso
+**pocas comparaciones**. Un navegador suma una vez
 por página: si repites la prueba, tu resultado nuevo **reemplaza** al anterior.
 
 Si sales de la página a media prueba (un toque de más en el teléfono), no se
