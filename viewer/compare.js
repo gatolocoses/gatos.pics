@@ -290,7 +290,17 @@ I18N.add({
   'En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.': 'In each one you pick the one that looks better, or a tie. You can use zoom, diff and blink.',
   'Comparación {} · como mucho {} · ¿cuál se ve mejor?': 'Comparison {} · {} at most · which looks better?',
   'comparaciones ganadas, empatadas y perdidas': 'comparisons won, tied and lost',
-  'Respondiste {} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.': 'You answered {} comparisons. The pairs you did not see were ordered from your answers: if one beats another and that one beats a third, the first goes ahead.',
+  'Respondiste {} comparaciones.': 'You answered {} comparisons.',
+  'Respondiste {} comparaciones nuevas; las otras {} vienen de tu resultado anterior.': 'You answered {} new comparisons; the other {} come from your earlier result.',
+  'Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.': 'The pairs you did not see were ordered from your answers: if one beats another and that one beats a third, the first goes ahead.',
+  'de antes': 'earlier',
+  'Si la página tiene versiones nuevas desde entonces, puedes comparar solo esas.': 'If the page has new versions since then, you can compare just those.',
+  'Versiones sin comparar': 'Versions not compared yet',
+  'Desde tu resultado anterior esta página tiene 1 versión sin comparar (nueva, o con imágenes nuevas).': 'Since your earlier result this page has 1 version you have not compared (new, or with new pictures).',
+  'Desde tu resultado anterior esta página tiene {} versiones sin comparar (nuevas, o con imágenes nuevas).': 'Since your earlier result this page has {} versions you have not compared (new, or with new pictures).',
+  'Puedes comparar solo esas con las que ya ordenaste: se reusan tus {} comparaciones de antes y son como mucho {} comparaciones nuevas. Tu resultado nuevo reemplaza al anterior.': 'You can compare just those against the ones you already ranked: your {} earlier comparisons are reused, with {} new ones at most. Your new result replaces the earlier one.',
+  'Comparar solo lo nuevo': 'Compare only what is new',
+  'Toda la prueba otra vez': 'The whole test again',
   'Ordenada por la probabilidad de ganarle a una versión promedio, con todas las comparaciones de todas las pruebas. Con pocas comparaciones ese número todavía dice poco.': 'Sorted by the chance of beating an average version, using every comparison of every test. With few comparisons that number still says little.',
   'Puntuación': 'Score',
   'probabilidad de ganarle a una versión promedio': 'chance of beating an average version',
@@ -2016,10 +2026,26 @@ function addVerSetup(token){
    blind.min y blind.budget). El resultado sale de la misma cuenta que la tabla de todos
    (Bradley-Terry, service/lib/rank.mjs): testStrengths y testGroups. El plan es un generador
    determinista dado `run` (orden de entrada, cuadros y lados sorteados): «Atrás», retomar y la
-   precarga lo rehacen igual con las respuestas dadas. */
-const TEST_PRIOR = 2, TEST_MIN = 2;
+   precarga lo rehacen igual con las respuestas dadas.
+
+   Prueba rápida (gatos-ops#354): a quien ya mandó un resultado y vuelve cuando la página tiene
+   versiones sin comparar (nuevas, o con imágenes reemplazadas), el servidor le devuelve las
+   comparaciones de aquel resultado que siguen valiendo (run.session.prior, en números). El plan
+   arranca con ellas ya respondidas: solo juegan las versiones sin su mínimo, primero contra las ya
+   ordenadas, y después, si alguna quedó arriba, contra las que pelean con ella. Como mucho
+   TEST_QUICK comparaciones por versión sin comparar. */
+const TEST_PRIOR = 2, TEST_MIN = 2, TEST_QUICK = 4;
 const testMin = cfg => { const m = Math.round(Number(cfg.min)); return m >= 1 && m <= 6 ? m : TEST_MIN; };
 const testBudget = (n, cfg) => { const b = Math.round(Number(cfg.budget)); return b >= n && b <= 60 ? b : n <= 5 ? 15 : 3 * n; };
+// prueba rápida: las comparaciones de antes con los ids de esta prueba, y las versiones que no llegan al mínimo con ellas
+const testPriorGames = run => run.quick && run.session && Array.isArray(run.session.prior) ? run.session.prior.map(([a, b, f, r]) => ['n' + a, 'n' + b, String(f), r]) : [];
+function testFresh(run){
+  const c = new Map(run.order.map(i => [i, 0]));
+  for (const [a, b] of testPriorGames(run)){ if (c.has(a)) c.set(a, c.get(a) + 1); if (c.has(b)) c.set(b, c.get(b) + 1); }
+  return run.order.filter(i => c.get(i) < testMin(run.blind || {}));
+}
+// comparaciones nuevas como mucho, sin «seguir» ni comprobaciones
+const testPlanned = run => run.quick ? TEST_QUICK * testFresh(run).length : testBudget(run.order.length, run.blind || {});
 // fuerza de cada versión (la promedio vale 1); cada una arranca con TEST_PRIOR ganadas y perdidas contra la promedio
 function testStrengths(ids, games){
   const W = new Map(ids.map(i => [i, TEST_PRIOR])), N = new Map(ids.map(i => [i, new Map()]));
@@ -2061,12 +2087,21 @@ function testClear(order, th, met, top){
 }
 function* testPlan(run){
   const cfg = run.blind || {}, ids = run.order, n = ids.length, min = testMin(cfg), top = Math.min(3, n - 1);
-  const budget = testBudget(n, cfg) + (run.more || 0) * n;
+  const budget = testPlanned(run) + (run.more || 0) * n, quick = !!run.quick, fresh = quick ? testFresh(run) : [];
   const pk = (a, b) => a < b ? a + '|' + b : b + '|' + a;
   const count = new Map(ids.map(i => [i, 0])), meets = new Map(), used = new Map(), seenF = new Map();
   const met = (a, b) => meets.get(pk(a, b)) || 0;
   const left = (a, b) => run.frames.filter(f => hasFrame(a, f) && hasFrame(b, f) && !(used.get(pk(a, b)) || []).includes(String(f)));
   let k = 0;
+  // prueba rápida: lo de antes cuenta como ya jugado (no gasta presupuesto)
+  for (const [a, b, f, r] of testPriorGames(run)){
+    if (!count.has(a) || !count.has(b)) continue;
+    run.games.push([a, b, f, r]);
+    count.set(a, count.get(a) + 1); count.set(b, count.get(b) + 1);
+    meets.set(pk(a, b), met(a, b) + 1);
+    used.set(pk(a, b), [...(used.get(pk(a, b)) || []), f]);
+    seenF.set(f, (seenF.get(f) || 0) + 1);
+  }
   function* play(x, y){
     const fs = left(x, y); if (!fs.length) return false;
     const f = fs.reduce((best, g) => (seenF.get(String(g)) || 0) < (seenF.get(String(best)) || 0) ? g : best, fs[0]);
@@ -2086,12 +2121,14 @@ function* testPlan(run){
     return {th: id => Math.log(f.get(id)), order: ids.slice().sort((a, b) => f.get(b) - f.get(a) || ids.indexOf(a) - ids.indexOf(b))};
   };
   // 1. el mínimo para todas: la que menos jugó, contra la rival más cercana que menos enfrentó
+  // (en la rápida, contra las ya ordenadas antes que contra otra sin comparar)
+  const short = id => (count.get(id) < min) * (quick ? -1 : 1);
   while (k < budget){
     const {order} = ranked(), pos = id => order.indexOf(id);
     const x = ids.filter(i => count.get(i) < min).sort((a, b) => count.get(a) - count.get(b) || pos(a) - pos(b))[0];
     if (x === undefined) break;
     const y = ids.filter(o => o !== x && left(x, o).length).sort((a, b) => met(x, a) - met(x, b)
-      || (count.get(b) < min) - (count.get(a) < min) || Math.abs(pos(a) - pos(x)) - Math.abs(pos(b) - pos(x)) || ids.indexOf(a) - ids.indexOf(b))[0];
+      || short(b) - short(a) || Math.abs(pos(a) - pos(x)) - Math.abs(pos(b) - pos(x)) || ids.indexOf(a) - ids.indexOf(b))[0];
     if (y === undefined || !(yield* play(x, y))) count.set(x, min);   // no queda con qué compararla
   }
   // 2. el resto, a las que pelean arriba: las primeras y las que no están a más de 0.7 (≈ 67 %) de ellas
@@ -2103,6 +2140,7 @@ function* testPlan(run){
     for (let i = 0; i < cont.length; i++) for (let j = i + 1; j < cont.length; j++){
       const a = cont[i], b = cont[j];
       if (!left(a, b).length) continue;
+      if (quick && !run.more && !fresh.includes(a) && !fresh.includes(b)) continue;   // la rápida solo afina lo nuevo
       const cost = Math.abs(th(a) - th(b)) + .2 * met(a, b) + .1 * j;   // parejas, poco vistas, cerca de arriba
       if (!best || cost < best[0]) best = [cost, a, b];
     }
@@ -2206,7 +2244,7 @@ function testSave(){
   const run = testRun; if (!run || !(run.session || testLocalOk)) return;
   // sin sesión (gatos-ops#264) se guarda también la numeración y el orden de los cuadros: en una copia local no hay servidor que los recuerde
   const local = run.session ? null : {ids: blindOrder.map(v => v.id), frames: run.frames};
-  try { localStorage.setItem(testKey, JSON.stringify({v: 2, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], extra: [...run.extra], chk: run.chkKnown ? [...run.chkKnown] : null, answers: run.answers, more: run.more || 0, held: run.held})); } catch(e){}
+  try { localStorage.setItem(testKey, JSON.stringify({v: 2, t: run.t, s: run.session, local, order: run.order, flips: [...run.flips], extra: [...run.extra], chk: run.chkKnown ? [...run.chkKnown] : null, answers: run.answers, more: run.more || 0, held: run.held, q: !!run.quick})); } catch(e){}
 }
 const testForget = () => { try { localStorage.removeItem(testKey); } catch(e){} };
 // la prueba a medias de esta página, si la hay, respondió algo y su sesión todavía puede estar viva
@@ -2271,7 +2309,7 @@ function testIntro(note){
     <p>${n === 2 ? T`Son como mucho ${hi} comparaciones.` : T`Son como mucho ${hi} comparaciones, y suelen ser bastantes menos: la prueba elige cada una según lo que vas respondiendo y se detiene cuando el orden queda claro.`} ${T('En cada una eliges la que se ve mejor, o empate. Puedes usar zoom, diff y parpadeo.')}</p>
     ${BLIND_CFG.repeat || BLIND_CFG.control ? `<p id="testChkNote">${T('En esta página algunas comparaciones se repiten o son de control: sirven para saber qué tan firmes son las respuestas y no cambian tu resultado.')}</p>` : ''}
     ${testAreas() ? `<p id="testAreaNote">${T('En esta página las versiones no tienen la misma área de imagen: durante la prueba solo se ve la parte que todas comparten.')}</p>` : ''}
-    ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos.') + ' ' + testPrivLink}</p>` : ''}
+    ${testHttp() ? `<p id="testIntroNote">${testSeal() ? T('Ya enviaste un resultado de esta página desde este navegador: si terminas esta prueba, el nuevo reemplaza al anterior.') + ' ' + T('Si la página tiene versiones nuevas desde entonces, puedes comparar solo esas.') : testVoted() ? T('Ya enviaste un resultado de esta página desde este navegador: esta prueba no se suma otra vez.') : T('Al terminar, tu resultado se suma a la tabla de todos.') + ' ' + testPrivLink}</p>` : ''}
     <div class="acts"><button class="xbtn" data-test="start">${T('Empezar')}</button>${testToken ? `<button data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${testHttp() ? `<button data-test="link" title="${T('Copia el enlace que abre esta página directo en la prueba ciega')}">${T('Copiar enlace a la prueba')}</button>` : ''}<button data-test="close">${T('Cancelar')}</button></div>
     ${testToken ? `<p class="hint">${T('Ver la tabla antes de hacer la prueba condiciona tu juicio.')}</p>` : ''}
     ${typeof note === 'string' ? `<p class="hint" role="status">${testEsc(note)}</p>` : ''}`);
@@ -2297,16 +2335,20 @@ async function testCopyLink(btn){
 let testOpening = false;
 // ninguna petición de la prueba espera para siempre (gatos-ops#239)
 const testWait = () => typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined;
-async function testStart(saved){
+// pre (gatos-ops#354): la sesión ya abierta y si la prueba es la rápida, cuando se eligió en testQuickOffer
+async function testStart(saved, pre){
   if (testRun || testOpening) return;
   testSeeEnd();
-  let session = saved ? saved.s : null;
+  let session = saved ? saved.s : pre ? pre.session : null;
+  const quick = saved ? !!saved.q : !!(pre && pre.quick);
   if (!saved) testForget();
-  if (!saved && testHttp()){
+  if (!saved && !pre && testHttp()){
     // el panel sigue puesto mientras se abre la sesión (gatos-ops#239): con el enlace directo tapa la comparación con nombres
     testOpening = true;
     testOpen(`<h2>${T('Prueba ciega')}</h2><p class="hint" role="status">${T('Preparando la prueba…')}</p>`);
-    try { const r = await fetch('/api/blind/' + testToken, {method: 'POST', headers: {'accept-language': I18N.lang}, signal: testWait()}); if (r.ok) session = await r.json(); } catch(e){}
+    // con el sello del resultado anterior, el servidor devuelve lo que sirve para la prueba rápida (#354)
+    const seal = testSeal(), init = {method: 'POST', headers: {'accept-language': I18N.lang, ...(seal ? {'content-type': 'application/json'} : {})}, ...(seal ? {body: JSON.stringify({from: seal})} : {}), signal: testWait()};
+    try { const r = await fetch('/api/blind/' + testToken, init); if (r.ok) session = await r.json(); } catch(e){}
     testOpening = false;
     // la página cambió desde que se cargó esta pestaña: la sesión trae otra cantidad de versiones o cuadros que aquí no existen
     if (session && (session.n !== VARIANTS.length || session.frames.some(f => !FRAMES.some(x => String(x) === f)))){
@@ -2314,6 +2356,7 @@ async function testStart(saved){
         <div class="acts"><button class="xbtn" data-test="reload">${T('Recargar la página')}</button><button data-test="close">${T('Cerrar')}</button></div>`);
       return;
     }
+    if (session && Array.isArray(session.prior) && session.prior.length){ testQuickOffer(session); return; }
   }
   testClose();
   closeCrop(); pendingCropFraction = null;   // el panel de recortes numera las versiones: fuera durante la prueba
@@ -2330,7 +2373,7 @@ async function testStart(saved){
   const frames = session ? session.frames.map(f => FRAMES.find(x => String(x) === f)).filter(f => f !== undefined)
     : saved && saved.local ? saved.local.frames.map(f => FRAMES.find(x => String(x) === String(f))) : shuffled(FRAMES);
   testRun = {sid: session && session.sid, session, t: saved ? saved.t : Date.now(), real, order: saved ? saved.order : shuffled(VARIANTS.map(v => v.id)), frames,
-    flips: new Map(saved ? saved.flips : []), extra: new Map(saved && saved.extra || []), more: saved && saved.more || 0, blind: BLIND_CFG, checks: [], chkKnown: saved && saved.chk ? new Map(saved.chk) : null, answers: saved ? saved.answers : [], games: [], before};
+    flips: new Map(saved ? saved.flips : []), extra: new Map(saved && saved.extra || []), more: saved && saved.more || 0, quick: quick && !!session, blind: BLIND_CFG, checks: [], chkKnown: saved && saved.chk ? new Map(saved.chk) : null, answers: saved ? saved.answers : [], games: [], before};
   // lo que quedó en espera ya está sumado en el servidor: no se manda otra vez
   if (saved && saved.held !== undefined){ testRun.held = saved.held; testRun.holdP = Promise.resolve(); }
   blindMode = true; blindSides = true;
@@ -2340,6 +2383,19 @@ async function testStart(saved){
   hideTip();
   testReplay();
   computeFit(); applyTransform();
+}
+/* Prueba rápida (gatos-ops#354): la página tiene versiones sin comparar desde el resultado que este
+   navegador mandó. Se ofrece comparar solo esas, reusando las comparaciones de antes que siguen
+   valiendo; el resultado nuevo (lo de antes y lo nuevo) reemplaza al anterior. */
+let testOffered = null;
+function testQuickOffer(session){
+  testOffered = session;
+  const sim = {quick: true, session, order: Array.from({length: session.n}, (_, k) => 'n' + (k + 1)), blind: BLIND_CFG};
+  const fresh = testFresh(sim).length, reused = session.prior.length, most = testPlanned(sim);
+  testOpen(`<h2>${T('Versiones sin comparar')}</h2>
+    <p>${fresh === 1 ? T('Desde tu resultado anterior esta página tiene 1 versión sin comparar (nueva, o con imágenes nuevas).') : T`Desde tu resultado anterior esta página tiene ${fresh} versiones sin comparar (nuevas, o con imágenes nuevas).`}</p>
+    <p>${T`Puedes comparar solo esas con las que ya ordenaste: se reusan tus ${reused} comparaciones de antes y son como mucho ${most} comparaciones nuevas. Tu resultado nuevo reemplaza al anterior.`}</p>
+    <div class="acts"><button class="xbtn" data-test="quick">${T('Comparar solo lo nuevo')}</button><button data-test="whole">${T('Toda la prueba otra vez')}</button><button data-test="close">${T('Cancelar')}</button></div>`);
 }
 // rehace el plan con las respuestas dadas y deja en pantalla la comparación que toca (o termina)
 function testReplay(){
@@ -2356,7 +2412,7 @@ function testReplay(){
    espera (`hold`): cuenta desde ahora y el resultado final de esta sesión lo reemplaza, así que irse
    a la mitad no pierde nada ni suma dos veces. */
 // comparaciones como mucho: el presupuesto (más «seguir») y las comprobaciones
-const testMax = run => testBudget(VARIANTS.length, run.blind || {}) + (run.more || 0) * VARIANTS.length + (BLIND_CFG.control ? 1 : 0) + (BLIND_CFG.repeat || 0);
+const testMax = run => testPlanned(run) + (run.more || 0) * VARIANTS.length + (BLIND_CFG.control ? 1 : 0) + (BLIND_CFG.repeat || 0);
 // queda algún par con cuadros sin usar (si no, seguir no tiene qué preguntar)
 const testRoom = run => testPairs().some(([a, b]) => testShared(a, b, run.frames).length > run.games.filter(g => (g[0] === a && g[1] === b) || (g[0] === b && g[1] === a)).length);
 function testSettled(groups){
@@ -2488,12 +2544,13 @@ function testLeave(){
 function testQuit(){ if (testRun && confirm(T('¿Salir de la prueba? Se pierde lo que llevas.'))) testLeave(); }
 function testFinish(rank){
   const run = testRun, games = run.games, sid = run.sid, num = new Map(blindOrder.map((v, i) => [v.id, i + 1]));
+  const prior = testPriorGames(run).length;   // las primeras de games, si fue la rápida
   run.settled = null; testSeen = false;
   testLeave();
   if (sid){
     // con sesión todavía no se sabe qué era cada número: las respuestas van en números y el servidor lo revela
     const n = id => num.get(id);
-    testMine = {sid, run, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, games), checks: testChecks(run, n), chk: run.checks.slice()};
+    testMine = {sid, run, prior, count: testCounts(), state: 'sending', rank: rank.map(g => g.map(n)), games: games.map(([a, b, f, r]) => [n(a), n(b), f, r]), extra: testExtras(run, games), checks: testChecks(run, n), chk: run.checks.slice()};
   } else testMine = {rank, games, extra: testExtras(run, games), checks: testChecks(run, id => id), chk: run.checks.slice(), state: !testHttp() ? 'local' : testCounts() ? 'sending' : 'voted'};
   testResult();
   if (testMine.state === 'sending') testSend();
@@ -2562,8 +2619,8 @@ function testResult(){
     ${testChkLine()}
     <details class="tgames"${testSeen ? ' open' : ''}><summary>${T('Tus respuestas, comparación por comparación')}</summary>
       <table class="tgtable"><tr><th>${T('Cuadro')}</th><th>${T('Izquierda')}</th><th>${T('Derecha')}</th><th>${T('Elegiste')}</th><th></th></tr>
-      ${testMine.games.map(([a, b, f, r], i) => `<tr><td>${testEsc(FRAME_LABELS[f] || f)}</td><td>${testName(a)}</td><td>${testName(b)}</td><td>${r === 't' ? T('Empate') : testName(r === 'a' ? a : b)}</td><td>${testCanSee(a, b, f) ? `<button data-test="see" data-i="${i}" title="${T('Abre esta comparación otra vez, con las mismas versiones a cada lado')}">${T('Ver')}</button>` : ''}</td></tr>`).join('')}</table></details>
-    <p class="hint">${T`Respondiste ${testMine.games.length} comparaciones. Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.`}</p>
+      ${testMine.games.map(([a, b, f, r], i) => `<tr${i < (testMine.prior || 0) ? ' class="tprior"' : ''}><td>${testEsc(FRAME_LABELS[f] || f)}${i < (testMine.prior || 0) ? ` <span class="tfewtag">${T('de antes')}</span>` : ''}</td><td>${testName(a)}</td><td>${testName(b)}</td><td>${r === 't' ? T('Empate') : testName(r === 'a' ? a : b)}</td><td>${testCanSee(a, b, f) ? `<button data-test="see" data-i="${i}" title="${T('Abre esta comparación otra vez, con las mismas versiones a cada lado')}">${T('Ver')}</button>` : ''}</td></tr>`).join('')}</table></details>
+    <p class="hint">${testMine.prior ? T`Respondiste ${testMine.games.length - testMine.prior} comparaciones nuevas; las otras ${testMine.prior} vienen de tu resultado anterior.` : T`Respondiste ${testMine.games.length} comparaciones.`} ${T('Los pares que no viste se ordenaron con tus respuestas: si una le gana a otra y esa a una tercera, la primera va antes.')}</p>
     <p class="hint" id="testNote" role="status">${testEsc(note)}${http && st !== 'local' ? ` <button class="tlink" data-test="privacy-mine">${T('Qué se guarda')}</button>` : ''}</p>
     <div class="acts">${st === 'failed' ? `<button class="xbtn" data-test="send">${T('Reintentar el envío')}</button>` : ''}${http ? `<button${st === 'sent' || st === 'replaced' ? ' class="xbtn"' : ''} data-test="all">${T('Ver la tabla de todos')}</button>` : ''}${st === 'stale' ? `<button class="xbtn" data-test="reload">${T('Recargar la página')}</button>` : `<button data-test="start">${T('Repetir la prueba')}</button>`}<button data-test="close">${T('Cerrar')}</button></div>`);
 }
@@ -2608,6 +2665,7 @@ testBody.addEventListener('click', e => {
   else if (act === 'privacy') testPrivacy('intro'); else if (act === 'privacy-mine') testPrivacy('mine'); else if (act === 'intro') testIntro();
   else if (act === 'resume') testResume(); else if (act === 'fresh'){ testForget(); testIntro(); }
   else if (act === 'done'){ if (testRun && testRun.settled) testFinish(testRun.settled); } else if (act === 'more') testMore();
+  else if ((act === 'quick' || act === 'whole') && testOffered){ const session = testOffered; testOffered = null; testStart(null, {session, quick: act === 'quick'}); }
 });
 $('testBtn').addEventListener('click', testEnter);
 $('testLeft').addEventListener('click', () => testPick('a'));

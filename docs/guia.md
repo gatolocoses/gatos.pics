@@ -229,6 +229,16 @@ todas las pruebas; las versiones con pocas comparaciones llevan el aviso
 **pocas comparaciones**. Un navegador suma una vez
 por página: si repites la prueba, tu resultado nuevo **reemplaza** al anterior.
 
+**Prueba rápida.** Si ya mandaste un resultado desde este navegador y después la
+página suma versiones (o reemplaza las imágenes de alguna), al pulsar **Empezar**
+se ofrece **comparar solo lo nuevo**: tus comparaciones de antes que siguen
+valiendo cuentan otra vez, y la prueba solo juega las versiones sin comparar,
+primero contra las que ya ordenaste y después, si alguna queda arriba, contra
+las que pelean con ella. Son como mucho 4 comparaciones por versión nueva. El
+resultado (lo de antes y lo nuevo) reemplaza al anterior, y en **Tus respuestas**
+las comparaciones de antes llevan la marca **de antes**. **Toda la prueba otra
+vez** empieza de cero, como siempre.
+
 Si sales de la página a media prueba (un toque de más en el teléfono), no se
 pierde: al volver, la página ofrece **seguir la prueba** donde ibas. Lo que llevas queda guardado en tu propio navegador, no en el
 servidor, y dura unas dos horas. Salir con el botón **Salir** sí la descarta.
@@ -237,6 +247,13 @@ Funciona también en una copia sin publicar (el HTML exportado).
 Si quien publicó la página le cambia las versiones mientras haces la prueba,
 al terminar ves tu resultado pero no se suma a la tabla (esas versiones ya no
 son las de la página): recarga y haz la prueba con las de ahora.
+
+Si una actualización **reemplaza las imágenes** de una versión que conserva su
+nombre (otra codificación con el mismo id, por ejemplo), sus comparaciones de
+antes dejan de contar en la tabla: eran de otras imágenes. Esa versión vuelve a
+empezar, con aviso de **pocas comparaciones** hasta que la comparen de nuevo; las
+demás conservan lo que tenían entre ellas. Subir otra vez las mismas imágenes no
+cambia nada, y una versión quitada que vuelve con el mismo nombre vuelve nueva.
 
 Para invitar a alguien a la prueba sin que vea antes la comparación, usa el
 **enlace directo a la prueba ciega** del panel **Compartir**, o el botón

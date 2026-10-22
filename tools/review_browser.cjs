@@ -1044,6 +1044,36 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     const max8 = await tpg.evaluate(()=>[testMax(testRun), testBudget(8,{}), testBudget(6,{}), testBudget(5,{})]);
     const asked8 = await run(tpg); await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: offered with 8 versions, at most 24 comparisons (3 per version; 18 with 6, 15 with 5), all 8 ranked and counted', [off8, max8, asked8<=24&&asked8>=8, (await rows(tpg)).length, (await (await fetch(BASE+'/api/vote/'+eight.token)).json()).ballots], [true,[24,24,18,15],true,8,1]);
+    // prueba rápida (gatos-ops#354): se suma una versión a la página; quien ya hizo la prueba compara solo esa
+    {
+      const qp = await mk(['qa','qb','qc']);
+      const qctx = await browser.newContext({locale:'es-MX',viewport:{width:1280,height:800},extraHTTPHeaders:{'x-forwarded-for':'203.0.113.31'}});   // dos resultados: otra dirección para no gastar el tope por hora
+      const qpg = await qctx.newPage(); qpg.on('pageerror',e=>errors.push(e.message)); qpg.on('dialog',d=>d.accept());
+      await qpg.goto(qp.url); await loaded(qpg);
+      await qpg.evaluate(()=>testStart()); await started(qpg);
+      await run(qpg); await qpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      const first = await qpg.evaluate(()=>testMine.games.length);
+      const add = await fetch(BASE+'/api/page/'+qp.token,{method:'PATCH',headers:{'content-type':'application/json','x-delete-key':qp.delete_key},body:JSON.stringify({format:'gatos.pics/cmp@1',manifest:{variants:[{id:'qd',name:'Nueva'}]},images:Object.fromEntries(frs.map(f=>['qd_'+f,img]))})});
+      await qpg.reload(); await loaded(qpg);
+      await qpg.locator('#testBtn').click();
+      const hint = /puedes comparar solo esas/.test(await qpg.textContent('#testBody'));
+      await qpg.locator('[data-test="start"]').click(); await qpg.waitForSelector('[data-test="quick"]');
+      const offer = await qpg.textContent('#testBody');
+      ok('quick test: after a version is added, the intro hints at it and Start offers comparing only what is new', [add.status, hint, /1 versión sin comparar/.test(offer), new RegExp('se reusan tus '+first+' comparaciones de antes y son como mucho 4').test(offer), await qpg.locator('[data-test="whole"]').count()], [200,true,true,true,1]);
+      await qpg.locator('[data-test="quick"]').click(); await started(qpg);
+      const q0 = await qpg.evaluate(()=>{const f=testFresh(testRun); return {max:testMax(testRun), fresh:f.length, step:testStep.textContent, newSide:f.includes(testRun.cur.a)!==f.includes(testRun.cur.b), seeded:testRun.games.length};});
+      ok('quick test: at most 4 new comparisons, the earlier ones already counted, and the first one pits the new version against a ranked one', [q0.max, q0.fresh, /^Comparación 1 · como mucho 4 ·/.test(q0.step), q0.newSide, q0.seeded], [4,1,true,true,first]);
+      // a media prueba rápida se sale y se vuelve: sigue siendo la rápida
+      await qpg.keyboard.press('ArrowLeft'); await qpg.waitForFunction(()=>testRun&&testRun.answers.length===1);
+      await qpg.reload(); await loaded(qpg); await qpg.locator('[data-test="resume"]').click(); await started(qpg);   // al cargar, la página ofrece seguir sola
+      ok('quick test: leaving and resuming keeps it the quick test', await qpg.evaluate(()=>[testRun.quick, testRun.answers.length, testMax(testRun)]), [true,1,4]);
+      const askedQ = await run(qpg); await qpg.waitForFunction(()=>/reemplazó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+      const res = await qpg.evaluate(()=>({rows:document.querySelectorAll('#testBody .ttable tr').length-1, prior:testMine.prior, games:testMine.games.length, tags:[...document.querySelectorAll('.tgtable .tprior')].length, text:testBody.textContent}));
+      ok('quick test: the result ranks all 4, marks the earlier comparisons and says how many were new', [res.rows, res.prior, res.games-res.prior>=2 && res.games-res.prior<=4, res.tags, new RegExp('Respondiste '+(res.games-res.prior)+' comparaciones nuevas; las otras '+first+' vienen de tu resultado anterior').test(res.text)], [4,first,true,first,true]);
+      const qt = await (await fetch(BASE+'/api/vote/'+qp.token)).json();
+      ok('quick test: it replaced the earlier result, and the new version has its comparisons in the table', [qt.ballots, qt.standings.length, qt.standings.find(r=>r.id==='qd').n>=2, askedQ+1===res.games-res.prior], [1,4,true,true]);
+      await qctx.close();
+    }
     await tctx.close(); await ectx2.close(); await mctx.close();
   }
   {
