@@ -178,7 +178,7 @@ La página que se lleva quien abre tu export.
 
 ### Prueba ciega: ordenar sin saber cuál es cuál
 
-En una página con 2 a 8 versiones, el botón **Prueba ciega** arma una prueba
+En una página con 2 a 12 versiones, el botón **Prueba ciega** arma una prueba
 completa. Durante la prueba ninguna versión tiene nombre ni número: solo ves
 **Izquierda** y **Derecha**, y el lado de cada una se sortea en cada
 comparación, así que no sabes si la de ahora es la que elegiste antes. En cada
@@ -192,7 +192,7 @@ dos veces ya se nota y ninguna sube con un solo acierto. Después casi todas las
 comparaciones van a las que pelean arriba: las parejas más reñidas, en cuadros
 que ese par todavía no vio. Termina cuando el orden de las primeras queda claro
 o se acaba el presupuesto: 15 comparaciones con hasta 5 versiones, 3 por versión
-con 6, 7 u 8 (18, 21 y 24). Al final puedes **seguir comparando las mejores**
+de 6 a 12 (18 con 6, 24 con 8, 30 con 10, 36 con 12). Al final puedes **seguir comparando las mejores**
 para afinar el orden de arriba.
 
 En cada comparación puedes decir, si quieres, **qué notaste**: el botón **¿Por qué?** abre unas

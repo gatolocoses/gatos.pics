@@ -302,9 +302,9 @@ function variantButtonItems(){
 function variantItem(v, vi){
   if (blindMode) return {id: v.id, main: T`Variante ${vi+1}`, sub: '', cmd: null};
   const cmd = v.cmd || null;
-  if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
+  if (v.id === 'src') return {id: v.id, main: v.name || T('Fuente'), sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
   const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
-  if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};
+  if (!m) return {id: v.id, main: v.name || v.id, sub: v.note || '', cmd: cmd};   // sin nombre, el id (gatos-ops#376)
   const parts = (v.note || '').split(' \u00B7 ');
   const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');
   const s2 = (parts[2] || '');

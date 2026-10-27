@@ -136,7 +136,7 @@ function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:
 function variantName(id){
   const v = variant(id);
   if (blindMode) return T`Variante ${blindOrder.findIndex(x => x.id === id)+1}`;
-  return v.name;
+  return v.name || v.id;   // el nombre es opcional en el formato: si falta, el id (gatos-ops#376)
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }
 // sin `frames` (todas las páginas anteriores) la variante tiene todos los cuadros
@@ -225,9 +225,11 @@ function clampPan(){
   const w = comp.clientWidth, h = comp.clientHeight;
   // ramificar por cobertura: si el contenido cubre el eje, sus bordes deben
   // poder llegar a 0 y al borde contrario (sin franjas muertas); si no cubre,
-  // no hay pan posible y queda centrado por ox/oy (contenido letterbox)
-  if (rw*zoom >= w) pan.x = clamp(pan.x, w-ox-rw*zoom, -ox); else pan.x = 0;
-  if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
+  // no hay pan posible y queda centrado. El origen de la transformación es la
+  // esquina: con pan 0 y zoom < 1 la imagen quedaba pegada arriba a la
+  // izquierda (gatos-ops#374); (rw - rw*zoom)/2 la centra y vale 0 en zoom 1
+  if (rw*zoom >= w) pan.x = clamp(pan.x, w-ox-rw*zoom, -ox); else pan.x = (rw - rw*zoom)/2;
+  if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = (rh - rh*zoom)/2;
 }
 function updateBadge(){
   if (loadFailA || loadFailB){ zoomBadge.textContent = T('la imagen no cargó'); return; }

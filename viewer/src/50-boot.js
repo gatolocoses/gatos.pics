@@ -18,7 +18,7 @@ function applyManifest(m){
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
-  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 8 versiones
+  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 12 versiones
   computeFit();
   loadImg();
   applyTransform();

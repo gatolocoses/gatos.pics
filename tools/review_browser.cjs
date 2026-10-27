@@ -588,6 +588,64 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('phone landscape: comparison area is at least 60% of the viewport height',await phone.evaluate(()=>comp.clientHeight/innerHeight>=0.6));
     await phone.screenshot({path:path.join(OUT,'viewer-phone-844x390.png')});
     await pctx.close();
+    // gatos-ops#374: por debajo del ajuste (1:1 en pantalla HiDPI, alejar con la rueda, un enlace con escala chica)
+    // la imagen queda centrada, no pegada arriba a la izquierda; y el PNG sigue siendo exactamente lo que se ve.
+    // 1280 de ancho con imágenes de 640: ajuste x2 y 1:1 en zoom 0.25 exacto, con la imagen en píxeles enteros
+    // (con escalas fraccionarias el 1:1 dibuja 959.996 px en vez de 960 y el remuestreo mueve unos niveles de color)
+    const hctx=await browser.newContext({locale:'es-MX',viewport:{width:1280,height:900},deviceScaleFactor:2});
+    const hp=await hctx.newPage();hp.on('pageerror',e=>errors.push(e.message));
+    await hp.goto(publication.url+'#f=intro&a=source&b=encode');await loaded(hp);
+    const off=()=>hp.evaluate(()=>{const r=imgA.getBoundingClientRect(),b=comp.getBoundingClientRect();
+      return {below:zoom<1,cover:r.width>=b.width-0.5||r.height>=b.height-0.5,dx:Math.abs(r.left+r.width/2-(b.left+b.width/2)),dy:Math.abs(r.top+r.height/2-(b.top+b.height/2))};});
+    const centred=v=>[v.below,v.cover,v.dx<=1,v.dy<=1];
+    await hp.keyboard.press('o');await hp.waitForTimeout(300);
+    ok('HiDPI 1:1 (below the fit): the picture stays centred',centred(await off()),[true,false,true,true]);
+    const shotH=await hp.locator('#comp').screenshot();
+    const cmpH=await hp.evaluate(async screenshot=>{
+      const output=renderViewCanvas();const img=new Image();img.src=screenshot;await img.decode();
+      const ref=document.createElement('canvas');ref.width=img.width;ref.height=img.height;ref.getContext('2d').drawImage(img,0,0);
+      const d=devicePixelRatio, r=imgA.getBoundingClientRect(), b=comp.getBoundingClientRect();
+      const ix=Math.round(Math.max(0,r.left-b.left)*d),iy=Math.round(Math.max(0,r.top-b.top)*d);
+      let worst=0;
+      // la franja entre las etiquetas de arriba y la marca de abajo: el PNG dibuja las dos encima de la imagen
+      for(const px of [.2,.8])for(const py of [.45,.6,.7]){
+        const sx=Math.floor(output.width*px),sy=Math.floor(output.height*py);
+        const a=output.getContext('2d').getImageData(sx,sy,1,1).data, c=ref.getContext('2d').getImageData(ix+sx,iy+sy,1,1).data;
+        for(let i=0;i<3;i++)worst=Math.max(worst,Math.abs(a[i]-c[i]));
+      }
+      return [worst<=2,Math.abs(output.width-r.width*d)<=1,Math.abs(output.height-r.height*d)<=1];
+    },'data:image/png;base64,'+shotH.toString('base64'));
+    ok('HiDPI 1:1: the PNG is exactly the centred picture (its size, within 2 channel levels)',cmpH,[true,true,true]);
+    await hp.evaluate(()=>fitView());
+    const hb=await hp.locator('#comp').boundingBox();
+    await hp.mouse.move(hb.x+hb.width*.2,hb.y+hb.height*.25);
+    for(let i=0;i<6;i++) await hp.mouse.wheel(0,100);
+    await hp.waitForTimeout(300);
+    ok('zooming out with the wheel below the fit, off-centre, keeps the picture centred',centred(await off()),[true,false,true,true]);
+    ok('and the PNG there has the displayed picture\'s size (±1 device px)',await hp.evaluate(()=>{const c=renderViewCanvas(),d=devicePixelRatio,r=imgA.getBoundingClientRect();
+      return [Math.abs(c.width-r.width*d)<=1,Math.abs(c.height-r.height*d)<=1];}),[true,true]);
+    await hp.reload();await hp.waitForFunction(()=>!pendingView&&loadedUrlA===imgA.src&&imgA.naturalWidth>0);await hp.waitForTimeout(300);
+    ok('a link below the fit opens centred',centred(await off()),[true,false,true,true]);
+    await hctx.close();
+    // gatos-ops#376: versiones sin `name` (el formato lo permite: «si falta, se muestra el id») se llaman por su id.
+    // Antes botones, etiquetas y selectores quedaban vacíos y el PNG para compartir decía «undefined»
+    const nn=await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',
+      manifest:{title:'Sin nombres',version:1,frames:['intro'],variants:[{id:'src'},{id:'x264'},{id:'av1'}]},
+      images:{src_intro:fixture.images.source_intro,x264_intro:fixture.images.encode_intro,av1_intro:fixture.images.third_intro}})})).json();
+    const nctx=await browser.newContext({locale:'es-MX',viewport:{width:1400,height:900}});
+    const np=await nctx.newPage();np.on('pageerror',e=>errors.push(e.message));
+    await np.goto(nn.url+'#f=intro&a=x264&b=av1');await loaded(np);await np.waitForTimeout(300);
+    const unnamed=await np.evaluate(async()=>{
+      const drawn=[],orig=CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText=function(t,...r){drawn.push(String(t));return orig.call(this,t,...r);};
+      try{renderViewCanvas();}finally{CanvasRenderingContext2D.prototype.fillText=orig;}
+      await openShare();
+      return {buttons:[...document.querySelectorAll('#varA .vbtn .main')].map(e=>e.textContent),labels:[labelAName.textContent,labelBName.textContent],
+        selects:[...document.getElementById('selB').options].map(o=>o.textContent),png:drawn.filter(t=>!['gatos','pics'].includes(t)),file:shareName};
+    });
+    ok('a version without a name shows its id: buttons, labels, selects, share PNG and its file name (the source one reads Fuente)',unnamed,
+      {buttons:['Fuente','x264','av1'],labels:['x264','av1'],selects:['Fuente','x264','av1'],png:['x264','av1'],file:'gatos-x264-vs-av1-intro.png'});
+    await nctx.close();
   }
   await page.goto(BASE+'/');await page.setViewportSize({width:1440,height:1000});
   await page.screenshot({path:path.join(OUT,'landing-desktop.png'),fullPage:true});
@@ -940,10 +998,14 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await tpg.evaluate(()=>testStart()); await tpg.waitForFunction(()=>!!testRun);
     await run(tpg); await tpg.waitForFunction(()=>/reemplazó/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
     ok('blind test: and only once in that epoch (a repeat replaces)', (await (await fetch(BASE+'/api/vote/'+tp.token)).json()).ballots, 1);
-    // más de 8 versiones: no se ofrece
-    const six = await mk(['a','b','c','d','e','f','g','h','i']);
+    // hasta 12 versiones, el tope de una página (gatos-ops#380; antes 8): se ofrece, como mucho 36 comparaciones
+    const six = await mk(['a','b','c','d','e','f','g','h','i','j','k','l']);
     await tpg.goto(six.url); await loaded(tpg);
-    ok('blind test: not offered with more than 8 versions', await tpg.locator('#testBtn').isVisible(), false);
+    const off12 = await tpg.locator('#testBtn').isVisible();
+    await tpg.evaluate(()=>testStart()); await started(tpg);
+    const max12 = await tpg.evaluate(()=>[VARIANTS.length, testMax(testRun), testBudget(10,{}), testBudget(9,{})]);
+    const asked12 = await run(tpg); await tpg.waitForFunction(()=>/se sumó a la tabla de todos/.test((document.getElementById('testNote')||{}).textContent||''),null,{timeout:10000});
+    ok('blind test: offered with 12 versions, at most 36 comparisons (30 with 10, 27 with 9), all 12 ranked and counted', [off12, max12, asked12<=36&&asked12>=12, (await rows(tpg)).length, (await (await fetch(BASE+'/api/vote/'+six.token)).json()).ballots], [true,[12,36,30,27],true,12,1]);
     // detalle y motivos (gatos-ops#310): etiquetas y nota opcionales, tiempo por respuesta, vista por comparación y aviso de privacidad
     {
       const dp = await mk(vids.slice(0,2));
@@ -1223,8 +1285,29 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await mp.locator('#btnUpdate').click();
     await mp.waitForFunction(()=>/también se actualizó|No se pudo actualizar la imagen/.test(document.getElementById('publishStatus').textContent),null,{timeout:60000});
     ok('multi-part: the half-published page is completed with Update page, same link, and the notice goes away',[(await (await mp.request.get(BASE+'/p/'+half.tok+'/manifest.json')).json()).frames.length,await mp.locator('#publishPartial').isVisible()],[3,false]);
-    ok('publish flows: no uncaught browser errors',berrs,[]);
     await mctx2.close();
+    // gatos-ops#363: publicar por partes con la llave API la manda en TODAS las partes. Antes solo iba en la
+    // primera y las PATCH se cobraban al presupuesto sin llave: agotado, el envío se cortaba a la mitad
+    const kctx=await browser.newContext({locale:'es-MX',viewport:{width:1280,height:900}});
+    const kp=await kctx.newPage();kp.on('pageerror',e=>berrs.push(e.message));
+    const keyed=[];kp.on('request',r=>{ if(/\/api\/(upload|page\/)/.test(r.url())&&r.method()!=='OPTIONS') keyed.push(r.method()+' '+(r.headers()['x-api-key']||'-')); });
+    kp.on('dialog',d=>{ if(d.type()==='beforeunload'){d.accept();return;} d.accept(d.type()==='prompt'?'test-key-123':undefined); });
+    await kp.addInitScript(()=>{window.GATOS_PART_MB=0.000001;});
+    await kp.goto(BASE+'/crear/');await kp.locator('#obStart').click();
+    await kp.evaluate(()=>localStorage.setItem('gatosApiKey','test-key-123'));
+    await kp.locator('#basicFile').setInputFiles(['a','b'].flatMap((v,vi)=>[1,2,3].map(f=>({name:`${v}_${f}.png`,mimeType:'image/png',buffer:buf(pics.v1[vi])}))));await kp.waitForTimeout(400);
+    const published=prev=>kp.waitForFunction(was=>{const u=document.getElementById('pubUrl');return u&&u.value&&u.value!==was&&document.getElementById('pubFrame').style.display==='flex';},prev,{timeout:40000});
+    await kp.locator('#btnPublish').click();await published('');
+    ok('multi-part publish with the stored API key sends it on every part',keyed,['POST test-key-123','PATCH test-key-123','PATCH test-key-123']);
+    // la llave escrita tras un 403 en la primera parte también sigue en las demás
+    const firstUrl=await kp.locator('#pubUrl').inputValue();keyed.length=0;
+    await kp.evaluate(()=>{localStorage.removeItem('gatosApiKey');document.getElementById('pubFrame').style.display='none';});
+    await kp.route('**/api/upload',r=>r.request().headers()['x-api-key']?r.continue():r.fulfill({status:403,contentType:'application/json',body:JSON.stringify({error:'hace falta la llave de prueba'})}));
+    await kp.locator('#btnPublish').click();await published(firstUrl);
+    ok('multi-part publish: a key typed after a 403 goes on every later part too',keyed,['POST -','POST test-key-123','PATCH test-key-123','PATCH test-key-123']);
+    await kp.unroute('**/api/upload');
+    await kctx.close();
+    ok('publish flows: no uncaught browser errors',berrs,[]);
   }
   // sumar una versión desde la página (gatos-ops#342): con la llave de borrado, una imagen por frame
   // ordenadas por nombre; solo esas imágenes viajan, por PATCH

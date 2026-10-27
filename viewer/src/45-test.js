@@ -35,14 +35,14 @@
    (gatos-ops#223, #336), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
-const TEST_MAX = 8, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
+const TEST_MAX = 12, TEST_KEEP_MS = 2 * 3600e3;   // versiones como mucho: las de una página (gatos-ops#380; antes 8); lo que vive una sesión en el servidor
 let testRun = null, testMine = null, testSeen = false;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
 const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f));
-// se ofrece con 2 a 8 versiones y solo si cada par comparte al menos un cuadro
+// se ofrece con 2 a 12 versiones y solo si cada par comparte al menos un cuadro
 const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
 /* Comprobaciones (gatos-ops#312), si la página las pide en su manifiesto (`blind`). Son comparaciones
    de más que NO entran en el resultado: dicen qué tan firmes fueron las respuestas.

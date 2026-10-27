@@ -238,6 +238,7 @@ I18N.add({
   'Atrás': 'Back',
   'Salir de la prueba': 'Leave the test',
   'Variante {}': 'Variant {}',
+  'Fuente': 'Source',
   'Recargar la página': 'Reload the page',
   'Marcar dónde': 'Mark where',
   'Opcional: marcar en la imagen dónde viste la diferencia': 'Optional: mark on the picture where you saw the difference',
@@ -535,7 +536,7 @@ function variant(id){ return VARIANTS.find(v=>v.id===id) || {id, name:id, color:
 function variantName(id){
   const v = variant(id);
   if (blindMode) return T`Variante ${blindOrder.findIndex(x => x.id === id)+1}`;
-  return v.name;
+  return v.name || v.id;   // el nombre es opcional en el formato: si falta, el id (gatos-ops#376)
 }
 function orderedVariants(){ return blindMode ? blindOrder : VARIANTS; }
 // sin `frames` (todas las páginas anteriores) la variante tiene todos los cuadros
@@ -624,9 +625,11 @@ function clampPan(){
   const w = comp.clientWidth, h = comp.clientHeight;
   // ramificar por cobertura: si el contenido cubre el eje, sus bordes deben
   // poder llegar a 0 y al borde contrario (sin franjas muertas); si no cubre,
-  // no hay pan posible y queda centrado por ox/oy (contenido letterbox)
-  if (rw*zoom >= w) pan.x = clamp(pan.x, w-ox-rw*zoom, -ox); else pan.x = 0;
-  if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = 0;
+  // no hay pan posible y queda centrado. El origen de la transformación es la
+  // esquina: con pan 0 y zoom < 1 la imagen quedaba pegada arriba a la
+  // izquierda (gatos-ops#374); (rw - rw*zoom)/2 la centra y vale 0 en zoom 1
+  if (rw*zoom >= w) pan.x = clamp(pan.x, w-ox-rw*zoom, -ox); else pan.x = (rw - rw*zoom)/2;
+  if (rh*zoom >= h) pan.y = clamp(pan.y, h-oy-rh*zoom, -oy); else pan.y = (rh - rh*zoom)/2;
 }
 function updateBadge(){
   if (loadFailA || loadFailB){ zoomBadge.textContent = T('la imagen no cargó'); return; }
@@ -1446,9 +1449,9 @@ function variantButtonItems(){
 function variantItem(v, vi){
   if (blindMode) return {id: v.id, main: T`Variante ${vi+1}`, sub: '', cmd: null};
   const cmd = v.cmd || null;
-  if (v.id === 'src') return {id: v.id, main: v.name || 'Source', sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
+  if (v.id === 'src') return {id: v.id, main: v.name || T('Fuente'), sub: (v.note || '').replace(/Source \u00B7 /, ''), cmd: null};
   const m = v.id.match(/^crf(\d+)_p(\d)(?:_fg(\d+))?$/);
-  if (!m) return {id: v.id, main: v.name, sub: v.note || '', cmd: cmd};
+  if (!m) return {id: v.id, main: v.name || v.id, sub: v.note || '', cmd: cmd};   // sin nombre, el id (gatos-ops#376)
   const parts = (v.note || '').split(' \u00B7 ');
   const mbps = (parts[1] || '').replace(' Mbps', ' Mb/s');
   const s2 = (parts[2] || '');
@@ -2188,14 +2191,14 @@ function* testPlan(run){
    (gatos-ops#223, #336), sobre fondo opaco: la comparación normal, con sus nombres a
    cada lado, no se ve detrás. La introducción dice qué versiones se comparan,
    en el orden de la página (no dice qué número le toca a cada una). */
-const TEST_MAX = 8, TEST_KEEP_MS = 2 * 3600e3;   // lo que vive una sesión en el servidor
+const TEST_MAX = 12, TEST_KEEP_MS = 2 * 3600e3;   // versiones como mucho: las de una página (gatos-ops#380; antes 8); lo que vive una sesión en el servidor
 let testRun = null, testMine = null, testSeen = false;
 const testToken = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1] || null;
 const testPanel = $('testPanel'), testBody = $('testBody');
 const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const testPairs = () => VARIANTS.flatMap((a, i) => VARIANTS.slice(i + 1).map(b => [a.id, b.id]));
 const testShared = (a, b, frames = FRAMES) => frames.filter(f => hasFrame(a, f) && hasFrame(b, f));
-// se ofrece con 2 a 8 versiones y solo si cada par comparte al menos un cuadro
+// se ofrece con 2 a 12 versiones y solo si cada par comparte al menos un cuadro
 const testOk = () => VARIANTS.length >= 2 && VARIANTS.length <= TEST_MAX && testPairs().every(([a, b]) => testShared(a, b).length > 0);
 /* Comprobaciones (gatos-ops#312), si la página las pide en su manifiesto (`blind`). Son comparaciones
    de más que NO entran en el resultado: dicen qué tan firmes fueron las respuestas.
@@ -2708,7 +2711,7 @@ function applyManifest(m){
   const h = readState();
   $('diffGain').value = String(gainIdx);
   $('heatBtn').setAttribute('aria-pressed', String(heat));
-  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 8 versiones
+  $('testBtn').hidden = !testOk();   // prueba ciega: con 2 a 12 versiones
   computeFit();
   loadImg();
   applyTransform();

@@ -115,7 +115,9 @@ const publisher = new GatosUpload({
   onSuccess:(j, meta) => {
     if (meta.parts && meta.i + 1 < meta.parts.length){   // faltan partes: la siguiente suma sus frames
       const page = meta.page || j;
-      const keys = meta.keys || {'x-delete-key': j.delete_key};
+      // la llave API del primer pedido sigue en las partes siguientes (gatos-ops#363): sin ella cada PATCH
+      // se cobraba al presupuesto sin llave y, agotado, el envío del dueño se cortaba a la mitad
+      const keys = meta.keys || {'x-delete-key': j.delete_key, ...(meta.apiKey ? {'x-api-key': meta.apiKey} : {})};
       if (j.delete_key) try { sessionStorage.setItem('gatosOwner:'+j.token, j.delete_key); } catch(e){}
       // La página ya existe desde la primera parte: su enlace y su llave se
       // muestran YA y se quedan a la vista si una parte posterior falla. Antes
@@ -188,12 +190,18 @@ function askApiKeyAndRetry(wrong){
   if (!k){
     if (wrong !== true || typed === null) return;
     try { localStorage.removeItem('gatosApiKey'); } catch(e){}
-    if (req){ delete req.headers['x-api-key']; publisher.send(); }
+    if (req){
+      delete req.headers['x-api-key'];
+      if (req.meta){ delete req.meta.apiKey; if (req.meta.keys) delete req.meta.keys['x-api-key']; }
+      publisher.send();
+    }
     return;
   }
   try { localStorage.setItem('gatosApiKey', k); } catch(e){}
   if (req){
     req.headers['x-api-key'] = k;
+    // las partes siguientes también la llevan (gatos-ops#363)
+    if (req.meta){ req.meta.apiKey = k; if (req.meta.keys) req.meta.keys['x-api-key'] = k; }
     publisher.send();
   }
 }
@@ -251,7 +259,7 @@ function publishPage(){
     // cuerpo por partes (gatos.pics#29): un dataURL a la vez dentro de
     // packageJSONBlob; publicar ya no sostiene el paquete Y su JSON a la vez
     return partRequest(core, splitParts(core), 0, {url:PUBLISH_URL, headers:{'content-type':'application/json', ...(apiKey ? { 'x-api-key': apiKey } : {})}},
-      {title:core.manifest.title || T('Comparación'), image:'img/'+v.id+'_'+f+'.'+ext}, cancelled);
+      {title:core.manifest.title || T('Comparación'), image:'img/'+v.id+'_'+f+'.'+ext, apiKey}, cancelled);
   });
   $('publishUpload').scrollIntoView({block:'nearest'});
 }

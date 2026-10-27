@@ -157,6 +157,7 @@ I18N.add({
   'Atrás': 'Back',
   'Salir de la prueba': 'Leave the test',
   'Variante {}': 'Variant {}',
+  'Fuente': 'Source',
   'Recargar la página': 'Reload the page',
   'Marcar dónde': 'Mark where',
   'Opcional: marcar en la imagen dónde viste la diferencia': 'Optional: mark on the picture where you saw the difference',
