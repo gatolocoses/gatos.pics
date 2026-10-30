@@ -208,7 +208,7 @@ export const PRODUCT_SURFACES = [
     js: readdirSync(p('viewer', 'src')).filter(f => /^\d{2}-.+\.js$/.test(f) && f >= '10').sort().map(f => p('viewer', 'src', f)).concat(p('viewer', 'upload.js')),
     dicts: [p('viewer', 'src', '06-lang-upload.js'), p('viewer', 'src', '07-lang.js')], ident: ['gatos.pics', 'A', 'B'] },
   { name: 'creador', html: [p('app', 'index.html')],
-    js: ['assets.js', 'builder.js', 'basic.js', 'export.js', 'advanced.js', 'capture.js', 'publish.js', 'guide.js', 'zip.js', 's2.js'].map(f => p('app', f)).concat(p('viewer', 'upload.js')),
+    js: ['assets.js', 'builder.js', 'basic.js', 'export.js', 'advanced.js', 'capture.js', 'publish.js', 'guide.js', 'zip.js', 's2.js', 'demo.js', 'metrics.js'].map(f => p('app', f)).concat(p('viewer', 'upload.js')),
     dicts: [p('viewer', 'src', '06-lang-upload.js'), p('app', 'lang.js')], ident: ['gatos.pics'] },
 ];
 

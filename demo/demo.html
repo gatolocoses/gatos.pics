@@ -9,6 +9,7 @@
   :root{
     --bg:#101014; --panel:#1a1a22; --panel2:#23232e; --text:#e8e8f0; --dim:#9a9aa8;
     --accent:#ffb454; --ok:#7bd389; --border:#363642;
+    --play:#7c4dff;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   [hidden]{display:none !important;}
@@ -42,6 +43,39 @@
   .frame-tools .group{flex:1; flex-wrap:nowrap;}
   .view-tools{display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; min-width:0;}
   #diffTools{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim);}
+  #testBtn{margin-left:12px; background:var(--play); border-color:var(--play); color:#fff; font-weight:600; border-radius:999px;}
+  #testBtn:hover{background:#9470ff; border-color:#9470ff;}
+  /* tarjeta al pasar el mouse (gatos-ops#394): se queda mientras el puntero esté encima */
+  #tipCard{position:fixed; z-index:70; max-width:300px; padding:9px 12px; border-radius:10px; pointer-events:none;
+    background:#1d1d27; border:1px solid #4a4a5c; box-shadow:0 10px 30px #000c; font-size:13px; line-height:1.45;}
+  #tipCard .th{display:flex; align-items:center; gap:10px; margin-bottom:3px;}
+  #tipCard kbd{margin-left:auto; font:600 11px system-ui,sans-serif; background:#33333f; border:1px solid #4a4a5c; border-radius:4px; padding:1px 6px; color:#ddd;}
+  #tipCard p{color:#c4c4d0;}
+  /* lección de la demo (gatos-ops#394) */
+  #lesson{position:fixed; z-index:60; left:16px; bottom:76px; width:380px; padding:14px 16px 12px; border-radius:12px;
+    background:#1d1d27; border:1px solid #4a4a5c; box-shadow:0 10px 40px #000c; line-height:1.45;}
+  #lesson.small{width:auto; padding:6px;}
+  #lesson.small button{font-weight:600;}
+  #lesson .lkick{display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.08em; color:var(--dim);}
+  #lesson .lsp{flex:1;}
+  #lesson .lkick button{width:26px; height:26px; padding:0; font-size:14px; line-height:1;}
+  #lesson h3{font-size:18px; margin:4px 0 6px;}
+  #lesson p{color:#d4d4de; font-size:14px; margin-bottom:8px;}
+  #lesson .ltool{display:flex; align-items:center; gap:10px; background:#262633; border-radius:8px; padding:7px 10px; margin:4px 0 10px; font-size:13px;}
+  #lesson .ltool b{color:var(--accent);}
+  #lesson .lchip{margin-left:auto; flex:none; background:var(--accent); color:#1a1206; border-color:var(--accent); border-radius:999px; font-weight:600; padding:2px 10px;}
+  #lesson .lchip.off{background:var(--panel2); color:var(--text); border-color:#4a4a5c;}
+  #lesson .lnav{display:flex; align-items:center; gap:8px;}
+  #lesson .lnav button{min-height:32px; padding:0 12px; border-radius:8px; font-size:13px;}
+  #lesson .ldots{flex:1; display:flex; gap:5px; justify-content:center;}
+  #lesson .ldots i{width:7px; height:7px; border-radius:50%; background:#4a4a5c; display:block;}
+  #lesson .ldots i.on{background:var(--accent);}
+  #lesson .lgo{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600;}
+  #lesson .lplay{background:var(--play); color:#fff; border-color:var(--play); font-weight:600;}
+  .lspot{position:absolute; z-index:4; border:3px dashed var(--accent); border-radius:14px; pointer-events:none; box-shadow:0 0 0 9999px #0006;}
+  .lspot span{position:absolute; top:-30px; left:0; background:var(--accent); color:#1a1206; font-weight:700; font-size:12px; padding:3px 9px; border-radius:999px; white-space:nowrap;}
+  .lspot.below span{top:auto; bottom:-30px;}
+  body.testing #lesson{display:none;}
   #diffGain{background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px;}
   #frames{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin;}
   #frames button{flex:none; white-space:nowrap;}
@@ -103,6 +137,29 @@
   #labelB{right:12px; text-align:right;}
   .lstats{display:block; font-size:10px; font-weight:400; color:#c8c8d4; margin-top:1px; white-space:pre-line;}
   .lstats:empty{display:none;}
+  /* todas las imágenes en un .zip (gatos-ops#396, src/41-zip.js) */
+  #shareZip{background:var(--panel2); border:1px solid #33333f; border-radius:10px; padding:12px; margin:4px 0 10px;}
+  #zipBtn{display:inline-block; text-decoration:none; font-weight:600; font-size:13px; padding:8px 14px; border-radius:6px;
+    background:var(--accent); color:#1a1206; border:1px solid var(--accent);}
+  #zipBtn:hover{filter:brightness(1.08);}
+  #zipInfo{font-size:12px; color:var(--dim); margin:8px 0 6px;}
+  #zipList{font:11px/1.5 ui-monospace,Menlo,Consolas,monospace; color:#c8c8d4; background:#16161d; border-radius:6px; padding:8px 10px;
+    margin:0; white-space:pre; overflow-x:auto;}
+  /* métricas de quien sube (gatos-ops#395, src/36-metrics.js): con métricas la etiqueta recibe el puntero */
+  .label.hasm{pointer-events:auto; cursor:help;}
+  .label.hasm:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .minfo{opacity:.85;}
+  #metricCard{position:fixed; z-index:70; width:max-content; max-width:min(460px, calc(100vw - 16px)); padding:12px 14px; border-radius:12px;
+    background:#1d1d27; border:1px solid #4a4a5c; box-shadow:0 10px 30px #000c; font-size:13px; line-height:1.4; pointer-events:none;}
+  #metricCard .mh{font-weight:700; color:#c4c4d0; margin-bottom:6px;}
+  #metricCard table{border-collapse:collapse; width:100%;}
+  #metricCard th{font-size:12px; color:#c4c4d0; font-weight:600; text-align:right; padding:0 0 6px 20px; white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis;}
+  #metricCard td{border-top:1px solid #2e2e3a; padding:5px 0 5px 20px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  #metricCard td:first-child, #metricCard th:first-child{text-align:left; padding-left:0;}
+  #metricCard td small{color:var(--dim); font-size:11px;}
+  #metricCard td.best{color:var(--ok); font-weight:700;}
+  #metricCard .msec{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); margin:12px 0 4px;}
+  #metricCard .mfoot{margin-top:10px; color:#a8a8b8; font-size:12px; max-width:420px; white-space:normal;}
   #divider{
     position:absolute; top:0; bottom:0; width:2px; background:#fff;
     z-index:4; transform:translateX(-1px); pointer-events:none; box-shadow:0 0 8px rgba(0,0,0,.8);
@@ -256,6 +313,8 @@
     .view-tools{order:2; flex:none; display:flex; flex-wrap:nowrap; justify-content:flex-start; gap:6px; overflow-x:auto; scrollbar-width:none;
       padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left)); background:var(--panel); border-top:1px solid #000;}
     .view-tools::-webkit-scrollbar{display:none}
+    #lesson{left:8px; right:8px; bottom:8px; width:auto; padding:12px 14px 10px;}
+    #lesson h3{font-size:17px}
     .view-tools button{flex:none;min-height:44px;min-width:44px;padding:0 14px;font-size:14px;border-radius:8px}
     #diffTools{flex:none;gap:6px}
     #diffGain{min-height:44px;font-size:16px;padding:0 8px;border-radius:8px}
@@ -315,7 +374,6 @@
   <button data-nt id="diffBtn" title="Diferencia amplificada por canal (D)">Diff</button>
   <span id="diffTools" hidden><label data-t for="diffGain">Intensidad</label><select id="diffGain"><option value="0">×5</option><option value="1" selected>×10</option><option value="2">×20</option><option value="3">×40</option></select><button data-t id="heatBtn" aria-pressed="false" title="Resaltar diferencias en rojo (H)">Calor</button></span>
   <button data-t id="blinkBtn" title="Parpadeo izquierda/derecha (B)">Parpadeo</button>
-  <button data-t id="testBtn" hidden title="Prueba ciega: compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana (G)">Prueba ciega</button>
   <button data-nt id="solarBtn" title="Curva solar: revela banding y degradados (L)">Solar</button>
   <button data-t id="cropBtn" title="Elige un punto e inspecciona recortes 1:1 de todas las variantes (C)">Recortes</button>
   <button id="oneBtn" title="1:1 real en píxeles del dispositivo (O)">1:1</button>
@@ -324,6 +382,8 @@
   <button data-t id="shareBtn" title="Compartir: link, BBCode para foros, Markdown y HTML">Compartir</button>
   <button id="helpBtn" title="Atajos y controles (?)" aria-label="Ayuda y atajos">?</button>
   <button data-t id="reportBtn" title="Reportar esta página" style="display:none;">Reportar</button>
+  <!-- la prueba ciega es otra cosa que las herramientas de ver (gatos-ops#393): al final, aparte y en su color -->
+  <button data-t id="testBtn" hidden title="Prueba ciega: compara todas las versiones de a pares sin saber cuál es cuál, y mira cuál gana (G)">Prueba ciega</button>
     </div>
   </div>
   <div class="hrow hrow-panes">
@@ -477,6 +537,11 @@
     </h2>
     <p data-t style="font-size:12px; color:var(--dim); margin-bottom:8px;">Guarda la comparación visible como PNG sin pérdida. El enlace conserva el frame, las variantes y los ajustes.</p>
     <p data-t id="shareBlindNote" hidden style="font-size:12px; color:var(--accent); margin-bottom:8px;">La imagen conserva el modo ciego. El enlace abre la comparación sin la asignación privada de esta sesión.</p>
+    <div id="shareZip" hidden>
+      <a data-t id="zipBtn" download>Descargar todas las imágenes (.zip)</a>
+      <div id="zipInfo"></div>
+      <pre id="zipList"></pre>
+    </div>
     <div id="shareRows"></div>
     <img id="sharePreview" alt="vista a compartir" style="width:100%; border:1px solid #333; border-radius:8px; background:#000; margin-top:8px; display:none;">
     <div id="shareOwner" hidden style="margin-top:12px;">
@@ -1011,9 +1076,120 @@ I18N.add({
   'Copiar': 'Copy',
   'Copiado ✓': 'Copied ✓',
   'Falló la copia': 'Copy failed',
+  // tarjetas al pasar el mouse (gatos-ops#394)
+  'Muestra solo lo que cambia entre las dos versiones, amplificado. El color dice en qué canal difieren; Intensidad y Calor ajustan cuánto se ve.': 'Shows only what changes between the two versions, amplified. The colour tells which channel differs; Gain and Heat set how much shows.',
+  'Pinta de rojo lo que difiere más que un umbral: dónde están las diferencias, de un vistazo.': 'Paints in red what differs more than a threshold: where the differences are, at a glance.',
+  'Alterna izquierda y derecha en el mismo lugar, dos veces por segundo. Lo que cambia entre las versiones salta a la vista.': 'Alternates left and right in the same place, twice a second. Whatever changes between the versions jumps out.',
+  'Un juego aparte: compara las versiones de a pares sin saber cuál es cuál y elige la que se ve mejor. Al final se revela cuál era cada una.': 'A separate game: compare the versions in pairs without knowing which is which and pick the one that looks better. At the end it reveals which was which.',
+  'Exagera los cambios pequeños de brillo. Sirve para ver banding, bloques y sombras aplastadas que a simple vista casi no se notan.': 'Exaggerates small changes in brightness. Use it to see banding, blocking and crushed shadows that are hard to spot by eye.',
+  'Haz clic en un punto y compara ese recorte 1:1 en todas las versiones a la vez.': 'Click a point and compare that 1:1 crop in every version at once.',
+  'Un píxel de la imagen es un píxel de tu pantalla: el tamaño real, sin escalar.': 'One picture pixel is one screen pixel: the real size, unscaled.',
+  'Al hacer zoom, cada píxel se ve como un cuadrado nítido en vez de suavizado: para inspeccionar píxel por píxel.': 'When zoomed in, each pixel shows as a sharp square instead of smoothed: for pixel-by-pixel inspection.',
+  'Vuelve a mostrar la imagen entera.': 'Shows the whole picture again.',
+  'El enlace a esta vista, el código para foros (BBCode), Markdown, HTML y la imagen de lo que ves.': 'The link to this view, the forum code (BBCode), Markdown, HTML and the picture of what you see.',
+  'Ayuda': 'Help',
+  'Todos los atajos de teclado y los controles.': 'Every keyboard shortcut and control.',
+  'Intercambiar': 'Swap',
+  'Pasa la versión de la izquierda a la derecha y la de la derecha a la izquierda.': 'Moves the left version to the right and the right one to the left.',
+  // lección de la demo (gatos-ops#394)
+  'Cómo leer una comparación': 'How to read a comparison',
+  'La misma imagen en dos versiones: la fuente a la izquierda y un encode a la derecha. Arrastra la línea del centro, usa la rueda para acercar y las flechas para cambiar de cuadro. Cada paso te muestra un defecto típico de los encodes, exagerado para que se vea fácil.': 'The same picture in two versions: the source on the left and an encode on the right. Drag the line in the middle, use the wheel to zoom and the arrows to change frame. Each step shows you a typical encode defect, exaggerated so it is easy to see.',
+  'Desenfoque + ruido': 'Blur + noise',
+  'mira la tela': 'look at the fabric',
+  'El encode perdió detalle fino y sumó ruido. Mira la tela a rayas: en la fuente las líneas son nítidas, en el encode se empastan.': 'The encode lost fine detail and added noise. Look at the striped fabric: in the source the lines are crisp, in the encode they smear together.',
+  '<b>Parpadeo</b> alterna las dos versiones en el mismo lugar: lo que cambia salta a la vista.': '<b>Blink</b> alternates the two versions in the same place: whatever changes jumps out.',
+  'mira el cielo': 'look at the sky',
+  'Donde la fuente tiene un degradado suave, el encode lo muestra en escalones. Pasa en cielos, humo y paredes lisas.': 'Where the source has a smooth gradient, the encode shows it in steps. It happens in skies, smoke and plain walls.',
+  '<b>Solar</b> exagera los cambios pequeños de brillo: los escalones se vuelven franjas.': '<b>Solar</b> exaggerates small changes in brightness: the steps turn into stripes.',
+  'Halos': 'Halos',
+  'mira el borde de las letras': 'look at the edges of the letters',
+  'Contornos claros u oscuros alrededor de los bordes: el resultado de enfocar de más. Se notan en letras y en bordes con mucho contraste.': 'Light or dark outlines around edges: the result of oversharpening. They show on letters and high-contrast edges.',
+  'Con <b>zoom</b> en las letras se ven los contornos a los dos lados de la línea. <b>Recortes</b> muestra un punto 1:1 en todas las versiones a la vez.': 'With <b>zoom</b> on the letters you see the outlines on both sides of the line. <b>Crops</b> shows one point 1:1 in every version at once.',
+  'Líneas sucias': 'Dirty lines',
+  'mira el borde de arriba': 'look at the top edge',
+  'Las primeras o últimas filas y columnas de la imagen con otro brillo, como un marco fino. Vienen en muchos Blu-ray; un buen encode las corrige.': 'The first or last rows and columns of the picture with a different brightness, like a thin frame. Many Blu-rays have them; a good encode fixes them.',
+  'Con <b>zoom</b> en el borde de arriba se ven las filas oscuras del lado del encode; arrastra la línea del centro para comparar.': 'With <b>zoom</b> on the top edge you see the dark rows on the encode side; drag the line in the middle to compare.',
+  'Grano borrado': 'Grain wiped',
+  'mira la superficie': 'look at the surface',
+  'La fuente tiene grano; el encode lo borró y las superficies quedan lisas, como de cera. Pasa al quitar ruido de más o con pocos bits.': 'The source has grain; the encode wiped it and surfaces look smooth, like wax. It happens with too much denoising or too few bits.',
+  '<b>Zoom</b> y <b>Parpadeo</b>: el grano aparece y desaparece.': '<b>Zoom</b> and <b>Blink</b>: the grain comes and goes.',
+  'mira la sombra': 'look at the shadow',
+  'Cuadros visibles en zonas planas u oscuras: al encoder le faltaron bits.': 'Visible squares in flat or dark areas: the encoder ran out of bits.',
+  '<b>Solar</b> resalta los bordes de los cuadros en lo oscuro.': '<b>Solar</b> brings out the edges of the squares in the dark.',
+  'Sombras aplastadas': 'Crushed shadows',
+  'El detalle de las zonas oscuras pasa a negro: las formas de la sombra desaparecen.': 'Detail in dark areas turns black: the shapes in the shadow disappear.',
+  '<b>Solar</b> aclara lo oscuro: en la fuente aparecen formas, en el encode no queda nada.': '<b>Solar</b> lifts the dark: shapes appear in the source, nothing is left in the encode.',
+  '¿Te animas a probarte?': 'Want to test yourself?',
+  'Ya conoces los defectos más comunes. En la prueba ciega las versiones no tienen nombre: eliges la que se ve mejor y al final se revela cuál era cada una.': 'Now you know the most common defects. In the blind test the versions have no names: you pick the one that looks better and at the end it reveals which was which.',
+  'activada': 'on',
+  'activar': 'turn on',
+  'Probar la prueba ciega': 'Try the blind test',
+  'Siguiente ›': 'Next ›',
+  'LECCIÓN · {} DE {}': 'LESSON · {} OF {}',
+  'Minimizar la lección': 'Minimise the lesson',
+  'Cerrar la lección': 'Close the lesson',
+  '‹ Anterior': '‹ Back',
+  'Lección': 'Lesson',
+  'Lección · {}/{}': 'Lesson · {}/{}',
+  // métricas de quien sube (gatos-ops#395, 36-metrics.js)
+  'mejor': 'better',
+  '(izq.)': '(left)',
+  '(der.)': '(right)',
+  'Métricas · cuadro «{}»': 'Metrics · frame “{}”',
+  'Media de los {} cuadros': 'Average of the {} frames',
+  'Media de {} de {} cuadros (los que tienen métricas)': 'Average of {} of {} frames (the ones with metrics)',
+  'Las calculó quien subió la página; gatos.pics no las verifica.': 'Computed by whoever uploaded the page; gatos.pics does not check them.',
+  'En verde, la mejor de cada fila.': 'In green, the best of each row.',
+  // todas las imágenes en un .zip (gatos-ops#396, 41-zip.js)
+  'Descargar todas las imágenes (.zip)': 'Download all pictures (.zip)',
+  '1 imagen': '1 picture',
+  '{} imágenes': '{} pictures',
+  '{} cuadros × {} versiones': '{} frames × {} versions',
 });
 I18N.apply();
 I18N.wire();
+
+/* ---------- nombres de métricas (gatos-ops#395) ----------
+   Las métricas por cuadro (`metrics.per_frame[cuadro]`) pueden traer cualquier
+   nombre [a-z0-9_]: las conocidas tienen un rótulo corto (la etiqueta de la
+   versión), uno largo (la tarjeta) y una dirección: 1 = más alto es mejor,
+   -1 = más bajo es mejor. Un sufijo (butteraugli_3norm) se muestra al lado;
+   los que solo repiten la unidad o la media (_avg, _all, _jod…) no. Las
+   desconocidas se muestran como vienen, sin dirección (ninguna sale en verde).
+   El creador carga este mismo archivo (app/index.html, tools/build_app.py)
+   para la lista de las insignias: sin T() aquí, los nombres no se traducen. */
+const METRIC_KINDS = [
+  [/^(ssimulacra2|ssimu2|s2)(_|$)/, 'S2', 'SSIMULACRA2', 1, 1],
+  [/^butteraugli(_|$)/, 'BA', 'Butteraugli', -1, 2],
+  [/^cvvdp(_|$)/, 'CVVDP', 'CVVDP (JOD)', 1, 2],
+  [/^vmaf(_|$)/, 'VMAF', 'VMAF', 1, 1],
+  [/^xpsnr(_|$)/, 'XPSNR', 'XPSNR (dB)', 1, 2],
+  [/^psnr(_|$)/, 'PSNR', 'PSNR (dB)', 1, 2],
+  [/^ms_ssim(_|$)/, 'MS-SSIM', 'MS-SSIM', 1, 4],
+  [/^ssim(_|$)/, 'SSIM', 'SSIM', 1, 4],
+];
+const METRIC_QUIET = new Set(['avg', 'all', 'mean', 'score', 'jod', 'db']);
+function metricKind(name){
+  for (let i = 0; i < METRIC_KINDS.length; i++){
+    const [re, short, long, dir, digits] = METRIC_KINDS[i], m = re.exec(name);
+    if (!m) continue;
+    const rest = name.slice(m[0].length).replace(/_/g, ' ').trim();
+    const tail = rest && !METRIC_QUIET.has(rest) ? ' ' + rest : '';
+    return {rank: i, short: short + tail, long: long + tail, dir, digits};
+  }
+  return {rank: METRIC_KINDS.length, short: name, long: name, dir: 0, digits: null};
+}
+function metricFmt(v, digits){
+  if (digits != null) return v.toFixed(digits);
+  return Math.abs(v) >= 1000 ? String(Math.round(v)) : String(+v.toPrecision(4));
+}
+// [[nombre, número]…] de un objeto de métricas: solo claves válidas y números
+// finitos, las conocidas primero en el orden de la tabla
+function metricList(obj){
+  if (!obj || typeof obj !== 'object') return [];
+  const out = Object.entries(obj).filter(([k, v]) => /^[a-z0-9_]{1,32}$/.test(k) && k !== '__proto__' && typeof v === 'number' && isFinite(v)).slice(0, 16);
+  return out.map((e, i) => [e, metricKind(e[0]).rank, i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
+}
 
 /* gatos.pics compare engine (after the i18n parts 05-07).
    Two data sources, picked at boot:
@@ -1872,15 +2048,9 @@ function variantStats(id){
   const m = variant(id).metrics;
   if (!m) return '';
   const lines = [];
-  const pf = own(m.per_frame, String(frame));
-  if (pf){
-    const l = [];
-    const pfS2 = metricNum(pf.ssimulacra2), pfPsnr = metricNum(pf.psnr_avg), pfSsim = metricNum(pf.ssim_all);
-    if (pfS2 != null) l.push('S2 '+pfS2.toFixed(1));
-    if (pfPsnr != null) l.push('PSNR '+pfPsnr.toFixed(2)+' dB');
-    if (pfSsim != null) l.push('SSIM '+pfSsim.toFixed(4));
-    if (l.length) lines.push(l.join(' \u00B7 ')+' · '+(FRAME_LABELS[frame] || 'frame '+frame));
-  }
+  // las del cuadro: hasta 4 en la etiqueta, todas en la tarjeta (36-metrics.js, gatos-ops#395)
+  const now = metricList(own(m.per_frame, String(frame))).slice(0, 4);
+  if (now.length) lines.push(now.map(([k, v]) => { const kind = metricKind(k); return kind.short + ' ' + metricFmt(v, kind.digits); }).join(' \u00B7 '));
   const l2 = [];
   if (m.custom_note) l2.push(m.custom_note);
   const mS2 = metricNum(m.ssimulacra2), mPsnr = metricNum(m.psnr_avg), mSsim = metricNum(m.ssim_all);
@@ -1924,7 +2094,7 @@ function paintSide(side){
   const id = side === 'A' ? shownA : shownB;
   if (id == null) return;   // primer par sin carga exitosa: etiqueta inicial
   $('label'+side+'Name').textContent = sideName(side, id);
-  $('stats'+side).textContent = variantStats(id);
+  paintStats(side, id);   // con la ⓘ de las métricas (36-metrics.js)
   $('label'+side).style.color = blindMode ? '#e8e8f0' : variant(id).color;
 }
 function loadImg(){
@@ -1933,8 +2103,8 @@ function loadImg(){
   setSideSrc('B', varB);
   labelAName.textContent = sideName('A', varA);
   labelBName.textContent = sideName('B', varB);
-  statsA.textContent = variantStats(varA);
-  statsB.textContent = variantStats(varB);
+  paintStats('A', varA);
+  paintStats('B', varB);
   labelA.style.color = blindMode ? '#e8e8f0' : variant(varA).color;
   labelB.style.color = blindMode ? '#e8e8f0' : variant(varB).color;
 
@@ -2178,6 +2348,183 @@ window.addEventListener('keydown', e => {
   else if (e.key === 'Escape'){ if (cropMode || cropUV){ setCropMode(false); closeCrop(); } }
 });
 
+/* ---------- tarjetas al pasar el mouse (gatos-ops#394) ----------
+   El tooltip del navegador (title) se va solo a los pocos segundos en algunos
+   sistemas: los textos largos no se alcanzaban a leer. En pantallas con mouse,
+   el primer mouseover pasa el title a data-tip (así el del navegador nunca sale)
+   y, tras una pausa corta, se muestra una tarjeta que se queda mientras el
+   puntero esté encima. El texto sigue para los lectores de pantalla en
+   aria-description. Los botones principales tienen un texto más completo
+   (TIPS, traducidos al cargar); el resto muestra su title tal cual, con la tecla «(X)» del final
+   como atajo. En pantallas táctiles no cambia nada: ahí está la ayuda «?». */
+const TIPS = {
+  diffBtn: ['Diff', 'D', T('Muestra solo lo que cambia entre las dos versiones, amplificado. El color dice en qué canal difieren; Intensidad y Calor ajustan cuánto se ve.')],
+  heatBtn: [T('Calor'), 'H', T('Pinta de rojo lo que difiere más que un umbral: dónde están las diferencias, de un vistazo.')],
+  blinkBtn: [T('Parpadeo'), 'B', T('Alterna izquierda y derecha en el mismo lugar, dos veces por segundo. Lo que cambia entre las versiones salta a la vista.')],
+  testBtn: [T('Prueba ciega'), 'G', T('Un juego aparte: compara las versiones de a pares sin saber cuál es cuál y elige la que se ve mejor. Al final se revela cuál era cada una.')],
+  solarBtn: ['Solar', 'L', T('Exagera los cambios pequeños de brillo. Sirve para ver banding, bloques y sombras aplastadas que a simple vista casi no se notan.')],
+  cropBtn: [T('Recortes'), 'C', T('Haz clic en un punto y compara ese recorte 1:1 en todas las versiones a la vez.')],
+  oneBtn: ['1:1', 'O', T('Un píxel de la imagen es un píxel de tu pantalla: el tamaño real, sin escalar.')],
+  pixBtn: [T('Nítido'), 'N', T('Al hacer zoom, cada píxel se ve como un cuadrado nítido en vez de suavizado: para inspeccionar píxel por píxel.')],
+  resetBtn: [T('Ajustar'), 'F', T('Vuelve a mostrar la imagen entera.')],
+  shareBtn: [T('Compartir'), '', T('El enlace a esta vista, el código para foros (BBCode), Markdown, HTML y la imagen de lo que ves.')],
+  helpBtn: [T('Ayuda'), '?', T('Todos los atajos de teclado y los controles.')],
+  swapBtn: [T('Intercambiar'), 'S', T('Pasa la versión de la izquierda a la derecha y la de la derecha a la izquierda.')],
+};
+const tipCard = document.createElement('div');
+tipCard.id = 'tipCard'; tipCard.setAttribute('role', 'tooltip'); tipCard.hidden = true;
+document.body.appendChild(tipCard);
+const HOVER_MQ = matchMedia('(hover: hover) and (pointer: fine)');
+let tipFor = null, tipTimer = null;
+function tipText(el){
+  const own = TIPS[el.id];
+  if (own) return {name: own[0], key: own[1], text: own[2]};
+  const m = el.dataset.tip.match(/^(.*?)\s*\(([^()]{1,9})\)$/);
+  return m ? {name: '', key: m[2], text: m[1]} : {name: '', key: '', text: el.dataset.tip};
+}
+function showHoverTip(el){
+  if (!el.isConnected || cmdPinned) return;
+  const t = tipText(el);
+  tipCard.replaceChildren();
+  if (t.name || t.key){
+    const h = document.createElement('div'); h.className = 'th';
+    if (t.name){ const b = document.createElement('b'); b.textContent = t.name; h.appendChild(b); }
+    if (t.key){ const k = document.createElement('kbd'); k.textContent = t.key; h.appendChild(k); }
+    tipCard.appendChild(h);
+  }
+  const p = document.createElement('p'); p.textContent = t.text; tipCard.appendChild(p);
+  tipCard.hidden = false;
+  const r = el.getBoundingClientRect(), w = tipCard.offsetWidth, h = tipCard.offsetHeight;
+  tipCard.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px';
+  tipCard.style.top = (r.bottom + 8 + h > innerHeight - 8 ? Math.max(8, r.top - h - 8) : r.bottom + 8) + 'px';
+}
+function hideHoverTip(){ clearTimeout(tipTimer); tipFor = null; tipCard.hidden = true; }
+document.addEventListener('mouseover', e => {
+  if (!HOVER_MQ.matches) return;
+  const el = e.target.closest && e.target.closest('[title], [data-tip]');
+  if (el === tipFor) return;
+  hideHoverTip();
+  if (!el) return;
+  if (el.hasAttribute('title')){
+    el.dataset.tip = el.title;
+    if (!el.hasAttribute('aria-label') && !el.hasAttribute('aria-description')) el.setAttribute('aria-description', el.title);
+    el.removeAttribute('title');
+  }
+  if (!el.dataset.tip) return;
+  tipFor = el;
+  tipTimer = setTimeout(() => showHoverTip(el), 350);
+});
+document.addEventListener('mouseout', e => { if (!e.relatedTarget) hideHoverTip(); });
+for (const ev of ['mousedown', 'keydown', 'wheel', 'scroll']) window.addEventListener(ev, hideHoverTip, {capture: true, passive: true});
+
+/* ---------- métricas de quien sube: la tarjeta (gatos-ops#395) ----------
+   La etiqueta de cada lado muestra hasta 4 métricas del cuadro (variantStats,
+   30-ui.js) y una ⓘ. Con el mouse encima, con el foco o tocándola en un
+   teléfono se abre una tarjeta con todas: las de este cuadro y la media de los
+   cuadros que las tienen, izquierda contra derecha, la mejor de cada fila en
+   verde cuando se sabe la dirección (08-metric-kinds.js). Las calcula quien
+   sube la página y gatos.pics no las verifica: la tarjeta lo dice. En la
+   prueba ciega no hay ⓘ ni tarjeta (paintStats lo apaga). */
+const metricCard = document.createElement('div');
+metricCard.id = 'metricCard'; metricCard.setAttribute('role', 'tooltip'); metricCard.hidden = true;
+document.body.appendChild(metricCard);
+let metricFor = null;   // la etiqueta que la abrió
+const framePairs = (id, f) => { const m = variant(id).metrics; return metricList(m && own(m.per_frame, String(f))); };
+// la línea de stats de un lado, con su ⓘ al final de la primera línea
+function paintStats(side, id){
+  const el = side === 'A' ? statsA : statsB, label = side === 'A' ? labelA : labelB;
+  const text = variantStats(id), has = !blindMode && !testRun && framePairs(id, frame).length > 0;
+  const nl = text.indexOf('\n');
+  el.textContent = has && nl >= 0 ? text.slice(0, nl) : text;
+  if (has){
+    const i = document.createElement('span');
+    i.className = 'minfo'; i.textContent = ' ⓘ'; i.setAttribute('aria-hidden', 'true');
+    el.appendChild(i);
+    if (nl >= 0) el.appendChild(document.createTextNode(text.slice(nl)));
+  }
+  label.classList.toggle('hasm', has);
+  if (has) label.tabIndex = 0; else label.removeAttribute('tabindex');
+  if (metricFor === label && !metricCard.hidden) has ? showMetricCard(label) : hideMetricCard();
+}
+function metricCell(tag, text, cls){
+  const c = document.createElement(tag);
+  c.textContent = text;
+  if (cls) c.className = cls;
+  return c;
+}
+// una tabla nombre | izquierda | derecha; devuelve si pintó algún verde
+function metricTable(names, a, b, withWord){
+  const tbl = document.createElement('table');
+  let green = false;
+  for (const name of names){
+    const kind = metricKind(name), va = a.get(name), vb = b.get(name), tr = document.createElement('tr');
+    const td = metricCell('td', kind.long);
+    if (kind.dir) td.appendChild(metricCell('small', ' ' + (kind.dir > 0 ? '↑' : '↓') + (withWord ? ' ' + T('mejor') : '')));
+    const best = kind.dir && va != null && vb != null && va !== vb ? ((va > vb) === (kind.dir > 0) ? 'a' : 'b') : '';
+    if (best) green = true;
+    tr.append(td,
+      metricCell('td', va == null ? '—' : metricFmt(va, kind.digits), best === 'a' ? 'best' : ''),
+      metricCell('td', vb == null ? '—' : metricFmt(vb, kind.digits), best === 'b' ? 'best' : ''));
+    tbl.appendChild(tr);
+  }
+  return {tbl, green};
+}
+// nombres de dos mapas, en el orden de la tabla de métricas
+const metricNames = (a, b) => metricList(Object.fromEntries([...a.keys(), ...b.keys()].map(k => [k, 0]))).map(e => e[0]);
+function metricAverages(id){
+  const sum = new Map(), n = new Map();
+  for (const f of FRAMES) for (const [k, v] of framePairs(id, f)){ sum.set(k, (sum.get(k) || 0) + v); n.set(k, (n.get(k) || 0) + 1); }
+  return new Map([...sum].map(([k, s]) => [k, s / n.get(k)]));
+}
+function showMetricCard(label){
+  const a = new Map(framePairs(varA, frame)), b = new Map(framePairs(varB, frame));
+  if (blindMode || testRun || (!a.size && !b.size)) return hideMetricCard();
+  metricCard.replaceChildren(metricCell('div', T`Métricas · cuadro «${FRAME_LABELS[frame] || frame}»`, 'mh'));
+  const hr = document.createElement('tr');
+  hr.append(metricCell('th', ''), metricCell('th', variantName(varA) + ' ' + T('(izq.)')), metricCell('th', variantName(varB) + ' ' + T('(der.)')));
+  const now = metricTable(metricNames(a, b), a, b, true);
+  now.tbl.prepend(hr);
+  metricCard.appendChild(now.tbl);
+  let green = now.green;
+  const counted = FRAMES.filter(f => framePairs(varA, f).length || framePairs(varB, f).length).length;
+  if (FRAMES.length > 1 && counted > 1){
+    const ma = metricAverages(varA), mb = metricAverages(varB);
+    metricCard.appendChild(metricCell('div', counted === FRAMES.length ? T`Media de los ${counted} cuadros` : T`Media de ${counted} de ${FRAMES.length} cuadros (los que tienen métricas)`, 'msec'));
+    const avg = metricTable(metricNames(ma, mb), ma, mb, false);
+    metricCard.appendChild(avg.tbl);
+    green = green || avg.green;
+  }
+  metricCard.appendChild(metricCell('div', T('Las calculó quien subió la página; gatos.pics no las verifica.') + (green ? ' ' + T('En verde, la mejor de cada fila.') : ''), 'mfoot'));
+  metricCard.hidden = false;
+  metricFor = label;
+  label.setAttribute('aria-describedby', 'metricCard');
+  const r = label.getBoundingClientRect(), w = metricCard.offsetWidth, h = metricCard.offsetHeight;
+  metricCard.style.left = clamp(label === labelB ? r.right - w : r.left, 8, Math.max(8, innerWidth - w - 8)) + 'px';
+  metricCard.style.top = clamp(r.bottom + 8, 8, Math.max(8, innerHeight - h - 8)) + 'px';
+}
+function hideMetricCard(){
+  metricCard.hidden = true;
+  if (metricFor) metricFor.removeAttribute('aria-describedby');
+  metricFor = null;
+}
+for (const label of [labelA, labelB]){
+  const on = () => label.classList.contains('hasm');
+  label.addEventListener('mouseenter', () => { if (HOVER_MQ.matches && on()) showMetricCard(label); });
+  label.addEventListener('mouseleave', () => { if (HOVER_MQ.matches) hideMetricCard(); });
+  // solo el foco del teclado: el de un toque llegaba antes del click y el click la volvía a cerrar
+  label.addEventListener('focus', () => { if (on() && label.matches(':focus-visible')) showMetricCard(label); });
+  label.addEventListener('blur', hideMetricCard);
+  // con métricas la etiqueta recibe el puntero: no arrastra la imagen ni ajusta con doble clic
+  for (const ev of ['pointerdown', 'dblclick']) label.addEventListener(ev, e => { if (on()) e.stopPropagation(); });
+  label.addEventListener('click', e => {   // táctil: tocar abre y cierra (con mouse ya la abrió el paso del puntero)
+    if (!on()) return;
+    e.stopPropagation();
+    if (HOVER_MQ.matches) return;
+    if (metricFor === label && !metricCard.hidden) hideMetricCard(); else showMetricCard(label);
+  });
+}
+document.addEventListener('pointerdown', e => { if (!metricCard.hidden && !e.target.closest('.label.hasm')) hideMetricCard(); }, true);
+
 /* ---------- compartir: imagen PNG sin pérdida de la vista actual ---------- */
 const sharePanel = $('sharePanel'), shareRows = $('shareRows');
 const reportPanel = $('reportPanel');
@@ -2379,6 +2726,7 @@ async function openShare(){
     shareRows.appendChild(l);
     shareRows.appendChild(box);
   }
+  paintShareZip();   // todas las imágenes en un .zip (41-zip.js)
   sharePanel.style.display = 'flex';
   // generar la imagen de la vista actual
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
@@ -2527,6 +2875,50 @@ $('shareClose').addEventListener('click', closeShareIfOpen);
 function closeShareIfOpen(){ if (sharePanel.style.display === 'flex'){ sharePanel.style.display = 'none'; $('shareBtn').focus(); } }
 for (const ev of ['pointerdown','mousedown','touchstart','wheel'])
   sharePanel.addEventListener(ev, e => e.stopPropagation());
+
+/* ---------- todas las imágenes en un .zip (gatos-ops#396) ----------
+   Solo en una página publicada: el servidor arma el zip (GET /z/<token>.zip,
+   service/lib/zipdl.mjs) con cada imagen en el formato en que se guardó y un
+   nombre «NN - cuadro - versión» para que las versiones de un cuadro queden
+   juntas. Un HTML descargado ya trae sus imágenes adentro: ahí no aparece.
+   Tampoco en la prueba ciega: los nombres revelarían cuál es cuál. La lista
+   que se muestra es la misma que arma el servidor (zipPlan); el tamaño sale
+   de un HEAD, que no trae nada del almacenamiento frío. */
+const zipClean = s => String(s).normalize('NFC').replace(/[\u0000-\u001f\u007f/\\:*?"<>|]+/g, '_')
+  .replace(/\s+/g, ' ').trim().replace(/^\.+/, '').slice(0, 80).trim();
+function zipEntryNames(){
+  const pad = Math.max(2, String(FRAMES.length).length), used = new Set(), out = [];
+  FRAMES.forEach((f, i) => {
+    for (const v of VARIANTS){
+      if (!hasFrame(v.id, f)) continue;
+      const ext = own(v.image_exts, String(f)) || v.ext || 'webp';
+      const base = `${String(i + 1).padStart(pad, '0')} - ${zipClean(own(FRAME_LABELS, String(f)) || f) || f} - ${zipClean(v.name || v.id) || v.id}`;
+      let name = `${base}.${ext}`;
+      for (let k = 2; used.has(name.toLowerCase()); k++) name = `${base} (${k}).${ext}`;
+      used.add(name.toLowerCase());
+      out.push(name);
+    }
+  });
+  return out;
+}
+let zipSize = null;   // [token, «21.4 MB»]: el HEAD se hace una vez por página
+function paintShareZip(){
+  const box = $('shareZip'), token = (location.pathname.match(/^\/p\/([A-Za-z0-9_-]{10,64})/) || [])[1];
+  box.hidden = !token || blindMode || !!testRun;
+  if (box.hidden) return;
+  const names = zipEntryNames(), url = `/z/${token}.zip`, info = $('zipInfo');
+  $('zipBtn').href = url;
+  const line = size => info.textContent = [names.length === 1 ? T('1 imagen') : T`${names.length} imágenes`, size,
+    T`${FRAMES.length} cuadros × ${VARIANTS.length} versiones`].filter(Boolean).join(' · ');
+  const list = names.length > 4 ? [...names.slice(0, 3), '…', names[names.length - 1]] : names;
+  $('zipList').textContent = [(zipClean(originalTitle || '') || 'gatos.pics') + '.zip', ...list.map(n => '  ' + n)].join('\n');
+  if (zipSize && zipSize[0] === token){ line(zipSize[1]); return; }
+  line('');
+  fetch(url, {method: 'HEAD'}).then(r => {
+    const n = r.ok && Number(r.headers.get('content-length'));
+    if (n){ zipSize = [token, (n / 1048576).toFixed(1) + ' MB']; line(zipSize[1]); }
+  }).catch(() => {});
+}
 
 /* ---------- sumar una versión a una página publicada (gatos-ops#342) ----------
    Quien publicó, con su llave de borrado, sube una imagen por frame y la página
@@ -3308,6 +3700,166 @@ function testKeys(e){
   return true;
 }
 
+/* ---------- lección de la demo (gatos-ops#394) ----------
+   La demo del creador (app/demo.js) trae `lesson: 'defectos'` en la raíz del
+   paquete y una versión por defecto típico. Esta tarjeta los recorre: cada paso
+   pone la fuente a la izquierda y esa versión a la derecha, prende la
+   herramienta que mejor lo muestra (Recortes se probó para los halos, pero con
+   ocho versiones la fila buscada quedaba fuera de la vista: ahí va zoom) y marca con un recuadro dónde mirar
+   (coordenadas en píxeles de la imagen de 960×540 de la demo). La tarjeta no se
+   va sola: se cierra con × y se achica con –. Solo existe en la demo: una
+   página publicada no trae `lesson` (el servicio no guarda campos de raíz). */
+const LESSON_IDS = ['src', 'blur', 'band', 'halo', 'dirty', 'dnr', 'block', 'crush'];
+function lessonSteps(){
+  return [
+    {title: T('Cómo leer una comparación'), v: 'blur',
+     text: T('La misma imagen en dos versiones: la fuente a la izquierda y un encode a la derecha. Arrastra la línea del centro, usa la rueda para acercar y las flechas para cambiar de cuadro. Cada paso te muestra un defecto típico de los encodes, exagerado para que se vea fácil.')},
+    {title: T('Desenfoque + ruido'), v: 'blur', tools: ['blink'], spot: [600, 367, 330, 151], where: T('mira la tela'),
+     text: T('El encode perdió detalle fino y sumó ruido. Mira la tela a rayas: en la fuente las líneas son nítidas, en el encode se empastan.'),
+     how: T('<b>Parpadeo</b> alterna las dos versiones en el mismo lugar: lo que cambia salta a la vista.')},
+    {title: 'Banding', v: 'band', tools: ['solar'], spot: [30, 80, 260, 240], where: T('mira el cielo'),
+     text: T('Donde la fuente tiene un degradado suave, el encode lo muestra en escalones. Pasa en cielos, humo y paredes lisas.'),
+     how: T('<b>Solar</b> exagera los cambios pequeños de brillo: los escalones se vuelven franjas.')},
+    {title: T('Halos'), v: 'halo', tools: ['zoom'], zoomAt: [270, 38], spot: [18, 12, 520, 52], where: T('mira el borde de las letras'),
+     text: T('Contornos claros u oscuros alrededor de los bordes: el resultado de enfocar de más. Se notan en letras y en bordes con mucho contraste.'),
+     how: T('Con <b>zoom</b> en las letras se ven los contornos a los dos lados de la línea. <b>Recortes</b> muestra un punto 1:1 en todas las versiones a la vez.')},
+    {title: T('Líneas sucias'), v: 'dirty', tools: ['zoom'], zoomAt: [480, 0], spot: [400, 0, 160, 30], where: T('mira el borde de arriba'),
+     text: T('Las primeras o últimas filas y columnas de la imagen con otro brillo, como un marco fino. Vienen en muchos Blu-ray; un buen encode las corrige.'),
+     how: T('Con <b>zoom</b> en el borde de arriba se ven las filas oscuras del lado del encode; arrastra la línea del centro para comparar.')},
+    {title: T('Grano borrado'), v: 'dnr', tools: ['zoom', 'blink'], zoomAt: [480, 430], spot: [400, 370, 160, 120], where: T('mira la superficie'),
+     text: T('La fuente tiene grano; el encode lo borró y las superficies quedan lisas, como de cera. Pasa al quitar ruido de más o con pocos bits.'),
+     how: T('<b>Zoom</b> y <b>Parpadeo</b>: el grano aparece y desaparece.')},
+    {title: T('Bloques'), v: 'block', tools: ['solar'], spot: [30, 357, 330, 162], where: T('mira la sombra'),
+     text: T('Cuadros visibles en zonas planas u oscuras: al encoder le faltaron bits.'),
+     how: T('<b>Solar</b> resalta los bordes de los cuadros en lo oscuro.')},
+    {title: T('Sombras aplastadas'), v: 'crush', tools: ['solar'], spot: [30, 357, 330, 162], where: T('mira la sombra'),
+     text: T('El detalle de las zonas oscuras pasa a negro: las formas de la sombra desaparecen.'),
+     how: T('<b>Solar</b> aclara lo oscuro: en la fuente aparecen formas, en el encode no queda nada.')},
+    {title: T('¿Te animas a probarte?'), v: 'blur', last: true,
+     text: T('Ya conoces los defectos más comunes. En la prueba ciega las versiones no tienen nombre: eliges la que se ve mejor y al final se revela cuál era cada una.')},
+  ];
+}
+let lesson = null;   // {steps, i, card, spot, raf, small}
+// acerca un punto de la imagen y lo deja bajo la línea del centro: a un lado la
+// fuente, al otro la versión (con setZoomAt el punto quedaba donde estaba, lejos de la línea)
+function lessonZoomTo(u, v){
+  zoom = clamp(4 / (fitScale * dpr()), 1, zmax());
+  pan.x = comp.clientWidth * dividerPos - ox - u * fitScale * zoom;
+  pan.y = comp.clientHeight / 2 - oy - v * fitScale * zoom;
+  clampPan(); applyTransform(); writeHash();
+}
+// imagen (px) -> punto de la ventana, con el zoom y el desplazamiento de ahora
+function lessonClient(u, v){
+  const r = comp.getBoundingClientRect();
+  return [r.left + ox + pan.x + u * fitScale * zoom, r.top + oy + pan.y + v * fitScale * zoom];
+}
+const LESSON_TOOLS = {
+  blink: {on: () => setBlink(true), off: () => setBlink(false), is: () => blinkMode},
+  solar: {on: () => setSolar(true), off: () => setSolar(false), is: () => solarMode},
+  zoom: {on: s => lessonZoomTo(s.zoomAt[0], s.zoomAt[1]), off: () => fitView(), is: () => zoom !== 1},
+};
+function lessonReset(){
+  setDiff(false); setBlink(false); setSolar(false);
+  if (cropMode || cropUV){ setCropMode(false); if (cropUV) closeCrop(); }
+  fitView();
+}
+function lessonToolsOn(s){ return (s.tools || []).every(t => LESSON_TOOLS[t].is()); }
+function lessonToggleTools(){
+  const s = lesson.steps[lesson.i], on = lessonToolsOn(s);
+  for (const t of s.tools || []) on ? LESSON_TOOLS[t].off(s) : LESSON_TOOLS[t].on(s);
+  lessonPaintChip();
+}
+function lessonPaintChip(){
+  const chip = lesson.card.querySelector('.lchip'), s = lesson.steps[lesson.i];
+  if (!chip) return;
+  const on = lessonToolsOn(s);
+  chip.textContent = on ? T('activada') : T('activar');
+  chip.classList.toggle('off', !on);
+}
+function lessonGo(i){
+  const s = lesson.steps[i];
+  lesson.i = i;
+  lessonReset();
+  frame = FRAMES[0]; varA = 'src'; varB = s.v;
+  loadImg();
+  // las herramientas que dependen del tamaño de la imagen esperan a que cargue
+  const apply = () => { if (lesson && lesson.i === i) for (const t of s.tools || []) LESSON_TOOLS[t].on(s); };
+  if (imgA.complete && imgA.naturalWidth) apply(); else imgA.addEventListener('load', apply, {once: true});
+  lessonPaint();
+}
+function lessonPaint(){
+  const {steps, i, card} = lesson, s = steps[i];
+  const dots = steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+  const tool = s.how ? `<div class="ltool"><span>${s.how}</span><button class="lchip" type="button"></button></div>` : '';
+  const next = s.last
+    ? `<button type="button" class="lplay" data-l="test">${T('Probar la prueba ciega')}</button>`
+    : `<button type="button" class="lgo" data-l="next">${T('Siguiente ›')}</button>`;
+  card.innerHTML = `<div class="lkick"><span>${T`LECCIÓN · ${i + 1} DE ${steps.length}`}</span><span class="lsp"></span>`
+    + `<button type="button" data-l="min" title="${T('Minimizar la lección')}">–</button><button type="button" data-l="close" title="${T('Cerrar la lección')}">×</button></div>`
+    + `<h3>${s.title}</h3><p>${s.text}</p>${tool}`
+    + `<div class="lnav"><button type="button" data-l="prev"${i === 0 ? ' disabled' : ''}>${T('‹ Anterior')}</button><span class="ldots">${dots}</span>${next}</div>`;
+  if (s.last) card.querySelector('.lnav').insertAdjacentHTML('beforeend', `<button type="button" data-l="close">${T('Cerrar')}</button>`);
+  lessonPaintChip();
+  lessonPlace();
+}
+function lessonPlace(){
+  if (!lesson) return;
+  const {card} = lesson;
+  if (PHONE_MQ.matches){ card.style.bottom = ''; return; }   // teléfono: hoja abajo (CSS)
+  card.style.bottom = Math.max(8, innerHeight - comp.getBoundingClientRect().bottom + 12) + 'px';
+}
+// el recuadro sigue al zoom y al desplazamiento; se esconde si cambian el cuadro o la versión
+function lessonTick(){
+  if (!lesson) return;
+  const s = lesson.steps[lesson.i], spot = lesson.spot;
+  const show = s.spot && !lesson.small && frame === FRAMES[0] && varA === 'src' && varB === s.v && imgA.naturalWidth && !testRun;
+  spot.hidden = !show;
+  if (show){
+    const r = comp.getBoundingClientRect(), [x, y] = lessonClient(s.spot[0], s.spot[1]), k = fitScale * zoom;
+    Object.assign(spot.style, {left: (x - r.left) + 'px', top: (y - r.top) + 'px', width: s.spot[2] * k + 'px', height: s.spot[3] * k + 'px'});
+    spot.firstChild.textContent = s.where;
+    spot.classList.toggle('below', y - r.top < 34);   // pegado arriba: el rótulo va debajo
+  }
+  const chip = lesson.card.querySelector('.lchip');
+  if (chip && chip.classList.contains('off') === lessonToolsOn(s)) lessonPaintChip();
+  lesson.raf = requestAnimationFrame(lessonTick);
+}
+function lessonClose(){
+  if (!lesson) return;
+  cancelAnimationFrame(lesson.raf);
+  lesson.card.remove(); lesson.spot.remove();
+  lesson = null;
+}
+function lessonStart(){
+  if (lesson || !LESSON_IDS.every(id => VARIANTS.some(v => v.id === id))) return;
+  const card = document.createElement('div');
+  card.id = 'lesson'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', T('Lección'));
+  const spot = document.createElement('div');
+  spot.className = 'lspot'; spot.hidden = true; spot.appendChild(document.createElement('span'));
+  document.body.appendChild(card); comp.appendChild(spot);
+  lesson = {steps: lessonSteps(), i: 0, card, spot, raf: 0, small: false};
+  card.addEventListener('click', e => {
+    if (e.target.closest('.lchip')) return lessonToggleTools();
+    const b = e.target.closest('[data-l]');
+    if (!b) return;
+    const act = b.dataset.l;
+    if (act === 'next') lessonGo(Math.min(lesson.i + 1, lesson.steps.length - 1));
+    else if (act === 'prev') lessonGo(Math.max(lesson.i - 1, 0));
+    else if (act === 'close') lessonClose();
+    else if (act === 'test'){ lessonClose(); lessonReset(); testEnter(); }
+    else if (act === 'min' || act === 'grow'){
+      lesson.small = act === 'min';
+      if (lesson.small) lesson.spot.hidden = true;   // ya, sin esperar al próximo cuadro
+      card.classList.toggle('small', lesson.small);
+      if (lesson.small) card.innerHTML = `<button type="button" data-l="grow">${T`Lección · ${lesson.i + 1}/${lesson.steps.length}`} ›</button>`;
+      else lessonPaint();
+    }
+  });
+  window.addEventListener('resize', lessonPlace);
+  lessonGo(0);
+  lesson.raf = requestAnimationFrame(lessonTick);
+}
+
 /* ---------- init ---------- */
 function applyManifest(m){
   // un manifest truncado o mano-editado no es un fallo de transporte: sin
@@ -3355,6 +3907,8 @@ function applyManifest(m){
     if (link) testPanel.classList.add('solid');
     if (link || testSaved()) testEnter();
   }
+  // la demo del creador trae su lección (gatos-ops#394)
+  if (!testRun && window.GATOS_PACKAGE && window.GATOS_PACKAGE.lesson === 'defectos') lessonStart();
 }
 // ?test=1 (gatos-ops#336) es la forma del enlace a la prueba que el servidor ve, para darle su
 // tarjeta; adentro vale #test=1, como siempre, y ningún otro enlace de la página lo arrastra

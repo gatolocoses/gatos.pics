@@ -107,6 +107,18 @@
   .vname button{padding:2px 7px; font-size:11px;}
   .vname .vfill{width:100%; padding:4px 6px;}
   .vname.over, .slot.over, table.mtx th.vcol.over{outline:2px dashed var(--accent); outline-offset:2px;}
+  /* métricas de quien sube (gatos-ops#395, app/metrics.js) */
+  .drop .mhint{color:var(--accent); font-size:13px; margin-top:6px;}
+  .mbadge{position:absolute; left:6px; bottom:6px; padding:1px 7px 1px 6px; border-radius:999px; font-size:10px; font-weight:700;
+    background:#000c; color:#fff; border:1px solid #fff3; border-left:3px solid var(--accent); cursor:help;}
+  .mpop{position:fixed; z-index:80; min-width:200px; max-width:320px; padding:8px 12px; border-radius:10px; pointer-events:none;
+    background:#1d1d27; border:1px solid #4a4a5c; box-shadow:0 10px 30px #000c; font-size:12px; line-height:1.7;}
+  .mpop .mfile{color:var(--dim); font-size:11px; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .mpop div:not(.mfile){display:flex; gap:16px; justify-content:space-between;}
+  .mpop b{font-variant-numeric:tabular-nums;}
+  .mnote, .mwarn{border:1px solid; border-radius:8px; padding:8px 12px; margin-top:8px; font-size:12px; line-height:1.5;}
+  .mnote{border-color:#7bd38955; background:#7bd38914;}
+  .mwarn{border-color:#f0b42966; background:#f0b42914;}
   table.mtx th.vcol{cursor:pointer;} table.mtx th.vcol:hover{color:var(--accent);}
   .vcolhint{font-size:10px; opacity:.7; margin-left:4px;}
   .markchip{
@@ -343,8 +355,9 @@
       <div data-t class="big">Suelta imágenes aquí</div>
       <div data-t class="hint">o haz clic para elegir archivos. PNG, WebP o JPEG.</div>
       <div data-t class="hint">nombres como <span class="mono">fuente_01</span>, <span class="mono">Encode - 01</span> o <span class="mono">01_encode</span> se agrupan por cuadro, con 2, 3 o más versiones: la referencia (fuente, src, máster) queda a la izquierda.</div>
+      <div data-t class="hint mhint">¿Tienes métricas? Suelta también un .json con el mismo nombre que cada captura.</div>
     </div>
-    <input type="file" id="basicFile" accept="image/*" multiple style="display:none">
+    <input type="file" id="basicFile" accept="image/*,.json,application/json" multiple style="display:none">
     <div id="pairList" data-guide="rows"></div>
     <div id="basicFoot"></div>
   </section>
@@ -570,11 +583,14 @@
 <!-- generado por tools/build_app.py: la copia del visor comprimida (VIEWER_GZ -> SHELL_HTML, ENGINE_SRC, UPLOAD_SRC) -->
 <script src="../viewer/src/05-i18n.js"></script>
 <script src="../viewer/src/06-lang-upload.js"></script>
+<script src="../viewer/src/08-metric-kinds.js"></script>
 <script src="lang.js"></script>
 <script src="assets.js"></script>
 <script src="../viewer/upload.js"></script>
 <script src="s2.js"></script>
 <script src="zip.js"></script>
+<script src="demo.js"></script>
+<script src="metrics.js"></script>
 <script src="builder.js"></script>
 <script src="basic.js"></script>
 <script src="export.js"></script>

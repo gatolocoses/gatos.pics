@@ -258,6 +258,37 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     await creator.waitForFunction(()=>{const f=document.getElementById('pvBox');const d=f&&f.contentDocument;const i=d&&d.getElementById('imgA');return !!(i&&i.complete&&i.naturalWidth>0);},null,{timeout:20000});
     ok('hosted creator demo preview loads under CSP',await creator.evaluate(()=>{const d=document.getElementById('pvBox').contentDocument;return {pkg:!!d.defaultView.GATOS_PACKAGE,natA:d.getElementById('imgA').naturalWidth};}),{pkg:true,natA:960});
     ok('hosted creator preview has no CSP violations',viol,[]);
+    // gatos-ops#394: la demo abre con su lección; cada paso pone su versión y su
+    // herramienta, la tarjeta no se va sola, y los botones tienen tarjeta al pasar el mouse
+    {
+      const fr = await (await creator.$('#pvBox')).contentFrame();
+      await fr.waitForSelector('#lesson h3');
+      const st = () => fr.evaluate(() => ({h: document.querySelector('#lesson h3').textContent, varA, varB, blink: blinkMode, solar: solarMode, zoomed: zoom !== 1, spot: !document.querySelector('.lspot').hidden}));
+      ok('demo lesson opens on step 1: source vs blur, no tool', await st(), {h:'Cómo leer una comparación', varA:'src', varB:'blur', blink:false, solar:false, zoomed:false, spot:false});
+      ok('demo has one version per defect', await fr.evaluate(() => VARIANTS.map(v => v.id)), ['src','blur','band','halo','dirty','dnr','block','crush']);
+      await fr.click('#lesson [data-l="next"]'); await fr.click('#lesson [data-l="next"]'); await fr.waitForTimeout(1500);
+      ok('step 3 shows banding with Solar on and the look-here box, still open after a while', await st(), {h:'Banding', varA:'src', varB:'band', blink:false, solar:true, zoomed:false, spot:true});
+      await fr.click('#lesson [data-l="next"]'); await fr.click('#lesson [data-l="next"]');
+      ok('dirty-lines step zooms in, the previous tool is off', await st(), {h:'Líneas sucias', varA:'src', varB:'dirty', blink:false, solar:false, zoomed:true, spot:true});
+      await fr.click('#lesson .lchip');
+      ok('the tool chip turns the step tool off', [await fr.evaluate(() => zoom), await fr.locator('#lesson .lchip').textContent()], [1, 'activar']);
+      await fr.click('#lesson [data-l="min"]');
+      ok('minimise leaves a small button', [await fr.locator('#lesson').textContent(), await fr.evaluate(() => document.querySelector('.lspot').hidden)], ['Lección · 5/9 ›', true]);
+      await fr.click('#lesson [data-l="grow"]'); await fr.click('#lesson [data-l="close"]');
+      ok('closing removes the lesson', await fr.locator('#lesson, .lspot').count(), 0);
+      await fr.hover('#blinkBtn'); await fr.waitForTimeout(700);
+      ok('hover card replaces the browser tooltip', await fr.evaluate(() => ({shown: !tipCard.hidden, key: tipCard.querySelector('kbd').textContent, title: document.getElementById('blinkBtn').hasAttribute('title'), desc: !!document.getElementById('blinkBtn').getAttribute('aria-description')})), {shown:true, key:'B', title:false, desc:true});
+      await fr.hover('#pageTitle'); await fr.waitForTimeout(100);
+      ok('hover card hides when the pointer leaves', await fr.evaluate(() => tipCard.hidden), true);
+    }
+    {
+      const dp = await browser.newPage({locale:'es-MX',viewport:{width:1200,height:900}});
+      await dp.goto(BASE+'/crear/?demo=1');
+      const sawWelcome = await dp.evaluate(() => !document.getElementById('onboard').hidden);
+      await dp.waitForFunction(() => { const d = document.getElementById('pvBox').contentDocument; return !!(d && d.getElementById('lesson')); }, null, {timeout:20000});
+      ok('?demo=1 opens the lesson without flashing the welcome box', sawWelcome, false);
+      await dp.close();
+    }
     // ops#76: Publicar SIN llave desde el creador hospedado (tier UI abierto)
     await creator.locator('#pvClose').click();
     await creator.evaluate(() => { localStorage.removeItem('gatosApiKey'); });
@@ -646,6 +677,79 @@ async function loaded(page){ await page.waitForFunction(() => ['imgA','imgB'].ev
     ok('a version without a name shows its id: buttons, labels, selects, share PNG and its file name (the source one reads Fuente)',unnamed,
       {buttons:['Fuente','x264','av1'],labels:['x264','av1'],selects:['Fuente','x264','av1'],png:['x264','av1'],file:'gatos-x264-vs-av1-intro.png'});
     await nctx.close();
+    // gatos-ops#395: métricas de quien sube. En el creador, un .json con el mismo nombre que la captura;
+    // en la página, hasta 4 en la etiqueta y todas en la tarjeta al pasar el mouse
+    {
+      const mctx=await browser.newContext({locale:'es-MX',viewport:{width:1400,height:900}});
+      const mc=await mctx.newPage();mc.on('pageerror',e=>errors.push(e.message));
+      await mc.goto('file://'+ROOT+'/dist/gatos.html');await mc.locator('#obStart').click();
+      const pngM=Buffer.from(fixture.images.source_intro.split(',')[1],'base64'), js=o=>({mimeType:'application/json',buffer:Buffer.from(JSON.stringify(o))});
+      await mc.locator('#basicFile').setInputFiles([
+        {name:'fuente_01.png',mimeType:'image/png',buffer:pngM},{name:'x265_01.png',mimeType:'image/png',buffer:pngM},{name:'av1_01.png',mimeType:'image/png',buffer:pngM},
+        {name:'x265_01.json',...js({SSIMULACRA2:81.4,'Butteraugli 3-norm':0.92,cvvdp:'9.61',vmaf:97.2,nota:'texto'})},
+        {name:'AV1_01.json',...js({metrics:{ssimulacra2:78.9,butteraugli:{'3norm':1.18},cvvdp:9.48,vmaf:96.1}})},
+        {name:'av1_04.json',...js({vmaf:90})},{name:'roto_01.json',mimeType:'application/json',buffer:Buffer.from('{no es json')}]);
+      await mc.waitForFunction(()=>document.querySelectorAll('.mbadge').length===2);
+      ok('creator: a same-name .json puts a badge on its screenshot (case does not matter, nested objects flatten)',
+        await mc.evaluate(()=>[...document.querySelectorAll('.slot')].map(s=>(s.querySelector('.mbadge')||{}).textContent||'')), ['','4 métricas','4 métricas']);
+      ok('creator: the note counts the paired files and names the ones without a screenshot or without metrics',
+        await mc.evaluate(()=>[...document.querySelectorAll('#basicFoot .mnote, #basicFoot .mwarn')].map(e=>e.textContent.replace(/\s+/g,' ').trim())),
+        ['2 archivos de métricas emparejados con su captura (mismo nombre, .json): AV1_01.json → av1_01.png… Se muestran en la comparación al pasar el mouse por el nombre de la versión.',
+         '2 archivos sin captura: av1_04.json, roto_01.json (ninguna imagen se llama igual): no se usan.']);
+      await mc.locator('.mbadge').first().hover();
+      ok('creator: hovering a badge lists the metrics with their names',await mc.evaluate(()=>[...document.querySelectorAll('.mpop div')].map(d=>d.textContent)),['AV1_01.json','SSIMULACRA278.9','Butteraugli 3norm1.18','CVVDP (JOD)9.48','VMAF96.1']);
+      const pkgM=await mc.evaluate(()=>BUILDER.currentPackage());
+      ok('creator: the package carries them in per_frame of each version',pkgM.manifest.variants.map(v=>v.metrics||null),
+        [null,{per_frame:{1:{ssimulacra2:78.9,butteraugli_3norm:1.18,cvvdp:9.48,vmaf:96.1}}},{per_frame:{1:{ssimulacra2:81.4,butteraugli_3_norm:0.92,cvvdp:9.61,vmaf:97.2}}}]);
+      await mctx.close();
+      const mm=await (await fetch(BASE+'/api/upload',{method:'POST',headers:{'content-type':'application/json','x-api-key':'test-key-123'},body:JSON.stringify({format:'gatos.pics/cmp@1',
+        manifest:{title:'Métricas',version:1,frames:['intro','cut_2'],frame_labels:{intro:'Inicio'},variants:[{id:'src',name:'Fuente'},
+          {id:'x265',name:'x265',metrics:{per_frame:{intro:{ssimulacra2:81.4,butteraugli:0.92,cvvdp:9.61,vmaf:97.2,xpsnr:40.1,Raro:5},cut_2:{ssimulacra2:80}}}},
+          {id:'av1',name:'AV1',metrics:{per_frame:{intro:{ssimulacra2:78.9,butteraugli:1.18,cvvdp:9.48,vmaf:96.1},cut_2:{ssimulacra2:79.1}}}}]},
+        images:Object.fromEntries(['src','x265','av1'].flatMap((id,i)=>['intro','cut_2'].map(f=>[id+'_'+f,fixture.images[['source','encode','third'][i]+'_'+f]])))})})).json();
+      const vctx=await browser.newContext({locale:'es-MX',viewport:{width:1400,height:900}});
+      const vp=await vctx.newPage();vp.on('pageerror',e=>errors.push(e.message));
+      await vp.goto(mm.url+'#f=intro&a=x265&b=av1');await loaded(vp);
+      ok('viewer: the label shows up to 4 metrics of the frame and an ⓘ',await vp.evaluate(()=>[statsA.textContent,statsB.textContent,labelA.classList.contains('hasm')]),
+        ['S2 81.4 · BA 0.92 · CVVDP 9.61 · VMAF 97.2 ⓘ','S2 78.9 · BA 1.18 · CVVDP 9.48 · VMAF 96.1 ⓘ',true]);
+      await vp.locator('#labelB').hover();await vp.waitForSelector('#metricCard:not([hidden])');
+      const card=()=>vp.evaluate(()=>({h:document.querySelector('#metricCard .mh').textContent,rows:[...document.querySelectorAll('#metricCard tr')].map(r=>[...r.children].map(c=>c.textContent+(c.classList.contains('best')?'*':''))),
+        sec:(document.querySelector('#metricCard .msec')||{}).textContent,foot:document.querySelector('#metricCard .mfoot').textContent}));
+      ok('viewer: hovering the label opens the card: this frame, the average, best value marked, the uploader note',await card(),{h:'Métricas · cuadro «Inicio»',
+        rows:[['','x265 (izq.)','AV1 (der.)'],['SSIMULACRA2 ↑ mejor','81.4*','78.9'],['Butteraugli ↓ mejor','0.92*','1.18'],['CVVDP (JOD) ↑ mejor','9.61*','9.48'],['VMAF ↑ mejor','97.2*','96.1'],['XPSNR (dB) ↑ mejor','40.10','—'],
+          ['SSIMULACRA2 ↑','80.7*','79.0'],['Butteraugli ↓','0.92*','1.18'],['CVVDP (JOD) ↑','9.61*','9.48'],['VMAF ↑','97.2*','96.1'],['XPSNR (dB) ↑','40.10','—']],
+        sec:'Media de los 2 cuadros',foot:'Las calculó quien subió la página; gatos.pics no las verifica. En verde, la mejor de cada fila.'});
+      await vp.locator('#pageTitle').hover();
+      ok('viewer: leaving the label hides the card',await vp.evaluate(()=>document.getElementById('metricCard').hidden));
+      await vp.evaluate(()=>setBlind(true));
+      ok('viewer: blind mode shows no metrics, no ⓘ and no card',await vp.evaluate(()=>[statsA.textContent,statsB.textContent,labelA.classList.contains('hasm'),labelB.classList.contains('hasm')]),['','',false,false]);
+      await vctx.close();
+      const tctx=await browser.newContext({locale:'es-MX',viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+      const tp2=await tctx.newPage();tp2.on('pageerror',e=>errors.push(e.message));
+      await tp2.goto(mm.url+'#f=intro&a=x265&b=av1');await loaded(tp2);
+      await tp2.locator('#labelB').tap();
+      const tcard=await tp2.evaluate(()=>{const r=document.getElementById('metricCard').getBoundingClientRect();return {open:!document.getElementById('metricCard').hidden,inside:r.left>=0&&r.right<=innerWidth};});
+      await tp2.touchscreen.tap(195, 600);
+      ok('phone: tapping the label opens the card on screen; tapping elsewhere closes it',[tcard,await tp2.evaluate(()=>document.getElementById('metricCard').hidden)],[{open:true,inside:true},true]);
+      await tctx.close();
+    }
+    // gatos-ops#396: «Descargar todas las imágenes (.zip)» en Compartir, solo en una página publicada y nunca a ciegas
+    {
+      const zctx=await browser.newContext({locale:'es-MX',viewport:{width:1400,height:900}});
+      const zp=await zctx.newPage();zp.on('pageerror',e=>errors.push(e.message));
+      await zp.goto(publication.url+'#f=intro&a=source&b=encode');await loaded(zp);
+      await zp.locator('#shareBtn').click();await zp.waitForFunction(()=>/MB/.test(document.getElementById('zipInfo').textContent));
+      const names=await zp.evaluate(()=>zipEntryNames());
+      ok('share panel: the zip box shows the count, size and grid, and the first names',await zp.evaluate(()=>({info:zipInfo.textContent.replace(/[\d.]+ MB/,'N MB'),list:zipList.textContent,href:new URL(zipBtn.href).pathname})),
+        {info:'6 imágenes · N MB · 2 cuadros × 3 versiones',list:['Prueba de comparación con un título largo.zip','  01 - Inicio - Fuente.png','  01 - Inicio - Encode con un nombre largo.png','  01 - Inicio - Tercera variante.png','  …','  02 - Escena oscura - Tercera variante.jpg'].join('\n'),
+          href:'/z/'+publication.token+'.zip'});
+      const zfile=path.join(OUT,'all.zip');fs.writeFileSync(zfile,Buffer.from(await (await fetch(BASE+'/z/'+publication.token+'.zip')).arrayBuffer()));
+      const py=spawnSync('python3',['-I','-c','import zipfile,sys,json; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps([z.testzip(), z.namelist()]))',zfile],{encoding:'utf8'});
+      ok('the zip opens with a real unzip tool, intact, with the names the panel promised',py.status===0&&JSON.parse(py.stdout),[null,names]);
+      await zp.keyboard.press('Escape');await zp.evaluate(()=>setBlind(true));await zp.evaluate(()=>openShare());
+      ok('share panel in blind mode: no zip (its names would say which is which)',await zp.evaluate(()=>document.getElementById('shareZip').hidden));
+      await zctx.close();
+    }
   }
   await page.goto(BASE+'/');await page.setViewportSize({width:1440,height:1000});
   await page.screenshot({path:path.join(OUT,'landing-desktop.png'),fullPage:true});

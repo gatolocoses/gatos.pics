@@ -45,6 +45,8 @@ function applyManifest(m){
     if (link) testPanel.classList.add('solid');
     if (link || testSaved()) testEnter();
   }
+  // la demo del creador trae su lección (gatos-ops#394)
+  if (!testRun && window.GATOS_PACKAGE && window.GATOS_PACKAGE.lesson === 'defectos') lessonStart();
 }
 // ?test=1 (gatos-ops#336) es la forma del enlace a la prueba que el servidor ve, para darle su
 // tarjeta; adentro vale #test=1, como siempre, y ningún otro enlace de la página lo arrastra

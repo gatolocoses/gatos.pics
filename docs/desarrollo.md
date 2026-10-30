@@ -10,16 +10,23 @@ sabes leer JS, sabes leer todo el producto.
 viewer/            EL MOTOR: lo que ve quien abre una comparación
   index.html       shell: layout, estilos, SVG de la curva solar
   src/             el motor en partes (aquí se edita):
+    08-metric-kinds.js  rótulos y dirección de las métricas por cuadro (también lo carga el creador)
     10-core.js     fuentes de datos (Embedded/Http), estado, geometría, punteros
     20-modes.js    diff, escala, parpadeo, ciego, curva solar, recortes
     30-ui.js       estado en la URL, métricas, carga, botones, ayuda y teclado
+    35-tips.js     tarjetas al pasar el mouse (reemplazan el tooltip del navegador)
+    36-metrics.js  la ⓘ y la tarjeta de métricas de la etiqueta de cada lado
     40-share.js    PNG de la vista (renderViewCanvas, marca), imagen compartida, reporte
+    41-zip.js      «Descargar todas las imágenes (.zip)» en Compartir (el zip lo arma el servicio)
+    47-lesson.js   la lección de la demo del creador (paquete con `lesson: 'defectos'`)
     50-boot.js     manifest y arranque
   compare.js       GENERADO: las partes de src/ concatenadas; es lo que se sirve y se exporta
   upload.js        progreso XHR, cancelación y reintento manual de subidas explícitas
 app/               EL CREADOR: lo que usa quien arma la comparación
   index.html       markup + estilos del creador
-  builder.js       estado, ejemplo, paquete (núcleo y validación), importar y el arranque
+  builder.js       estado, paquete (núcleo y validación), importar y el arranque
+  demo.js          el ejemplo sintético: una versión por defecto, con `lesson` para el visor
+  metrics.js       los .json de métricas del modo Básico (mismo nombre que la captura)
   basic.js         modo Básico: la tabla, el emparejamiento por nombre y su paquete
   export.js        vista previa, exportar HTML/.cmp/.zip y guardar/abrir proyecto
   advanced.js      modo Avanzado: pasos, variantes, frames y la tabla de imágenes

@@ -108,6 +108,7 @@ function basicMatch(imgs, known = new Set()){
 function addBasicFiles(files){
   $('builderStatus').textContent = '';
   pairWarns = [];
+  takeMetricFiles(files, renderPairs);   // los .json de métricas (app/metrics.js)
   const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
   imgs.forEach(probeDims);
   let loose = [...imgs];
@@ -165,6 +166,7 @@ function addBasicFiles(files){
    el nombre para agrupar: sirve cuando cada versión trae los mismos nombres
    (shot0001.png… en cada carpeta) o ninguno útil. */
 function basicFillColumn(c, files, fromRow = 0){
+  takeMetricFiles(files, renderPairs);
   const imgs = imagesInOrder(files);
   if (!imgs.length) return;
   $('builderStatus').textContent = '';
@@ -186,6 +188,7 @@ function basicOverLimits(){
 function renderPairs(){
   const host = $('pairList');
   host.innerHTML = '';
+  metricPop.hidden = true;   // su insignia se va con el repintado: sin mouseleave
   const names = state.basicNames, n = names.length, two = n === 2;
   const unit = two ? T('par') : T('cuadro');
   {
@@ -207,7 +210,7 @@ function renderPairs(){
       fill.className = 'vfill'; fill.textContent = T('Elegir sus imágenes'); fill.dataset.guide = 'vfill-' + c;
       fill.title = T('Elige (o suelta aquí) todas las imágenes de esta versión: llenan su columna en orden de nombre');
       fill.setAttribute('aria-label', T`Elegir todas las imágenes de la versión ${name}`);
-      fill.onclick = () => pickMany(files => basicFillColumn(c, files));
+      fill.onclick = () => pickMany(files => basicFillColumn(c, files), true);
       box.appendChild(fill);
       if (n > 2){
         const x = document.createElement('button'); x.textContent = '×'; x.title = T('Quitar esta versión');
@@ -233,12 +236,14 @@ function renderPairs(){
       s.className = 'slot ' + (f ? 'filled' : 'empty');
       s.setAttribute('role', 'button'); s.tabIndex = 0;
       s.dataset.col = side; s.dataset.row = i;
-      s.setAttribute('aria-label', `${where}, ${unit} ${i+1}: ${f ? f.name : T('elegir imagen')}`);
+      const mb = metricBadge(f);
+      s.setAttribute('aria-label', `${where}, ${unit} ${i+1}: ${f ? f.name : T('elegir imagen')}${mb ? ', ' + mb.textContent : ''}`);
       if (f) s.innerHTML = `<img src="${thumb(f)}" alt="${esc(f.name)}">`; else s.textContent = T`${where}: elegir imagen`;
+      if (mb) s.appendChild(mb);
       s.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); s.click(); } });
       s.title = f ? f.name + (fileDims.get(f) ? ' · '+fileDims.get(f) : '') : T('clic para elegir una imagen, o varias para llenar esta versión hacia abajo');
       // una imagen llena esta casilla; varias siguen hacia abajo en la misma versión
-      s.addEventListener('click', () => pickMany(files => basicFillColumn(side, files, i)));
+      s.addEventListener('click', () => pickMany(files => basicFillColumn(side, files, i), true));
       return s;
     };
     row.innerHTML = `<span class="no">${unit} ${i+1}</span>`;
@@ -250,7 +255,7 @@ function renderPairs(){
     const dn = document.createElement('button'); dn.textContent='↓'; dn.title=T('bajar');
     dn.onclick = () => { if (i<state.pairs.length-1){ [state.pairs[i+1], state.pairs[i]] = [state.pairs[i], state.pairs[i+1]]; renderPairs(); } };
     const rm = document.createElement('button'); rm.textContent='×'; rm.title=T`quitar ${unit}`;
-    rm.onclick = () => { state.pairs.splice(i,1); if (!state.pairs.length) resetBasic(); renderPairs(); };
+    rm.onclick = () => { state.pairs.splice(i,1); if (!state.pairs.length){ resetBasic(); sideMetrics.clear(); } renderPairs(); };
     if (two){
       const swap = document.createElement('button'); swap.textContent='↔'; swap.title=T('Intercambiar izquierda y derecha');
       swap.onclick = () => { [p[0],p[1]] = [p[1],p[0]]; renderPairs(); };
@@ -267,6 +272,7 @@ function renderPairs(){
   if (half) h += `<div class="warn">${two ? T('Completa el par vacío antes de compartir.') : T('Completa los huecos antes de compartir.')} ${T('Puedes guardar el proyecto para seguir después.')}</div>`;
   if (dims.size > 1) h += `<div class="warn">${T`Las imágenes tienen tamaños distintos (${[...dims].join(', ')}) · el diff y los recortes 1:1 necesitan dimensiones idénticas.`}</div>`;
   for (const w of pairWarns) h += `<div class="warn">${esc(w)}</div>`;
+  h += metricsNoteHTML(state.pairs.flat());
   h += lossyWarnHTML(state.pairs.flat().filter(f => f && lossyFiles.has(f)).length);
   const over = basicOverLimits();
   for (const w of over) h += `<div class="warn">${esc(w)}</div>`;
@@ -299,12 +305,13 @@ function pickOne(cb){
   inp.onchange = () => { if (inp.files[0]) cb(inp.files[0]); };
   inp.click();
 }
-// varias imágenes de una vez, en orden de nombre (1, 2, 10: orden natural)
+// varias imágenes de una vez, en orden de nombre (1, 2, 10: orden natural).
+// En Básico también se pueden elegir los .json de métricas (`metrics`)
 const imagesInOrder = files => [...files].filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true}));
-function pickMany(cb){
+function pickMany(cb, metrics = false){
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-  inp.onchange = () => { const files = imagesInOrder(inp.files); if (files.length) cb(files); };
+  inp.type = 'file'; inp.accept = metrics ? 'image/*,.json,application/json' : 'image/*'; inp.multiple = true;
+  inp.onchange = () => { if (metrics) takeMetricFiles(inp.files, renderPairs); const files = imagesInOrder(inp.files); if (files.length) cb(files); };
   inp.click();
 }
 
@@ -321,6 +328,8 @@ async function basicCore(cancelled = () => false){
     frame_labels: Object.fromEntries(pairs.map((row, i) => [String(i+1), String(row.label || i+1)])),
     variants: names.map((name, c) => ({id: ids[c], name, color: PALETTE[c % PALETTE.length]})),
   };
+  // métricas de los .json con el mismo nombre que cada captura (app/metrics.js)
+  basicPerFrame(pairs, names.length).forEach((pf, c) => { if (Object.keys(pf).length) manifest.variants[c].metrics = {per_frame: pf}; });
   const entries = [];
   for (let i = 0; i < pairs.length; i++){
     if (cancelled()) throw new Error(T('Preparación cancelada.'));

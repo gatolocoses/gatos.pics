@@ -64,7 +64,31 @@ gatos.pics lo acepta como contrato de publicación.
 | `ext` | string | no | Extensión de archivo SOLO para el despliegue en carpeta (`img/<id>_<frame>.<ext>`). Ignorada en el paquete embebido. |
 | `frames` | array | no | **Variante parcial**: los frames (subconjunto de `manifest.frames`) en los que esta variante tiene imágenes. Sin el campo, la variante tiene todos (lo de siempre). Ver "Variantes parciales" más abajo. |
 | `image_exts` | objeto | no | `String(frame)` → extensión real de esa imagen. Tiene prioridad sobre `ext`; permite mezclar PNG, JPEG y otros formatos dentro de una variante. Lo generan el export ZIP y el servicio a partir de los archivos. |
-| `metrics` | objeto | no | `ssimulacra2` (media), `per_frame: {frame: {ssimulacra2}}`, `psnr_avg`, `ssim_all`, `size_bytes`, `kbps`: se muestran bajo el nombre si existen. El creador puede calcular S2 (SSIMULACRA2) contra la primera variante con un toggle; es el mismo algoritmo que el paquete `ssimulacra2` de PyPI sobre RGB 8 bit (números comparables entre herramientas 8-bit, no contra salidas de otras rutas). |
+| `metrics` | objeto | no | `ssimulacra2` (media), `per_frame: {frame: {métrica: número}}`, `psnr_avg`, `ssim_all`, `size_bytes`, `kbps`: se muestran bajo el nombre si existen. El creador puede calcular S2 (SSIMULACRA2) contra la primera variante con un toggle; es el mismo algoritmo que el paquete `ssimulacra2` de PyPI sobre RGB 8 bit (números comparables entre herramientas 8-bit, no contra salidas de otras rutas). Ver "Métricas por cuadro" abajo. |
+
+### Métricas por cuadro
+
+`metrics.per_frame` va de cuadro (`String(frame)`) a un **objeto** de números:
+`{"intro": {"ssimulacra2": 81.4, "butteraugli": 0.92, "cvvdp": 9.61, "vmaf": 97.2}}`.
+Cualquier nombre sirve si cumple `[a-z0-9_]`, de 1 a 32 caracteres, con hasta
+16 métricas por cuadro y solo números finitos (desde gatos-ops#395; antes solo
+se guardaban `ssimulacra2`, `psnr_avg` y `ssim_all`). El servicio descarta en
+silencio un nombre fuera de la regla y rechaza (422) un valor que no es número
+o más de 16 métricas en un cuadro. Un lector que no conoce un nombre lo ignora:
+el formato sigue siendo `cmp@1`.
+
+El visor reconoce estos nombres (también con sufijo, como `butteraugli_3norm`)
+y les da rótulo y dirección: `ssimulacra2` / `ssimu2` (S2, más alto es mejor),
+`butteraugli` (BA, más bajo es mejor), `cvvdp` (JOD, más alto), `vmaf`,
+`psnr`, `xpsnr`, `ssim`, `ms_ssim` (más alto). Los demás se muestran como
+vienen, sin marcar el mejor. La etiqueta de la versión muestra hasta cuatro y la
+tarjeta, todas.
+
+En el modo Básico del creador, un `.json` con el mismo nombre que una captura
+llena el `per_frame` de su versión en ese cuadro: un objeto de números, o el
+mismo dentro de `{"metrics": {...}}`; un nivel anidado se aplana
+(`{"butteraugli": {"max": 1.9}}` → `butteraugli_max`) y los nombres pasan a
+minúsculas con `_` (`CVVDP (JOD)` → `cvvdp_jod`).
 
 ## Reglas
 

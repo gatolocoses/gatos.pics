@@ -34,6 +34,13 @@ El botón **Ayuda** (arriba) abre dos cosas:
   real, señalando cada botón, con capturas de ejemplo que se quitan al salir.
   Si ya tienes un proyecto abierto, la guía solo señala y no toca tus capturas.
   Se sale en cualquier momento con «Salir de la guía» o Esc.
+- **Ver un ejemplo** (en la bienvenida, o el enlace `/crear/?demo=1`): una
+  comparación sintética con una versión por defecto típico de los encodes
+  (desenfoque y ruido, banding, halos, líneas sucias, grano borrado, bloques,
+  sombras aplastadas), exagerados para que se vean fácil. Una lección los
+  recorre: cada paso pone esa versión junto a la fuente, prende la herramienta
+  que mejor la muestra y marca dónde mirar. La tarjeta se queda hasta que la
+  cierras (×) o la achicas (–).
 - **Enviar comentarios**: un cuadro de texto para contar qué falla o qué falta.
   No pide ningún dato; si quieres respuesta, deja tu usuario de Discord en el
   mensaje.
@@ -70,6 +77,16 @@ Para cuando solo quieres comparar imágenes y nada más.
 Si dejas un par a medias, la página te avisa antes de exportar. Si mezclas
 tamaños de imagen, también: el diff y los recortes 1:1 necesitan dimensiones
 idénticas.
+
+**Tus propias métricas.** Si mediste las capturas con otra herramienta
+(SSIMULACRA2, Butteraugli, CVVDP, VMAF, PSNR…), suelta junto con las imágenes
+un `.json` con el mismo nombre que cada una: `x265_01.json` al lado de
+`x265_01.png`, con algo como `{"ssimulacra2": 81.4, "vmaf": 97.2}`. La
+casilla muestra «4 métricas» (pasa el mouse para ver la lista) y abajo un
+aviso dice cuántos archivos se emparejaron y cuáles no tienen captura con su
+nombre. Los nombres quedan en minúsculas con `_` y se aceptan hasta 16 por
+captura. En la página aparecen bajo el nombre de la versión; ver «Métricas en
+la página» en la sección del visor. gatos.pics no las calcula ni las verifica.
 
 ## 3. Modo Video
 
@@ -175,10 +192,18 @@ La página que se lleva quien abre tu export.
 - El estado (frame, variantes, zoom, divisor, modo) vive en la URL (con zoom, el
   enlace abre la misma zona de la imagen a la misma escala en cualquier pantalla): cópiala
   para compartir la vista.
+- **Métricas en la página**: si la versión trae métricas del cuadro (las de S2
+  del creador o las de tus `.json`), su etiqueta muestra hasta cuatro y una ⓘ.
+  Con el mouse encima (en el teléfono, tocándola) se abre una tarjeta con
+  todas: las de este cuadro y la media de los cuadros que las tienen, la
+  izquierda contra la derecha, y en verde la mejor de cada fila cuando se sabe
+  si conviene más alta (SSIMULACRA2, CVVDP, VMAF, PSNR, SSIM) o más baja
+  (Butteraugli). En la prueba ciega no se muestran.
 
 ### Prueba ciega: ordenar sin saber cuál es cuál
 
-En una página con 2 a 12 versiones, el botón **Prueba ciega** arma una prueba
+En una página con 2 a 12 versiones, el botón **Prueba ciega** (el morado, al final de
+la barra: no es una herramienta para mirar sino un juego aparte) arma una prueba
 completa. Durante la prueba ninguna versión tiene nombre ni número: solo ves
 **Izquierda** y **Derecha**, y el lado de cada una se sortea en cada
 comparación, así que no sabes si la de ahora es la que elegiste antes. En cada
@@ -284,6 +309,17 @@ al pegar el enlace de la página, en una tarjeta con el título, cuántos frames
 y qué versiones tiene; si la página no tiene imagen para compartir, la tarjeta
 lleva su primera imagen.
 
+### Bajar todas las imágenes de una página
+
+En una página publicada, **Compartir** empieza con **Descargar todas las
+imágenes (.zip)**: un zip con cada imagen tal como se subió (sin volver a
+comprimirla), con nombres como `01 - Inicio - x265.png`, así las versiones de
+cada cuadro quedan juntas al ordenar. Arriba del botón se ve cuántas imágenes
+son, cuánto pesa y los primeros nombres. Si la página llevaba tiempo sin
+visitas y sus imágenes estaban guardadas aparte, la descarga tarda un poco en
+empezar mientras vuelven. No aparece en la prueba ciega (los nombres dirían
+cuál es cuál) ni en un HTML descargado, que ya trae sus imágenes adentro.
+
 ### Progreso al publicar o actualizar una imagen
 
 **Publicar** y **Subir y obtener BBCode** muestran los MiB enviados y el
@@ -348,6 +384,17 @@ script tuyo puede mandar solo esas imágenes con `PATCH /api/page/<código>` en
 vez de reenviar todo: se suman, se reemplazan o se quitan variantes y el resto
 de la página queda como estaba. El detalle está en `formato-cmp.md`. A mano,
 es el botón **Añadir una versión…** de la página (arriba).
+
+### Publicar desde un script
+
+`https://gatos.pics/api/` explica cómo publicar sin el creador. Lo más corto es
+un solo pedido con tus capturas tal cual (`POST /api/comparison`, un campo por
+versión), o el script `gatos_comp.py` que se descarga de ahí: una carpeta por
+versión y te devuelve el enlace (la llave de borrado queda en `gatos_comp.txt`).
+Si tu script de comparación sube a slow.pics y te deja cambiar la dirección,
+cambia `https://slow.pics` por `https://gatos.pics`: los mismos pasos publican
+aquí. En los tres casos, un `.json` con el mismo nombre que una captura trae sus
+métricas, como en el modo Básico.
 
 ## S2 (SSIMULACRA2) en lenguaje claro
 

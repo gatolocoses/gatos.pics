@@ -62,101 +62,21 @@ $('obLoad').addEventListener('click', () => runAction(async () => {
   const pkg = await makeDemoPackage();
   setMode('basic');
   resetBasic();
-  for (const f of pkg.manifest.frames){
-    const fa = pkg.images['src_'+f], fb = pkg.images['enc_'+f];
-    const toFile = async du => {
-      const parts = du.split(',');
-      const bin = atob(parts[1]);
-      const buf = new Uint8Array(bin.length);
-      for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
-      return new File([buf], 'ejemplo_'+f+'.png', {type:'image/png'});
-    };
-    state.pairs.push([await toFile(fa), await toFile(fb)]);
-  }
+  // una columna por versión del ejemplo (gatos-ops#394), con su nombre
+  const vs = pkg.manifest.variants;
+  state.basicNames = vs.map(v => v.name);
+  const toFile = (du, name) => {
+    const bin = atob(du.split(',')[1]);
+    const buf = new Uint8Array(bin.length);
+    for (let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
+    return new File([buf], name, {type:'image/png'});
+  };
+  for (const f of pkg.manifest.frames) state.pairs.push(vs.map(v => toFile(pkg.images[v.id+'_'+f], v.id+'_'+f+'.png')));
   renderPairs();
   $('onboard').hidden = true;
 }));
 $('btnHelp').addEventListener('click', () => openHelp());   // guías y comentarios: guide.js
 
-/* demo sintética: gradientes + figuras por canvas, sin archivos externos */
-function makeDemoPackage(){
-  const W = 960, H = 540;
-  function draw(seed, blurred){
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    const x = c.getContext('2d');
-    let s = seed;
-    const rnd = () => (s = (s*1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-    const hue = rnd();
-    const g = x.createLinearGradient(0, 0, W, H);
-    for (let i = 0; i <= 4; i++){
-      const t = i/4;
-      g.addColorStop(t, `hsl(${Math.round((hue*360 + t*120) % 360)}, 62%, ${38 + t*22}%)`);
-    }
-    x.fillStyle = g; x.fillRect(0, 0, W, H);
-    for (let i = 0; i < 6; i++){
-      x.strokeStyle = `hsl(${Math.round(rnd()*360)}, 80%, 65%)`;
-      x.lineWidth = 3 + rnd()*7;
-      const cx = 80 + rnd()*(W-160), cy = 60 + rnd()*(H-120), r = 30 + rnd()*70;
-      x.beginPath();
-      if (rnd() < .5) x.arc(cx, cy, r, 0, Math.PI*2);
-      else x.rect(cx-r, cy-r/2, r*2, r);
-      x.stroke();
-    }
-    x.font = '600 26px system-ui, sans-serif';
-    x.fillStyle = '#fff';
-    x.fillText(T('ejemplo sintético · nada real'), 26, 42);
-    if (blurred){
-      const c2 = document.createElement('canvas');
-      c2.width = W; c2.height = H;
-      const x2 = c2.getContext('2d');
-      x2.filter = 'blur(1.4px)';
-      x2.drawImage(c, 0, 0);
-      x2.filter = 'none';
-      const id = x2.getImageData(0, 0, W, H), d = id.data;
-      for (let i = 0; i < d.length; i += 4){
-        const n = (rnd()*12) - 6;
-        d[i] = Math.max(0, Math.min(255, d[i]+n));
-        d[i+1] = Math.max(0, Math.min(255, d[i+1]+n));
-        d[i+2] = Math.max(0, Math.min(255, d[i+2]+n));
-      }
-      x2.putImageData(id, 0, 0);
-      return c2;
-    }
-    return c;
-  }
-  const images = {};
-  const per = {};
-  let sum = 0;
-  for (let i = 0; i < 3; i++){
-    const f = i+1;
-    const srcC = draw(100+i*7, false);
-    const encC = draw(100+i*7, true);
-    images['src_'+f] = srcC.toDataURL('image/png');
-    images['enc_'+f] = encC.toDataURL('image/png');
-    // S2 real del par sintético (determinista: los mismos números en toda máquina)
-    const sc = S2.score(srcC.getContext('2d').getImageData(0, 0, W, H),
-                        encC.getContext('2d').getImageData(0, 0, W, H));
-    per[f] = {ssimulacra2: Math.round(sc*100)/100};
-    sum += sc;
-  }
-  return {
-    format: FORMAT,
-    manifest: {
-      title: T('gatos.pics · ejemplo'),
-      version: 1,
-      frames: [1, 2, 3],
-      frame_labels: {1: T`ejemplo ${1}`, 2: T`ejemplo ${2}`, 3: T`ejemplo ${3}`},
-      variants: [
-        {id: 'src', name: T('Fuente'), color: '#7bd389', note: T('referencia')},
-        {id: 'enc', name: 'Encode', color: '#7bb3ff', note: T('desenfoque + ruido simulados'),
-         cmd: T('encoder --entrada in.png --crf 26 --preset 4 --salida out.png'),
-         metrics: {ssimulacra2: Math.round((sum/3)*100)/100, per_frame: per}},
-      ],
-    },
-    images,
-  };
-}
 
 /* ---------- deteccion de formatos con perdida ---------- */
 async function countLossy(files){
@@ -481,12 +401,9 @@ async function importCmp(file){
         const out = {};
         if (typeof m.ssimulacra2 === 'number' && isFinite(m.ssimulacra2)) out.ssimulacra2 = m.ssimulacra2;
         if (typeof m.custom_note === 'string') out.custom_note = m.custom_note.slice(0,60);
-        if (m.per_frame && typeof m.per_frame === 'object'){
-          out.per_frame = {};
-          for (const [fk, pm] of Object.entries(m.per_frame))
-            if (pm && typeof pm === 'object' && typeof pm.ssimulacra2 === 'number' && isFinite(pm.ssimulacra2))
-              out.per_frame[fk] = {ssimulacra2: pm.ssimulacra2};
-        }
+        // por cuadro: cualquier métrica con nombre válido y número finito (gatos-ops#395, app/metrics.js)
+        const pf = cleanPerFrame(m.per_frame);
+        if (pf) out.per_frame = pf;
         return Object.keys(out).length ? out : undefined;
       };
       const variants = pkg.manifest.variants.map(v => ({
@@ -536,8 +453,9 @@ function startBuilder(){
   renderPairs();
   renderSteps();
   setMode('basic');
-  showOnboard(false);
+  // el enlace a la demo la abre directo: la bienvenida no se asoma antes (gatos-ops#394)
   if (new URLSearchParams(location.search).get('demo') === '1') $('obDemo').click();
+  else showOnboard(false);
   window.addEventListener('beforeunload', e => {
     /* marcas y archivos sin asignar también son trabajo que se pierde */
     const hasWork = state.pairs.some(p => p.some(Boolean)) || state.cells.size || state.unassigned.length || vidState.marks.length;

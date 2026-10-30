@@ -199,6 +199,7 @@ async function openShare(){
     shareRows.appendChild(l);
     shareRows.appendChild(box);
   }
+  paintShareZip();   // todas las imágenes en un .zip (41-zip.js)
   sharePanel.style.display = 'flex';
   // generar la imagen de la vista actual
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));

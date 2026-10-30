@@ -86,19 +86,25 @@ def build():
     advanced_js = (APP / "advanced.js").read_text(encoding="utf-8")
     s2_js = (APP / "s2.js").read_text(encoding="utf-8")
     zip_js = (APP / "zip.js").read_text(encoding="utf-8")
+    demo_js = (APP / "demo.js").read_text(encoding="utf-8")
+    metrics_js = (APP / "metrics.js").read_text(encoding="utf-8")
     capture_js = (APP / "capture.js").read_text(encoding="utf-8")
     publish_js = (APP / "publish.js").read_text(encoding="utf-8")
     guide_js = (APP / "guide.js").read_text(encoding="utf-8")
     i18n_js = (VIEWER / "src" / "05-i18n.js").read_text(encoding="utf-8")
     lang_upload_js = (VIEWER / "src" / "06-lang-upload.js").read_text(encoding="utf-8")
+    metric_kinds_js = (VIEWER / "src" / "08-metric-kinds.js").read_text(encoding="utf-8")
     lang_js = (APP / "lang.js").read_text(encoding="utf-8")
     tags = ('<script src="../viewer/src/05-i18n.js"></script>\n'
             '<script src="../viewer/src/06-lang-upload.js"></script>\n'
+            '<script src="../viewer/src/08-metric-kinds.js"></script>\n'
             '<script src="lang.js"></script>\n'
             '<script src="assets.js"></script>\n'
             '<script src="../viewer/upload.js"></script>\n'
             '<script src="s2.js"></script>\n'
             '<script src="zip.js"></script>\n'
+            '<script src="demo.js"></script>\n'
+            '<script src="metrics.js"></script>\n'
             '<script src="builder.js"></script>\n'
             '<script src="basic.js"></script>\n'
             '<script src="export.js"></script>\n'
@@ -109,7 +115,7 @@ def build():
     assert tags in idx, "no se encontraron las etiquetas <script> esperadas en app/index.html"
     single = idx.replace(
         tags,
-        "<script>\n" + i18n_js + lang_upload_js + lang_js + "</script>\n<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + basic_js + "</script>\n<script>\n" + export_js + "</script>\n<script>\n" + advanced_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
+        "<script>\n" + i18n_js + lang_upload_js + metric_kinds_js + lang_js + "</script>\n<script>\n" + assets + "</script>\n<script>\n" + upload + "</script>\n<script>\n" + s2_js + "</script>\n<script>\n" + zip_js + "</script>\n<script>\n" + demo_js + "</script>\n<script>\n" + metrics_js + "</script>\n<script>\n" + builder_js + "</script>\n<script>\n" + basic_js + "</script>\n<script>\n" + export_js + "</script>\n<script>\n" + advanced_js + "</script>\n<script>\n" + capture_js + "</script>\n<script>\n" + publish_js + "</script>\n<script>\n" + guide_js + "</script>",
     )
     (DIST / "gatos.html").write_text(single, encoding="utf-8")
 

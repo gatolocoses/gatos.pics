@@ -108,15 +108,9 @@ function variantStats(id){
   const m = variant(id).metrics;
   if (!m) return '';
   const lines = [];
-  const pf = own(m.per_frame, String(frame));
-  if (pf){
-    const l = [];
-    const pfS2 = metricNum(pf.ssimulacra2), pfPsnr = metricNum(pf.psnr_avg), pfSsim = metricNum(pf.ssim_all);
-    if (pfS2 != null) l.push('S2 '+pfS2.toFixed(1));
-    if (pfPsnr != null) l.push('PSNR '+pfPsnr.toFixed(2)+' dB');
-    if (pfSsim != null) l.push('SSIM '+pfSsim.toFixed(4));
-    if (l.length) lines.push(l.join(' \u00B7 ')+' · '+(FRAME_LABELS[frame] || 'frame '+frame));
-  }
+  // las del cuadro: hasta 4 en la etiqueta, todas en la tarjeta (36-metrics.js, gatos-ops#395)
+  const now = metricList(own(m.per_frame, String(frame))).slice(0, 4);
+  if (now.length) lines.push(now.map(([k, v]) => { const kind = metricKind(k); return kind.short + ' ' + metricFmt(v, kind.digits); }).join(' \u00B7 '));
   const l2 = [];
   if (m.custom_note) l2.push(m.custom_note);
   const mS2 = metricNum(m.ssimulacra2), mPsnr = metricNum(m.psnr_avg), mSsim = metricNum(m.ssim_all);
@@ -160,7 +154,7 @@ function paintSide(side){
   const id = side === 'A' ? shownA : shownB;
   if (id == null) return;   // primer par sin carga exitosa: etiqueta inicial
   $('label'+side+'Name').textContent = sideName(side, id);
-  $('stats'+side).textContent = variantStats(id);
+  paintStats(side, id);   // con la ⓘ de las métricas (36-metrics.js)
   $('label'+side).style.color = blindMode ? '#e8e8f0' : variant(id).color;
 }
 function loadImg(){
@@ -169,8 +163,8 @@ function loadImg(){
   setSideSrc('B', varB);
   labelAName.textContent = sideName('A', varA);
   labelBName.textContent = sideName('B', varB);
-  statsA.textContent = variantStats(varA);
-  statsB.textContent = variantStats(varB);
+  paintStats('A', varA);
+  paintStats('B', varB);
   labelA.style.color = blindMode ? '#e8e8f0' : variant(varA).color;
   labelB.style.color = blindMode ? '#e8e8f0' : variant(varB).color;
 
